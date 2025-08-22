@@ -6,6 +6,13 @@ export default defineConfig({
   plugins: [vue()],
   base: '/',
   build: {
-    outDir: 'dist'
-  }
+    outDir: 'dist',
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        404: './404.html'
+      }
+    }
+  },
+  publicDir: 'public'
 })
