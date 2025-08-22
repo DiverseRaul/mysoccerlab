@@ -74,22 +74,57 @@
           <p v-else class="empty-state">No matches recorded yet. Add your first match!</p>
         </div>
         <div v-else class="live-match-view card-glass">
-          <div class="match-header-container">
-            <button @click="activeMatch = null" class="back-btn-modern">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+          <div class="match-header-redesign">
+            <button @click="activeMatch = null" class="back-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
               </svg>
-              <span>Matches</span>
+              <span>Back to Matches</span>
             </button>
-            <div class="match-info-card">
-              <div class="opponent-name-modern">{{ activeMatch.opponent }}</div>
-              <div class="match-score-modern">
-                <span class="score-for">{{ activeMatch.score_for }}</span>
-                <span class="score-separator">-</span>
-                <span class="score-against">{{ activeMatch.score_against }}</span>
+            
+            <div class="match-card">
+              <div class="match-card-content">
+                <div class="match-info">
+                  <h2 class="opponent-name">vs {{ activeMatch.opponent }}</h2>
+                  <div class="match-date">{{ formatDate(activeMatch.match_date) }}</div>
+                </div>
+                
+                <div class="score-display">
+                  <div class="score-container">
+                    <div class="team-score home">
+                      <span class="team-label">You</span>
+                      <span class="score-number">{{ activeMatch.score_for }}</span>
+                    </div>
+                    <div class="score-divider">:</div>
+                    <div class="team-score away">
+                      <span class="team-label">{{ activeMatch.opponent }}</span>
+                      <span class="score-number">{{ activeMatch.score_against }}</span>
+                    </div>
+                  </div>
+                  <div class="match-result">
+                    <span class="result-badge" :class="getMatchResult(activeMatch).toLowerCase()">{{ getMatchResult(activeMatch) }}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+          
+          <div class="match-actions">
+            <button @click="showEditMatch = true" class="action-btn edit-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708L10.5 8.207l-3-3L12.146.146zM11.207 9l-3-3L2.5 11.707V14.5a.5.5 0 0 0 .5.5h2.793L11.207 9zM1 11.5a.5.5 0 0 1 .5-.5H2v-.5a.5.5 0 0 1 .5-.5H3v-.5a.5.5 0 0 1 .5-.5h.5V9a.5.5 0 0 1 .5-.5h1V8a.5.5 0 0 1 .5-.5h1V7a.5.5 0 0 1 .5-.5h1V6a.5.5 0 0 1 .5-.5h1V5a.5.5 0 0 1 .5-.5h1V4a.5.5 0 0 1 .5-.5h1V3a.5.5 0 0 1 .5-.5h1V2a.5.5 0 0 1 .5-.5h1V1a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5v-1H8a.5.5 0 0 1-.5-.5v-1H7a.5.5 0 0 1-.5-.5v-1H6a.5.5 0 0 1-.5-.5v-1H5a.5.5 0 0 1-.5-.5v-1H4a.5.5 0 0 1-.5-.5v-1H3a.5.5 0 0 1-.5-.5v-1H2a.5.5 0 0 1-.5-.5v-1H1.5a.5.5 0 0 1-.5-.5z"/>
+              </svg>
+              Edit Match
+            </button>
+            <button @click="confirmDeleteMatch" class="action-btn delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              </svg>
+              Delete Match
+            </button>
+          </div>
+          
           <div class="live-view-content three-columns">
             <div class="live-stats-panel">
               <h4>Performance</h4>
@@ -315,6 +350,48 @@
       </div>
     </div>
 
+    <!-- Edit Match Modal -->
+    <div v-if="showEditMatch" class="modal-overlay" @click.self="showEditMatch = false">
+      <div class="modal card-glass" @click.stop>
+        <div class="modal-header">
+          <h3>Edit Match</h3>
+          <button @click="showEditMatch = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Opponent</label>
+            <input v-model="activeMatch.opponent" type="text" required />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input v-model="activeMatch.match_date" type="date" required />
+          </div>
+          <div class="modal-buttons">
+            <button type="button" @click="showEditMatch = false" class="btn btn-secondary">Cancel</button>
+            <button type="button" @click="updateMatch" class="btn btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
+      <div class="modal card-glass" @click.stop>
+        <div class="modal-header">
+          <h3>Delete Match</h3>
+          <button @click="showDeleteConfirm = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Are you sure you want to delete this match against <strong>{{ activeMatch.opponent }}</strong>?</p>
+          <p class="warning-text">This action cannot be undone and will delete all match data including goals, shots, and statistics.</p>
+          <div class="modal-buttons">
+            <button type="button" @click="showDeleteConfirm = false" class="btn btn-secondary">Cancel</button>
+            <button type="button" @click="deleteMatch" class="btn btn-danger">Delete Match</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -340,6 +417,8 @@ export default {
     const selectedEvent = ref(null)
     const quadrantSelectionContext = ref('shot') // 'shot' or 'goal'
     const quadrantForGoal = ref(null)
+    const showEditMatch = ref(false)
+    const showDeleteConfirm = ref(false)
     const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
     
     const newMatch = ref({
@@ -654,7 +733,7 @@ export default {
     }
 
     const getStatColorClass = (statType, value) => {
-      const numValue = parseFloat(value);
+      const numValue = parseFloat(value) || 0;
       if (statType === 'rating') {
         if (numValue >= 8.5) return 'stat-good';
         if (numValue >= 7.0) return 'stat-mid';
@@ -672,6 +751,51 @@ export default {
         return 'stat-bad';
       }
       return '';
+    }
+
+    const confirmDeleteMatch = () => {
+      showDeleteConfirm.value = true
+    }
+
+    const deleteMatch = async () => {
+      if (!activeMatch.value) return
+      
+      const { error } = await supabase
+        .from('matches')
+        .delete()
+        .eq('id', activeMatch.value.id)
+      
+      if (error) {
+        console.error('Error deleting match:', error)
+      } else {
+        // Remove from local matches array
+        matches.value = matches.value.filter(m => m.id !== activeMatch.value.id)
+        activeMatch.value = null
+        showDeleteConfirm.value = false
+      }
+    }
+
+    const updateMatch = async () => {
+      if (!activeMatch.value) return
+      
+      const { error } = await supabase
+        .from('matches')
+        .update({
+          opponent: activeMatch.value.opponent,
+          match_date: activeMatch.value.match_date
+        })
+        .eq('id', activeMatch.value.id)
+      
+      if (error) {
+        console.error('Error updating match:', error)
+      } else {
+        // Update local matches array
+        const matchIndex = matches.value.findIndex(m => m.id === activeMatch.value.id)
+        if (matchIndex > -1) {
+          matches.value[matchIndex] = { ...activeMatch.value }
+        }
+        showEditMatch.value = false
+      }
     }
 
     const getMatchResult = (match) => {
@@ -721,7 +845,12 @@ export default {
       shotsOnTarget,
       shotsOffTarget,
       calculateMatchRating,
-      getStatColorClass
+      getStatColorClass,
+      showEditMatch,
+      showDeleteConfirm,
+      confirmDeleteMatch,
+      deleteMatch,
+      updateMatch
     }
   }
 }
@@ -1072,38 +1201,208 @@ export default {
   line-height: 1;
 }
 
-.match-header-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.match-header-redesign {
+  margin-bottom: 2rem;
 }
 
-.back-btn-modern {
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  margin-bottom: 1.5rem;
+  transition: color 0.2s ease;
+}
+
+.back-button:hover {
+  color: #fff;
+}
+
+.match-card {
+  background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(20, 20, 20, 0.9));
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.match-card-content {
+  padding: 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #1a1a1a;
-  padding: 0.75rem 1rem;
+  gap: 2rem;
+}
+
+.match-info {
+  flex: 1;
+}
+
+
+.opponent-name {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.1;
+  background: linear-gradient(135deg, #fff, #e0e0e0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.match-date {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 0.5rem;
+}
+
+.score-display {
+  text-align: center;
+}
+
+.score-container {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.team-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.team-label {
+  font-size: 0.8rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.score-number {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  font-family: 'SF Pro Display', -apple-system, system-ui, sans-serif;
+  line-height: 1;
+}
+
+.score-divider {
+  font-size: 2rem;
+  color: #444;
+  font-weight: 300;
+}
+
+.match-result {
+  display: flex;
+  justify-content: center;
+}
+
+.result-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.result-badge.win {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4CAF50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.result-badge.loss {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.result-badge.draw {
+  background: rgba(255, 193, 7, 0.2);
+  color: #FFC107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+@media (max-width: 768px) {
+  .match-card-content {
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem;
+  }
+  
+  .opponent-name {
+    font-size: 1.75rem;
+    text-align: center;
+  }
+  
+  .score-number {
+    font-size: 2.5rem;
+  }
+}
+
+.match-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: rgba(20, 20, 20, 0.5);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  border: none;
-  color: #fff;
   transition: all 0.2s ease;
 }
 
-.match-info-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #1a1a1a;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  width: 60%;
-  border: none;
-  color: #fff;
-  transition: all 0.2s ease;
+.edit-btn {
+  background: rgba(33, 150, 243, 0.2);
+  color: #2196F3;
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.edit-btn:hover {
+  background: rgba(33, 150, 243, 0.3);
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.delete-btn:hover {
+  background: rgba(244, 67, 54, 0.3);
+  transform: translateY(-1px);
+}
+
+.warning-text {
+  color: #ff9800;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
 }
 
 @media (max-width: 1200px) {
