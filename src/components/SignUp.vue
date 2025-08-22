@@ -2,10 +2,10 @@
   <div class="login-page">
     <div class="login-container">
       <div class="login-card">
-        <h2 class="login-title">Welcome Back</h2>
-        <p class="login-subtitle">Sign in to continue</p>
+        <h2 class="login-title">Create Account</h2>
+        <p class="login-subtitle">Join the Lab</p>
         
-        <form @submit.prevent="handleLogin">
+        <form @submit.prevent="handleSignUp">
           <div class="form-group">
             <label for="email">Email</label>
             <input type="email" id="email" v-model="email" required placeholder="you@email.com" />
@@ -15,7 +15,7 @@
             <input type="password" id="password" v-model="password" required placeholder="••••••••" />
           </div>
           <button type="submit" class="btn btn-primary" :disabled="loading">
-            {{ loading ? 'Signing In...' : 'Sign In' }}
+            {{ loading ? 'Creating...' : 'Create Account' }}
           </button>
         </form>
 
@@ -28,8 +28,8 @@
 
         <div class="login-switch">
           <p>
-            Don't have an account? 
-            <router-link to="/signup" class="link-btn">Sign up</router-link>
+            Already have an account? 
+            <router-link to="/login" class="link-btn">Sign in</router-link>
           </p>
         </div>
 
@@ -43,29 +43,27 @@
 
 <script>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
 export default {
-  name: 'Login',
+  name: 'SignUp',
   setup() {
-    const router = useRouter()
     const email = ref('')
     const password = ref('')
     const loading = ref(false)
     const error = ref('')
     const message = ref('')
 
-    const handleLogin = async () => {
+    const handleSignUp = async () => {
       try {
         loading.value = true
         error.value = ''
-        const { error: loginError } = await supabase.auth.signInWithPassword({
+        const { error: signUpError } = await supabase.auth.signUp({
           email: email.value,
           password: password.value,
         })
-        if (loginError) throw loginError
-        router.push('/dashboard')
+        if (signUpError) throw signUpError
+        message.value = 'Check your email for the confirmation link!'
       } catch (err) {
         error.value = err.message
       } finally {
@@ -73,7 +71,6 @@ export default {
       }
     }
 
-    
     const signInWithGoogle = async () => {
       try {
         loading.value = true
@@ -97,7 +94,7 @@ export default {
       loading,
       error,
       message,
-      handleLogin,
+      handleSignUp,
       signInWithGoogle
     }
   }
