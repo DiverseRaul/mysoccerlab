@@ -1,166 +1,102 @@
 <template>
-  <div class="dashboard">
+  <div class="dashboard-page">
     <div class="dashboard-header">
       <h1>Dashboard</h1>
-      <p>Welcome back, {{ userEmail }}! 🎉</p>
+      <p>Welcome back, {{ userEmail ? userEmail.split('@')[0] : 'player' }}!</p>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">👥</div>
-        <div class="stat-content">
-          <h3>{{ players.length }}</h3>
-          <p>Total Players</p>
-        </div>
+    <div class="dashboard-container">
+      <div class="tabs">
+        <button class="tab-btn" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">Dashboard</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'profile' }" @click="activeTab = 'profile'">Profile</button>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon">⚽</div>
-        <div class="stat-content">
-          <h3>{{ matches.length }}</h3>
-          <p>Matches Played</p>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🏆</div>
-        <div class="stat-content">
-          <h3>{{ wins }}</h3>
-          <p>Wins</p>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-content">
-          <h3>{{ winRate }}%</h3>
-          <p>Win Rate</p>
-        </div>
-      </div>
-    </div>
 
-    <div class="dashboard-grid">
-      <!-- Players Section -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Players</h2>
-          <button class="btn" @click="showAddPlayer = true">Add Player</button>
-        </div>
-        <div class="players-list" v-if="players.length > 0">
-          <div v-for="player in players" :key="player.id" class="player-item">
-            <div class="player-info">
-              <h4>{{ player.name }}</h4>
-              <p>Position: {{ player.position }} | Goals: {{ player.goals }}</p>
+      <div class="tab-content">
+        <div v-if="activeTab === 'dashboard'" class="dashboard-view">
+          <div class="stats-grid">
+            <div class="stat-card card-glass">
+              <div class="stat-icon">⚽</div>
+              <div class="stat-content">
+                <h3>{{ matches.length }}</h3>
+                <p>Matches Played</p>
+              </div>
             </div>
-            <button @click="deletePlayer(player.id)" class="delete-btn">❌</button>
-          </div>
-        </div>
-        <p v-else class="empty-state">No players added yet. Add your first player!</p>
-      </div>
-
-      <!-- Recent Matches -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Recent Matches</h2>
-          <button class="btn" @click="showAddMatch = true">Add Match</button>
-        </div>
-        <div class="matches-list" v-if="matches.length > 0">
-          <div v-for="match in matches.slice(0, 5)" :key="match.id" class="match-item">
-            <div class="match-info">
-              <h4>{{ match.opponent }}</h4>
-              <p>{{ match.score_for }} - {{ match.score_against }} | {{ formatDate(match.date) }}</p>
-              <span class="match-result" :class="getMatchResult(match)">
-                {{ getMatchResult(match).toUpperCase() }}
-              </span>
+            <div class="stat-card card-glass">
+              <div class="stat-icon">🏆</div>
+              <div class="stat-content">
+                <h3>{{ wins }}</h3>
+                <p>Wins</p>
+              </div>
+            </div>
+            <div class="stat-card card-glass">
+              <div class="stat-icon">📊</div>
+              <div class="stat-content">
+                <h3>{{ winRate }}%</h3>
+                <p>Win Rate</p>
+              </div>
             </div>
           </div>
-        </div>
-        <p v-else class="empty-state">No matches recorded yet. Add your first match!</p>
-      </div>
-    </div>
 
-    <!-- Add Player Modal -->
-    <div v-if="showAddPlayer" class="modal-overlay" @click="showAddPlayer = false">
-      <div class="modal" @click.stop>
-        <h3>Add New Player</h3>
-        <form @submit.prevent="addPlayer">
-          <div class="form-group">
-            <label>Name</label>
-            <input v-model="newPlayer.name" type="text" required />
-          </div>
-          <div class="form-group">
-            <label>Position</label>
-            <select v-model="newPlayer.position" required>
-              <option value="">Select Position</option>
-              <option value="Goalkeeper">Goalkeeper</option>
-              <option value="Defender">Defender</option>
-              <option value="Midfielder">Midfielder</option>
-              <option value="Forward">Forward</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Goals</label>
-            <input v-model.number="newPlayer.goals" type="number" min="0" />
-          </div>
-          <div class="modal-buttons">
-            <button type="button" @click="showAddPlayer = false" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn">Add Player</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Add Match Modal -->
+          <!-- Add Match Modal -->
     <div v-if="showAddMatch" class="modal-overlay" @click="showAddMatch = false">
-      <div class="modal" @click.stop>
-        <h3>Add New Match</h3>
-        <form @submit.prevent="addMatch">
-          <div class="form-group">
-            <label>Opponent</label>
-            <input v-model="newMatch.opponent" type="text" required />
+          <div class="modal card-glass" @click.stop>
+            <h3>Add New Match</h3>
+            <form @submit.prevent="addMatch">
+              <div class="form-group">
+                <label>Opponent</label>
+                <input v-model="newMatch.opponent" type="text" required />
+              </div>
+              <div class="form-group">
+                <label>Date</label>
+                <input v-model="newMatch.date" type="date" required />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Our Score</label>
+                  <input v-model.number="newMatch.score_for" type="number" min="0" required />
+                </div>
+                <div class="form-group">
+                  <label>Their Score</label>
+                  <input v-model.number="newMatch.score_against" type="number" min="0" required />
+                </div>
+              </div>
+              <div class="modal-buttons">
+                <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Match</button>
+              </div>
+            </form>
           </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input v-model="newMatch.date" type="date" required />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Our Score</label>
-              <input v-model.number="newMatch.score_for" type="number" min="0" required />
-            </div>
-            <div class="form-group">
-              <label>Their Score</label>
-              <input v-model.number="newMatch.score_against" type="number" min="0" required />
-            </div>
-          </div>
-          <div class="modal-buttons">
-            <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn">Add Match</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
+        </div>
+
+        <div v-if="activeTab === 'profile'">
+          <ProfileView />
+        </div>
+
+        </div> <!-- Closes dashboard-view -->
+      </div> <!-- Closes tab-content -->
+    </div> <!-- Closes dashboard-container -->
+  </div> <!-- Closes dashboard-page -->
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import ProfileView from './Profile.vue'
 
 export default {
   name: 'Dashboard',
+  components: {
+    ProfileView
+  },
   setup() {
     const router = useRouter()
-    const players = ref([])
     const matches = ref([])
     const userEmail = ref('')
-    const showAddPlayer = ref(false)
     const showAddMatch = ref(false)
+    const activeTab = ref('dashboard')
     
-    const newPlayer = ref({
-      name: '',
-      position: '',
-      goals: 0
-    })
-    
+        
     const newMatch = ref({
       opponent: '',
       date: '',
@@ -191,22 +127,14 @@ export default {
 
     const loadData = async () => {
       try {
-        // Load players
-        const { data: playersData, error: playersError } = await supabase
-          .from('players')
-          .select('*')
-          .order('created_at', { ascending: false })
+        // Load matches for the current user
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return;
 
-        if (playersError && playersError.code !== 'PGRST116') {
-          console.error('Error loading players:', playersError)
-        } else if (playersData) {
-          players.value = playersData
-        }
-
-        // Load matches
         const { data: matchesData, error: matchesError } = await supabase
           .from('matches')
           .select('*')
+          .eq('user_id', user.id)
           .order('date', { ascending: false })
 
         if (matchesError && matchesError.code !== 'PGRST116') {
@@ -219,29 +147,17 @@ export default {
       }
     }
 
-    const addPlayer = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('players')
-          .insert([newPlayer.value])
-          .select()
-
-        if (error) throw error
-
-        players.value.unshift(data[0])
-        newPlayer.value = { name: '', position: '', goals: 0 }
-        showAddPlayer.value = false
-      } catch (error) {
-        console.error('Error adding player:', error)
-        alert('Error adding player. Make sure your Supabase tables are set up correctly.')
-      }
-    }
-
+    
     const addMatch = async () => {
       try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('User not authenticated')
+
+        const matchData = { ...newMatch.value, user_id: user.id }
+
         const { data, error } = await supabase
           .from('matches')
-          .insert([newMatch.value])
+          .insert([matchData])
           .select()
 
         if (error) throw error
@@ -255,23 +171,7 @@ export default {
       }
     }
 
-    const deletePlayer = async (id) => {
-      if (!confirm('Are you sure you want to delete this player?')) return
-      
-      try {
-        const { error } = await supabase
-          .from('players')
-          .delete()
-          .eq('id', id)
-
-        if (error) throw error
-
-        players.value = players.value.filter(player => player.id !== id)
-      } catch (error) {
-        console.error('Error deleting player:', error)
-      }
-    }
-
+    
     const getMatchResult = (match) => {
       if (match.score_for > match.score_against) return 'win'
       if (match.score_for < match.score_against) return 'loss'
@@ -283,66 +183,117 @@ export default {
     }
 
     return {
-      players,
       matches,
       userEmail,
-      showAddPlayer,
       showAddMatch,
-      newPlayer,
       newMatch,
       wins,
       winRate,
-      addPlayer,
       addMatch,
-      deletePlayer,
       getMatchResult,
-      formatDate
+      formatDate,
+      activeTab
     }
   }
 }
 </script>
 
 <style scoped>
+.dashboard-page {
+  padding: 2rem;
+}
+
 .dashboard-header {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-top: 5rem;
+  margin-bottom: 2rem;
 }
 
 .dashboard-header h1 {
-  color: #2c3e50;
   font-size: 2.5rem;
+  font-weight: 600;
+  color: #f0f0f0;
   margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+  color: #888;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #222;
+}
+
+.tab-btn {
+  padding: 1rem 2rem;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.tab-btn.active {
+  color: #4CAF50;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #4CAF50;
+}
+
+.card-glass {
+  background: rgba(17, 17, 17, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 1.5rem;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .stat-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  gap: 1.5rem;
 }
 
 .stat-icon {
-  font-size: 2.5rem;
+  font-size: 2rem;
+  background: rgba(76, 175, 80, 0.15);
+  color: #4CAF50;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .stat-content h3 {
   font-size: 2rem;
-  color: #4CAF50;
+  color: #f0f0f0;
   margin: 0;
 }
 
 .stat-content p {
-  color: #6c757d;
+  color: #888;
   margin: 0;
   font-size: 0.9rem;
 }
@@ -350,7 +301,7 @@ export default {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 .card-header {
@@ -358,10 +309,12 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #222;
 }
 
 .card-header h2 {
-  color: #2c3e50;
+  color: #f0f0f0;
   margin: 0;
 }
 
@@ -370,19 +323,24 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border: 1px solid #e9ecef;
   border-radius: 8px;
   margin-bottom: 0.5rem;
+  background: #1a1a1a;
+  transition: background 0.3s ease;
+}
+
+.player-item:hover, .match-item:hover {
+  background: #222;
 }
 
 .player-info h4, .match-info h4 {
   margin: 0 0 0.25rem 0;
-  color: #2c3e50;
+  color: #f0f0f0;
 }
 
 .player-info p, .match-info p {
   margin: 0;
-  color: #6c757d;
+  color: #888;
   font-size: 0.9rem;
 }
 
@@ -391,103 +349,46 @@ export default {
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: bold;
-  margin-top: 0.5rem;
-  display: inline-block;
 }
 
-.match-result.win {
-  background: #d4edda;
-  color: #155724;
-}
-
-.match-result.loss {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.match-result.draw {
-  background: #fff3cd;
-  color: #856404;
-}
+.match-result.win { background: rgba(76, 175, 80, 0.2); color: #4CAF50; }
+.match-result.loss { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
+.match-result.draw { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
 
 .delete-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
+  background: none; border: none; cursor: pointer; color: #888; transition: color 0.3s ease;
 }
+.delete-btn:hover { color: #ff4757; }
 
-.empty-state {
-  text-align: center;
-  color: #6c757d;
-  padding: 2rem;
-  font-style: italic;
-}
+.empty-state { text-align: center; color: #888; padding: 2rem; }
 
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 
 .modal {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 400px;
-  max-height: 90vh;
-  overflow-y: auto;
+  width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; padding: 2rem;
 }
 
-.modal h3 {
-  margin-top: 0;
-  color: #2c3e50;
-}
+.modal h3 { margin-top: 0; color: #f0f0f0; }
 
-.form-row {
-  display: flex;
-  gap: 1rem;
-}
+.form-row { display: flex; gap: 1rem; }
+.form-row .form-group { flex: 1; }
 
-.form-row .form-group {
-  flex: 1;
-}
+.form-group label { color: #aaa; }
+.form-group input, .form-group select { background: #1a1a1a; border: 1px solid #333; color: #f0f0f0; }
+.form-group input:focus, .form-group select:focus { border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2); }
 
-.form-group select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
-  font-size: 16px;
-}
+.modal-buttons { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem; }
 
-.modal-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 2rem;
-}
+.btn-primary { background: #4CAF50; color: white; border: none; }
+.btn-primary:hover { background: #45a049; }
+.btn-secondary { background: #333; color: #ccc; border: 1px solid #444; }
+.btn-secondary:hover { background: #444; }
 
 @media (max-width: 768px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .modal {
-    margin: 1rem;
-    width: calc(100% - 2rem);
-  }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: 1fr; }
 }
 </style>
