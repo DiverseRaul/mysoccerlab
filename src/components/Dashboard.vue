@@ -109,23 +109,9 @@
             </div>
           </div>
           
-          <div class="match-actions">
-            <button @click="showEditMatch = true" class="action-btn edit-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708L10.5 8.207l-3-3L12.146.146zM11.207 9l-3-3L2.5 11.707V14.5a.5.5 0 0 0 .5.5h2.793L11.207 9zM1 11.5a.5.5 0 0 1 .5-.5H2v-.5a.5.5 0 0 1 .5-.5H3v-.5a.5.5 0 0 1 .5-.5h.5V9a.5.5 0 0 1 .5-.5h1V8a.5.5 0 0 1 .5-.5h1V7a.5.5 0 0 1 .5-.5h1V6a.5.5 0 0 1 .5-.5h1V5a.5.5 0 0 1 .5-.5h1V4a.5.5 0 0 1 .5-.5h1V3a.5.5 0 0 1 .5-.5h1V2a.5.5 0 0 1 .5-.5h1V1a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5v-1H8a.5.5 0 0 1-.5-.5v-1H7a.5.5 0 0 1-.5-.5v-1H6a.5.5 0 0 1-.5-.5v-1H5a.5.5 0 0 1-.5-.5v-1H4a.5.5 0 0 1-.5-.5v-1H3a.5.5 0 0 1-.5-.5v-1H2a.5.5 0 0 1-.5-.5v-1H1.5a.5.5 0 0 1-.5-.5z"/>
-              </svg>
-              Edit Match
-            </button>
-            <button @click="confirmDeleteMatch" class="action-btn delete-btn">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-              </svg>
-              Delete Match
-            </button>
-          </div>
           
-          <div class="live-view-content three-columns">
+          
+          <div class="live-view-content single-column">
             <div class="live-stats-panel">
               <h4>Performance</h4>
               <div class="rating-display">
@@ -267,6 +253,21 @@
             </div>
           </div>
         </div>
+        <div class="match-actions">
+            <button @click="showEditMatch = true" class="action-btn edit-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708L10.5 8.207l-3-3L12.146.146zM11.207 9l-3-3L2.5 11.707V14.5a.5.5 0 0 0 .5.5h2.793L11.207 9zM1 11.5a.5.5 0 0 1 .5-.5H2v-.5a.5.5 0 0 1 .5-.5H3v-.5a.5.5 0 0 1 .5-.5h.5V9a.5.5 0 0 1 .5-.5h1V8a.5.5 0 0 1 .5-.5h1V7a.5.5 0 0 1 .5-.5h1V6a.5.5 0 0 1 .5-.5h1V5a.5.5 0 0 1 .5-.5h1V4a.5.5 0 0 1 .5-.5h1V3a.5.5 0 0 1 .5-.5h1V2a.5.5 0 0 1 .5-.5h1V1a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5v-1H8a.5.5 0 0 1-.5-.5v-1H7a.5.5 0 0 1-.5-.5v-1H6a.5.5 0 0 1-.5-.5v-1H5a.5.5 0 0 1-.5-.5v-1H4a.5.5 0 0 1-.5-.5v-1H3a.5.5 0 0 1-.5-.5v-1H2a.5.5 0 0 1-.5-.5v-1H1.5a.5.5 0 0 1-.5-.5z"/>
+              </svg>
+              Edit Match
+            </button>
+            <button @click="confirmDeleteMatch" class="action-btn delete-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+              </svg>
+              Delete Match
+            </button>
+          </div>
       </div>
 
     </div>
@@ -1055,6 +1056,16 @@ export default {
   margin-top: 1.5rem;
 }
 
+.live-view-content.single-column {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 2rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .shot-log-panel {
   background: rgba(17, 17, 17, 0.7);
   backdrop-filter: blur(10px);
@@ -1234,7 +1245,7 @@ export default {
 }
 
 .match-card-content {
-  padding: 0.5rem;
+  padding: 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1336,6 +1347,39 @@ export default {
   border: 1px solid rgba(255, 193, 7, 0.3);
 }
 
+/* Desktop improvements - stacked layout */
+@media (min-width: 769px) {
+  .match-card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .match-card-content {
+    flex-direction: column;
+    gap: 2rem;
+    padding: 2.5rem;
+    text-align: center;
+  }
+  
+  .opponent-name {
+    font-size: 2.75rem;
+  }
+  
+  .score-container {
+    gap: 2rem;
+    justify-content: center;
+  }
+  
+  .score-number {
+    font-size: 4rem;
+  }
+  
+  .match-actions {
+    max-width: 400px;
+    margin: 2rem auto;
+  }
+}
+
 @media (max-width: 768px) {
   .match-card-content {
     flex-direction: column;
@@ -1405,20 +1449,8 @@ export default {
   margin-top: 0.5rem;
 }
 
-@media (max-width: 1200px) {
-  .live-view-content.three-columns {
-    grid-template-columns: 1fr 1fr;
-  }
-  .shot-log-panel {
-    grid-column: 1 / -1; /* Span full width */
-  }
-}
+/* Remove old grid media queries since we're using single column now */
 
-@media (max-width: 768px) {
-  .live-view-content.three-columns {
-    grid-template-columns: 1fr;
-  }
-}
 
 .live-stats-panel h4, .live-controls-panel h4 {
   margin-top: 0;
