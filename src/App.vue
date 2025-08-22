@@ -322,14 +322,13 @@ export default {
   padding: 0;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.4s ease-in-out, padding 0.3s ease, border-color 0.3s ease;
-  border: 1px solid transparent;
+  transition: max-height 0.4s ease-in-out, padding 0.3s ease;
 }
 
 .mobile-nav-dropdown.is-open {
   padding: 1rem;
   max-height: 500px; /* A large enough value to show all items */
-  border-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mobile-nav-dropdown .nav-link {

@@ -7,101 +7,365 @@
 
     <div class="dashboard-container">
       <div class="tabs">
-        <button class="tab-btn" :class="{ active: activeTab === 'dashboard' }" @click="activeTab = 'dashboard'">Dashboard</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'profile' }" @click="activeTab = 'profile'">Profile</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'matches' }" @click="activeTab = 'matches'">Matches</button>
       </div>
 
-      <div class="tab-content">
-        <div v-if="activeTab === 'dashboard'" class="dashboard-view">
-          <div class="stats-grid">
-            <div class="stat-card card-glass">
-              <div class="stat-icon">⚽</div>
-              <div class="stat-content">
-                <h3>{{ matches.length }}</h3>
-                <p>Matches Played</p>
-              </div>
+      <div v-if="activeTab === 'overview'" class="dashboard-view">
+        <div class="stats-grid">
+          <div class="stat-card card-glass">
+            <div class="stat-icon">⚽</div>
+            <div class="stat-content">
+              <h3>{{ matches.length }}</h3>
+              <p>Matches Played</p>
             </div>
-            <div class="stat-card card-glass">
-              <div class="stat-icon">🏆</div>
-              <div class="stat-content">
-                <h3>{{ wins }}</h3>
-                <p>Wins</p>
-              </div>
+          </div>
+          <div class="stat-card card-glass">
+            <div class="stat-icon">🏆</div>
+            <div class="stat-content">
+              <h3>{{ wins }}</h3>
+              <p>Wins</p>
             </div>
-            <div class="stat-card card-glass">
-              <div class="stat-icon">📊</div>
-              <div class="stat-content">
-                <h3>{{ winRate }}%</h3>
-                <p>Win Rate</p>
+          </div>
+          <div class="stat-card card-glass">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+              <h3>{{ winRate }}%</h3>
+              <p>Win Rate</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="activeTab === 'matches'" class="matches-section">
+        <div class="card-header">
+          <h2>All Matches</h2>
+          <button class="btn btn-primary" @click="showAddMatch = true">Add Match</button>
+        </div>
+        <div v-if="!activeMatch">
+          <div v-if="matches.length > 0" class="matches-list">
+            <div v-for="match in matches" :key="match.id" class="match-item card-glass" @click="selectMatch(match)">
+              <div class="match-details">
+                <div class="match-opponent">
+                  <h4>{{ match.opponent }}</h4>
+                  <p>{{ formatDate(match.match_date) }}</p>
+                </div>
+                <div class="match-score-result">
+                  <p class="score">{{ match.score_for }} - {{ match.score_against }}</p>
+                  <span :class="['match-result', getMatchResult(match).toLowerCase()]">{{ getMatchResult(match) }}</span>
+                </div>
+              </div>
+              <div class="match-stats-summary">
+                <div class="stat-item">
+                  <span :class="getStatColorClass('goals', match.my_goals || 0)">{{ match.my_goals || 0 }}</span>
+                  <label>Goals</label>
+                </div>
+                <div class="stat-item">
+                  <span :class="getStatColorClass('assists', match.assists)">{{ match.assists }}</span>
+                  <label>Assists</label>
+                </div>
+                <div class="stat-item">
+                  <span :class="getStatColorClass('rating', calculateMatchRating(match))">{{ calculateMatchRating(match) }}</span>
+                  <label>Rating</label>
+                </div>
               </div>
             </div>
           </div>
+          <p v-else class="empty-state">No matches recorded yet. Add your first match!</p>
+        </div>
+        <div v-else class="live-match-view card-glass">
+          <div class="match-header-container">
+            <button @click="activeMatch = null" class="back-btn-modern">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-left" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+              </svg>
+              <span>Matches</span>
+            </button>
+            <div class="match-info-card">
+              <div class="opponent-name-modern">{{ activeMatch.opponent }}</div>
+              <div class="match-score-modern">
+                <span class="score-for">{{ activeMatch.score_for }}</span>
+                <span class="score-separator">-</span>
+                <span class="score-against">{{ activeMatch.score_against }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="live-view-content three-columns">
+            <div class="live-stats-panel">
+              <h4>Performance</h4>
+              <div class="rating-display">
+                <span :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
+                <label>Match Rating</label>
+              </div>
+              <div class="live-stats-grid">
+                <div class="live-stat"><span>Goals</span> <strong>{{ activeMatch.my_goals || 0 }}</strong></div>
+                <div class="live-stat"><span>Assists</span> <strong>{{ activeMatch.assists }}</strong></div>
+                <div class="live-stat"><span>Shots on Target</span> <strong>{{ shotsOnTarget }}</strong></div>
+                <div class="live-stat"><span>Shots off Target</span> <strong>{{ shotsOffTarget }}</strong></div>
+                <div class="live-stat"><span>Tackles</span> <strong>{{ activeMatch.tackles }}</strong></div>
+                <div class="live-stat"><span>Interceptions</span> <strong>{{ activeMatch.interceptions }}</strong></div>
+                <div class="live-stat"><span>Dribbles</span> <strong>{{ activeMatch.dribbles }}</strong></div>
+                <div class="live-stat"><span>Good Passes</span> <strong>{{ activeMatch.successful_passes }}</strong></div>
+                <div class="live-stat"><span>Bad Passes</span> <strong>{{ activeMatch.unsuccessful_passes }}</strong></div>
+                <div class="live-stat"><span>Fouls</span> <strong>{{ activeMatch.fouls }}</strong></div>
+                <div class="live-stat"><span>Own Goals</span> <strong>{{ activeMatch.own_goals }}</strong></div>
+              </div>
+            </div>
 
-          <!-- Add Match Modal -->
-    <div v-if="showAddMatch" class="modal-overlay" @click="showAddMatch = false">
-          <div class="modal card-glass" @click.stop>
-            <h3>Add New Match</h3>
-            <form @submit.prevent="addMatch">
-              <div class="form-group">
-                <label>Opponent</label>
-                <input v-model="newMatch.opponent" type="text" required />
-              </div>
-              <div class="form-group">
-                <label>Date</label>
-                <input v-model="newMatch.date" type="date" required />
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Our Score</label>
-                  <input v-model.number="newMatch.score_for" type="number" min="0" required />
-                </div>
-                <div class="form-group">
-                  <label>Their Score</label>
-                  <input v-model.number="newMatch.score_against" type="number" min="0" required />
+            <div class="shot-log-panel">
+              <h4>Goals & Shots</h4>
+              <div class="event-list">
+                <div v-for="item in combinedEvents" :key="item.id" class="event-item" @click="selectEventForViz(item)">
+                  <div class="event-time-and-icon">
+                    <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
+                  </div>
+                  <div class="event-details">
+                    <span class="event-type">{{ item.details }}</span>
+                    <span v-if="item.type === 'Goal'" class="event-subtype">({{ item.goal_type }})</span>
+                  </div>
+                  <div v-if="item.quadrant" class="event-quadrant-indicator">🎯</div>
+                  <button @click.stop="removeEvent(item)" class="remove-event-btn">&times;</button>
                 </div>
               </div>
-              <div class="modal-buttons">
-                <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
-                <button type="submit" class="btn btn-primary">Add Match</button>
+              <div v-if="selectedEvent" class="shot-visualization">
+                <button @click="selectedEvent = null" class="close-viz-btn">&times;</button>
+                <h5>Shot Placement</h5>
+                <div class="goal-grid-container viz-grid">
+                  <div class="goal-grid">
+                    <div v-for="i in 9" :key="i" class="goal-quadrant" :class="{ 'highlight': selectedEvent.quadrant === i }">
+                      <span v-if="selectedEvent.quadrant === i">X</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </form>
+            </div>
+
+            <div class="live-controls-panel">
+              <h4>Match Events</h4>
+              <div class="live-match-controls">
+                <div class="stat-control-group">
+                  <span class="stat-label">My Goal</span>
+                  <div class="button-group">
+                    <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">My Assist</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('assists', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Shot</span>
+                  <div class="button-group">
+                    <button @click="handleShot()" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Tackle</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('tackles', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('tackles', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Interception</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('interceptions', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('interceptions', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Dribble</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('dribbles', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('dribbles', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Good Pass</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('successful_passes', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Bad Pass</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('unsuccessful_passes', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Foul</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('fouls', 1)" class="btn">+</button>
+                  </div>
+                </div>
+              </div>
+              <h4>Score Events</h4>
+              <div class="live-match-controls">
+                <div class="stat-control-group">
+                  <span class="stat-label">Our Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('score_for', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('score_for', 1)" class="btn btn-primary">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Their Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('score_against', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('score_against', 1)" class="btn btn-danger">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Own Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('own_goals', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('own_goals', 1)" class="btn btn-danger">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div v-if="activeTab === 'profile'">
-          <ProfileView />
+    </div>
+
+    <!-- Shot Type Modal -->
+    <div v-if="showShotModal" class="modal-overlay" @click.self="showShotModal = false">
+      <div class="modal card-glass" @click.stop>
+        <div class="modal-header">
+          <h3>Shot Outcome</h3>
+          <button @click="showShotModal = false" class="close-btn">&times;</button>
         </div>
+        <div class="modal-body">
+          <div class="modal-options-grid shot-options">
+            <button @click="handleShotOnTarget()" class="modal-option-btn btn-success">
+              <span class="option-icon">🎯</span>
+              <span>On Target</span>
+            </button>
+            <button @click="saveShot(false, null)" class="modal-option-btn btn-danger">
+              <span class="option-icon">❌</span>
+              <span>Off Target</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-        </div> <!-- Closes dashboard-view -->
-      </div> <!-- Closes tab-content -->
-    </div> <!-- Closes dashboard-container -->
-  </div> <!-- Closes dashboard-page -->
+    <!-- Goal Type Modal -->
+    <div v-if="showGoalModal" class="modal-overlay" @click.self="showGoalModal = false">
+      <div class="modal card-glass" @click.stop>
+        <div class="modal-header">
+          <h3>Goal Type</h3>
+          <button @click="showGoalModal = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-options-grid">
+            <button v-for="type in goalTypes" :key="type" @click="addGoal(type)" class="modal-option-btn">
+              <span>{{ type }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Goal Quadrant Modal -->
+    <div v-if="showQuadrantModal" class="modal-overlay" @click.self="showQuadrantModal = false">
+      <div class="modal card-glass" @click.stop>
+        <div class="modal-header">
+          <h3>Select Shot Placement</h3>
+          <button @click="showQuadrantModal = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="goal-grid-container">
+            <div class="goal-grid">
+              <div v-for="i in 9" :key="i" @click="handleQuadrantSelect(i)" class="goal-quadrant">
+                {{ i }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Match Modal -->
+    <div v-if="showAddMatch" class="modal-overlay" @click.self="showAddMatch = false">
+      <div class="modal card-glass" @click.stop>
+        <h3>Add New Match</h3>
+        <form @submit.prevent="addMatch">
+          <div class="form-group">
+            <label>Opponent</label>
+            <input v-model="newMatch.opponent" type="text" required />
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input v-model="newMatch.match_date" type="date" required />
+          </div>
+          <div class="modal-buttons">
+            <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Match</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
 </template>
 
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
-import ProfileView from './Profile.vue'
 
 export default {
   name: 'Dashboard',
-  components: {
-    ProfileView
-  },
   setup() {
     const router = useRouter()
     const matches = ref([])
     const userEmail = ref('')
     const showAddMatch = ref(false)
-    const activeTab = ref('dashboard')
+    const activeTab = ref('overview')
+    const activeMatch = ref(null)
+    const matchGoals = ref([])
+    const matchShots = ref([])
+    const showGoalModal = ref(false)
+    const showShotModal = ref(false)
+    const showQuadrantModal = ref(false)
+    const selectedEvent = ref(null)
+    const quadrantSelectionContext = ref('shot') // 'shot' or 'goal'
+    const quadrantForGoal = ref(null)
+    const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
     
-        
     const newMatch = ref({
       opponent: '',
-      date: '',
-      score_for: 0,
-      score_against: 0
+      match_date: new Date().toISOString().split('T')[0]
+    })
+
+    const goalSummary = computed(() => {
+      return matchGoals.value.reduce((acc, goal) => {
+        acc[goal.goal_type] = (acc[goal.goal_type] || 0) + 1
+        return acc
+      }, {})
+    })
+
+    const shotsOnTarget = computed(() => {
+      return matchShots.value.filter(shot => shot.on_target).length
+    })
+
+    const combinedEvents = computed(() => {
+      const goals = matchGoals.value.map(g => ({ ...g, type: 'Goal', details: 'Goal Scored', event_time: g.created_at }));
+      const shots = matchShots.value.map(s => ({ ...s, type: 'Shot', details: s.on_target ? 'On Target' : 'Off Target', event_time: s.created_at }));
+      return [...goals, ...shots].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+    });
+
+    const shotsOffTarget = computed(() => {
+      return matchShots.value.filter(shot => !shot.on_target).length
     })
 
     const wins = computed(() => {
@@ -135,25 +399,55 @@ export default {
           .from('matches')
           .select('*')
           .eq('user_id', user.id)
-          .order('date', { ascending: false })
+          .order('match_date', { ascending: false })
 
-        if (matchesError && matchesError.code !== 'PGRST116') {
-          console.error('Error loading matches:', matchesError)
-        } else if (matchesData) {
-          matches.value = matchesData
+        if (matchesError) {
+          console.error('Error fetching matches:', matchesError)
+          return
         }
+
+        const { data: goalsData, error: goalsError } = await supabase
+          .from('goals')
+          .select('match_id')
+          .eq('user_id', user.id)
+
+        if (goalsError) {
+          console.error('Error fetching goals:', goalsError)
+        }
+
+        const goalsPerMatch = (goalsData || []).reduce((acc, goal) => {
+          acc[goal.match_id] = (acc[goal.match_id] || 0) + 1
+          return acc
+        }, {})
+
+        matches.value = matchesData.map(match => ({
+          ...match,
+          my_goals: goalsPerMatch[match.id] || 0
+        }))
       } catch (error) {
         console.error('Error loading data:', error)
       }
     }
 
-    
     const addMatch = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('User not authenticated')
 
-        const matchData = { ...newMatch.value, user_id: user.id }
+        const matchData = {
+          ...newMatch.value,
+          user_id: user.id,
+          score_for: 0,
+          score_against: 0,
+          assists: 0,
+          tackles: 0,
+          interceptions: 0,
+          dribbles: 0,
+          fouls: 0,
+          successful_passes: 0,
+          unsuccessful_passes: 0,
+          own_goals: 0
+        }
 
         const { data, error } = await supabase
           .from('matches')
@@ -163,7 +457,10 @@ export default {
         if (error) throw error
 
         matches.value.unshift(data[0])
-        newMatch.value = { opponent: '', date: '', score_for: 0, score_against: 0 }
+        newMatch.value = {
+          opponent: '',
+          match_date: new Date().toISOString().split('T')[0]
+        }
         showAddMatch.value = false
       } catch (error) {
         console.error('Error adding match:', error)
@@ -171,15 +468,224 @@ export default {
       }
     }
 
-    
+    const selectMatch = async (match) => {
+      activeMatch.value = match
+      await loadMatchDetails(match.id)
+    }
+
+    const loadMatchDetails = async (matchId) => {
+      const { data: goals, error: goalsError } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('match_id', matchId)
+      if (goalsError) console.error('Error loading goals:', goalsError)
+      else matchGoals.value = goals
+
+      const { data: shots, error: shotsError } = await supabase
+        .from('shots')
+        .select('*')
+        .eq('match_id', matchId)
+      if (shotsError) console.error('Error loading shots:', shotsError)
+      else matchShots.value = shots
+    }
+
+    const handleMyGoal = () => {
+      quadrantSelectionContext.value = 'goal';
+      showQuadrantModal.value = true;
+    }
+
+    const addGoal = async (type) => {
+      const quadrant = quadrantForGoal.value;
+      if (!activeMatch.value) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // 1. Increment team score
+      await incrementStat('score_for', 1)
+
+      // 2. Add to goals table
+      const { data, error } = await supabase.from('goals').insert([
+        { user_id: user.id, match_id: activeMatch.value.id, goal_type: type, quadrant: quadrant }
+      ]).select()
+
+      if (error) {
+        console.error('Error adding goal:', error)
+        // Revert score if goal insert fails
+        await incrementStat('score_for', -1)
+      } else {
+        matchGoals.value.push(data[0])
+        activeMatch.value.my_goals = (activeMatch.value.my_goals || 0) + 1
+      }
+      showGoalModal.value = false
+      quadrantForGoal.value = null; // Reset context
+    }
+
+    const handleShot = () => {
+      quadrantSelectionContext.value = 'shot';
+      showShotModal.value = true;
+    };
+
+    const selectEventForViz = (event) => {
+      if ((event.type === 'Shot' && event.on_target && event.quadrant) || (event.type === 'Goal' && event.quadrant)) {
+        selectedEvent.value = event;
+      } else {
+        selectedEvent.value = null;
+      }
+    };
+
+    const handleQuadrantSelect = (quadrant) => {
+      showQuadrantModal.value = false;
+      if (quadrantSelectionContext.value === 'shot') {
+        saveShot(true, quadrant);
+      } else if (quadrantSelectionContext.value === 'goal') {
+        quadrantForGoal.value = quadrant;
+        showGoalModal.value = true;
+      }
+    };
+
+    const removeEvent = async (event) => {
+      if (!activeMatch.value) return;
+
+      // If the event being removed is the one being visualized, close the viz
+      if (selectedEvent.value && selectedEvent.value.id === event.id) {
+        selectedEvent.value = null;
+      }
+
+      if (event.type === 'Shot') {
+        const { error } = await supabase.from('shots').delete().eq('id', event.id);
+        if (error) {
+          console.error('Error removing shot:', error);
+        } else {
+          matchShots.value = matchShots.value.filter(s => s.id !== event.id);
+        }
+      } else if (event.type === 'Goal') {
+        // When removing a goal, also decrement the score and my_goals count
+        await incrementStat('score_for', -1);
+        activeMatch.value.my_goals = (activeMatch.value.my_goals || 1) - 1;
+
+        const { error } = await supabase.from('goals').delete().eq('id', event.id);
+        if (error) {
+          console.error('Error removing goal:', error);
+          // Revert if delete fails
+          await incrementStat('score_for', 1);
+          activeMatch.value.my_goals = (activeMatch.value.my_goals || 0) + 1;
+        } else {
+          matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
+        }
+      }
+    };
+
+
+    const handleShotOnTarget = () => {
+      showShotModal.value = false;
+      // The context is already 'shot' from handleShot
+      showQuadrantModal.value = true;
+    }
+
+    const saveShot = async (onTarget, quadrant) => {
+      if (!activeMatch.value) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const shotData = {
+        user_id: user.id,
+        match_id: activeMatch.value.id,
+        on_target: onTarget,
+        quadrant: quadrant
+      };
+
+      const { data, error } = await supabase.from('shots').insert([shotData]).select();
+
+      if (error) {
+        console.error('Error adding shot:', error);
+      } else {
+        matchShots.value.push(data[0]);
+      }
+      showShotModal.value = false;
+      showQuadrantModal.value = false;
+    }
+
+
+
+    const incrementStat = async (stat, value) => {
+      if (!activeMatch.value) return;
+
+      const currentValue = activeMatch.value[stat] || 0;
+      if (currentValue + value < 0) return; // Prevent stats from going below zero
+
+      const updatedValue = currentValue + value;
+      activeMatch.value[stat] = updatedValue;
+
+      const { error } = await supabase
+        .from('matches')
+        .update({ [stat]: updatedValue })
+        .eq('id', activeMatch.value.id);
+
+      if (error) {
+        console.error(`Error updating ${stat}:`, error);
+        // Revert optimistic update on error
+        activeMatch.value[stat] -= value;
+      }
+    };
+
+    const calculateMatchRating = (match) => {
+      let rating = 6.0; // Base rating
+
+      // Contributions
+      rating += (match.my_goals || 0) * 1.7; // 1.5 per goal
+      rating += match.assists * 1.0;
+      rating += match.tackles * 0.2;
+      rating += match.interceptions * 0.2;
+      rating += match.dribbles * 0.15;
+      rating += match.successful_passes * 0.05;
+
+      // Negative contributions
+      rating -= match.fouls * 0.3;
+      rating -= match.unsuccessful_passes * 0.1;
+      rating -= match.own_goals * 2.0;
+
+      // Result impact
+      const result = getMatchResult(match);
+      if (result === 'WIN') rating += 1.0;
+      else if (result === 'LOSS') rating -= 1.0;
+
+      // Clamp between 0 and 10
+      return Math.max(0, Math.min(10, rating)).toFixed(1);
+    }
+
+    const getStatColorClass = (statType, value) => {
+      const numValue = parseFloat(value);
+      if (statType === 'rating') {
+        if (numValue >= 8.5) return 'stat-good';
+        if (numValue >= 7.0) return 'stat-mid';
+        if (numValue >= 3.0) return 'stat-bad';
+        return 'stat-horrible';
+      }
+      if (statType === 'goals') {
+        if (numValue >= 2) return 'stat-good';
+        if (numValue >= 1) return 'stat-mid';
+        return 'stat-bad';
+      }
+      if (statType === 'assists') {
+        if (numValue >= 2) return 'stat-good';
+        if (numValue >= 1) return 'stat-mid';
+        return 'stat-bad';
+      }
+      return '';
+    }
+
     const getMatchResult = (match) => {
-      if (match.score_for > match.score_against) return 'win'
-      if (match.score_for < match.score_against) return 'loss'
-      return 'draw'
+      if (match.score_for > match.score_against) return 'Win'
+      if (match.score_for < match.score_against) return 'Loss'
+      return 'Draw'
     }
 
     const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleDateString()
+      if (!dateString) return ''
+      // Add a day to the date to correct for timezone issues
+      const date = new Date(dateString)
+      date.setDate(date.getDate() + 1)
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     }
 
     return {
@@ -192,7 +698,30 @@ export default {
       addMatch,
       getMatchResult,
       formatDate,
-      activeTab
+      activeTab,
+      activeMatch,
+      selectMatch,
+      incrementStat,
+      handleMyGoal,
+      showGoalModal,
+      showShotModal,
+      showQuadrantModal,
+      handleShot,
+      handleShotOnTarget,
+      handleQuadrantSelect,
+      saveShot,
+      combinedEvents,
+      selectedEvent,
+      selectEventForViz,
+      goalTypes,
+      addGoal,
+      removeEvent,
+      matchGoals,
+      goalSummary,
+      shotsOnTarget,
+      shotsOffTarget,
+      calculateMatchRating,
+      getStatColorClass
     }
   }
 }
@@ -319,18 +848,380 @@ export default {
 }
 
 .player-item, .match-item {
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  background: #1a1a1a;
+  transition: background 0.3s ease;
+  cursor: pointer;
+}
+
+.match-details {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.match-opponent h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.5rem;
+}
+
+.match-opponent p {
+  margin: 0;
+  color: #888;
+}
+
+.match-score-result {
+  text-align: right;
+}
+
+.match-score-result .score {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0 0 0.25rem 0;
+}
+
+.match-stats-summary {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+}
+
+.stat-item span {
+  font-size: 1.25rem;
+  font-weight: bold;
+  display: block;
+}
+
+.stat-item label {
+  font-size: 0.8rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.stat-good {
+  color: #28a745; /* Green */
+}
+
+.stat-mid {
+  color: #ffc107; /* Yellow */
+}
+
+.stat-bad {
+  color: #dc3545; /* Red */
+}
+
+.stat-horrible {
+  color: #84359a; /* Purple */
+}
+
+.live-view-content.three-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.shot-log-panel {
+  background: rgba(17, 17, 17, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.shot-log-panel h4 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+
+.event-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.event-item {
+  display: flex;
   align-items: center;
-  padding: 1rem;
+  gap: 1rem;
+  padding: 0.75rem;
   border-radius: 8px;
   margin-bottom: 0.5rem;
   background: #1a1a1a;
-  transition: background 0.3s ease;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  position: relative;
 }
 
-.player-item:hover, .match-item:hover {
-  background: #222;
+.event-time-and-icon {
+  text-align: center;
+}
+
+.event-details {
+  flex-grow: 1;
+}
+
+.event-quadrant-indicator {
+  font-size: 1.2rem;
+  color: #4CAF50;
+  margin-left: auto;
+  padding-right: 2rem; /* Space before the remove button */
+}
+
+.event-item:hover {
+  background-color: #2c3e50;
+}
+
+.event-item {
+  position: relative;
+}
+
+.remove-event-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #333;
+  color: #aaa;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.event-item:hover .remove-event-btn {
+  opacity: 1;
+}
+
+.remove-event-btn:hover {
+  background: #dc3545;
+  color: #fff;
+}
+
+.event-icon {
+  font-size: 1.5rem;
+}
+
+.event-details {
+  flex-grow: 1;
+}
+
+.event-type {
+  font-weight: 500;
+}
+
+.event-subtype {
+  font-size: 0.8rem;
+  color: #888;
+  margin-left: 0.5rem;
+}
+
+.shot-visualization {
+  position: relative;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid #333;
+}
+
+.close-viz-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 0;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.5rem;
+}
+
+.close-viz-btn:hover {
+  color: #fff;
+}
+
+.shot-visualization h5 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #aaa;
+}
+
+.viz-grid {
+  max-width: 200px !important;
+  aspect-ratio: 1.5 / 1 !important;
+}
+
+.viz-grid .goal-quadrant.highlight {
+  background-color: rgba(76, 175, 80, 0.7) !important;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.match-header-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back-btn-modern {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a1a;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.match-info-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a1a;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 60%;
+  border: none;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 1200px) {
+  .live-view-content.three-columns {
+    grid-template-columns: 1fr 1fr;
+  }
+  .shot-log-panel {
+    grid-column: 1 / -1; /* Span full width */
+  }
+}
+
+@media (max-width: 768px) {
+  .live-view-content.three-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.live-stats-panel h4, .live-controls-panel h4 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+}
+
+.rating-display {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.rating-display span {
+  font-size: 3rem;
+  font-weight: bold;
+  display: block;
+  line-height: 1;
+}
+
+.rating-display label {
+  font-size: 1rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.live-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.live-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1a1a1a;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.live-stat span {
+  color: #aaa;
+}
+
+.live-stat strong {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.live-match-controls {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-control-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #1a1a1a;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.button-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.button-group .btn {
+  flex-grow: 1;
+  padding: 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.live-match-stats-details {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+
+.live-match-stats-details h4 {
+  margin-top: 0;
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stat-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
 }
 
 .player-info h4, .match-info h4 {
@@ -371,7 +1262,127 @@ export default {
   width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto; padding: 2rem;
 }
 
-.modal h3 { margin-top: 0; color: #f0f0f0; }
+.modal h3 { margin: 0; color: #f0f0f0; font-weight: 500; }
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+  color: #fff;
+}
+
+.modal-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1rem;
+}
+
+.shot-options {
+  grid-template-columns: 1fr 1fr;
+}
+
+.modal-option-btn {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #f0f0f0;
+  border-radius: 8px;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  aspect-ratio: 1 / 1;
+}
+
+.modal-option-btn:hover {
+  background: #2c3e50;
+  border-color: #4CAF50;
+  transform: translateY(-3px);
+}
+
+.modal-option-btn .option-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.modal-option-btn.btn-success {
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.modal-option-btn.btn-success:hover {
+  background: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.modal-option-btn.btn-danger {
+  border-color: rgba(220, 53, 69, 0.5);
+}
+
+.modal-option-btn.btn-danger:hover {
+  background: #dc3545;
+  border-color: #dc3545;
+}
+
+.goal-grid-container {
+  position: relative;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+  aspect-ratio: 1.5 / 1; /* Approximate goal shape */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 3px solid #fff;
+  border-top-width: 5px;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+.goal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  height: 100%;
+  gap: 5px;
+}
+
+.goal-quadrant {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.goal-quadrant:hover {
+  background: rgba(76, 175, 80, 0.5);
+}
 
 .form-row { display: flex; gap: 1rem; }
 .form-row .form-group { flex: 1; }
@@ -388,7 +1399,17 @@ export default {
 .btn-secondary:hover { background: #444; }
 
 @media (max-width: 768px) {
-  .dashboard-grid { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .dashboard-grid, .stats-grid, .live-view-content {
+    grid-template-columns: 1fr;
+  }
+
+  .live-match-controls {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .button-group .btn {
+    padding: 0.75rem;
+    font-size: 1.5rem;
+  }
 }
 </style>
