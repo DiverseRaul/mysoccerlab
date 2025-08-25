@@ -12,6 +12,7 @@
       </div>
 
       <div v-if="activeTab === 'overview'" class="dashboard-view">
+        <!-- Main Stats Grid -->
         <div class="stats-grid">
           <div class="stat-card card-glass">
             <div class="stat-icon">⚽</div>
@@ -32,6 +33,120 @@
             <div class="stat-content">
               <h3>{{ winRate }}%</h3>
               <p>Win Rate</p>
+            </div>
+          </div>
+          <div class="stat-card card-glass">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-content">
+              <h3 :class="getStatColorClass('rating', averageRating)">{{ averageRating }}</h3>
+              <p>Avg Rating</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Overview -->
+        <div class="performance-section">
+          <h3>Performance Overview</h3>
+          <div class="performance-grid">
+            <div class="performance-card card-glass">
+              <div class="performance-header">
+                <h4>Goals & Assists</h4>
+                <div class="performance-icon">🎯</div>
+              </div>
+              <div class="performance-stats">
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalGoals }}</span>
+                  <span class="stat-label">Goals</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalAssists }}</span>
+                  <span class="stat-label">Assists</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ (totalGoals + totalAssists) }}</span>
+                  <span class="stat-label">G+A</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="performance-card card-glass">
+              <div class="performance-header">
+                <h4>Passing</h4>
+                <div class="performance-icon">⚡</div>
+              </div>
+              <div class="performance-stats">
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalSuccessfulPasses }}</span>
+                  <span class="stat-label">Good</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalUnsuccessfulPasses }}</span>
+                  <span class="stat-label">Bad</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ passAccuracy }}%</span>
+                  <span class="stat-label">Accuracy</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="performance-card card-glass">
+              <div class="performance-header">
+                <h4>Defense</h4>
+                <div class="performance-icon">🛡️</div>
+              </div>
+              <div class="performance-stats">
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalTackles }}</span>
+                  <span class="stat-label">Tackles</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalInterceptions }}</span>
+                  <span class="stat-label">Interceptions</span>
+                </div>
+                <div class="performance-stat">
+                  <span class="stat-value">{{ totalClearances }}</span>
+                  <span class="stat-label">Clearances</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Form Charts -->
+        <div class="trends-section">
+          <h3>Recent Form</h3>
+          <div class="trends-grid">
+            <div class="trend-card card-glass">
+              <div class="trend-header">
+                <h4>Match Ratings</h4>
+                <span :class="getStatColorClass('rating', highestRating)" class="highest-rating">Best: {{ highestRating }}</span>
+              </div>
+              <div class="chart-wrapper">
+                <div class="chart-container">
+                  <div v-for="(match, index) in recentMatches" :key="match.id" class="bar-container">
+                    <div class="rating-value">{{ calculateMatchRating(match) }}</div>
+                    <div class="rating-bar" :style="{ height: parseFloat(calculateMatchRating(match)) === 0 ? '0%' : Math.max((parseFloat(calculateMatchRating(match)) / 10) * 100, 15) + '%' }" :class="getStatColorClass('rating', calculateMatchRating(match))"></div>
+                    <span class="match-label">{{ match.opponent.length > 6 ? match.opponent.substring(0, 6) + '...' : match.opponent }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="trend-card card-glass">
+              <div class="trend-header">
+                <h4>Goals Scored</h4>
+                <span class="avg-stat">Avg: {{ averageGoalsPerMatch }}</span>
+              </div>
+              <div class="chart-wrapper">
+                <div class="chart-container">
+                  <div v-for="(match, index) in recentMatches" :key="match.id" class="bar-container">
+                    <div class="goals-value">{{ match.my_goals || 0 }}</div>
+                    <div class="goals-bar" :style="{ height: (match.my_goals || 0) === 0 ? '0%' : Math.max((match.my_goals || 0) / Math.max(maxGoalsInMatch, 1) * 100, 15) + '%' }"></div>
+                    <span class="match-label">{{ match.opponent.length > 6 ? match.opponent.substring(0, 6) + '...' : match.opponent }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -125,6 +240,7 @@
                 <div class="live-stat"><span>Shots off Target</span> <strong>{{ shotsOffTarget }}</strong></div>
                 <div class="live-stat"><span>Tackles</span> <strong>{{ activeMatch.tackles }}</strong></div>
                 <div class="live-stat"><span>Interceptions</span> <strong>{{ activeMatch.interceptions }}</strong></div>
+                <div class="live-stat"><span>Clearances</span> <strong>{{ activeMatch.clearances || 0 }}</strong></div>
                 <div class="live-stat"><span>Dribbles</span> <strong>{{ activeMatch.dribbles }}</strong></div>
                 <div class="live-stat"><span>Good Passes</span> <strong>{{ activeMatch.successful_passes }}</strong></div>
                 <div class="live-stat"><span>Bad Passes</span> <strong>{{ activeMatch.unsuccessful_passes }}</strong></div>
@@ -141,11 +257,14 @@
                     <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
                   </div>
                   <div class="event-details">
-                    <span class="event-type">{{ item.details }}</span>
+                    <span class="event-type">
+                      {{ item.details }}
+                      <span v-if="item.count > 1" class="event-count">({{ item.count }}x)</span>
+                    </span>
                     <span v-if="item.type === 'Goal'" class="event-subtype">({{ item.goal_type }})</span>
                   </div>
                   <div v-if="item.quadrant" class="event-quadrant-indicator">🎯</div>
-                  <button @click.stop="removeEvent(item)" class="remove-event-btn">&times;</button>
+                  <button @click.stop="removeEventGroup(item)" class="remove-event-btn">&times;</button>
                 </div>
               </div>
               <div v-if="selectedEvent" class="shot-visualization">
@@ -195,6 +314,13 @@
                   <div class="button-group">
                     <button @click="incrementStat('interceptions', -1)" class="btn btn-danger">-</button>
                     <button @click="incrementStat('interceptions', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Clearance</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('clearances', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('clearances', 1)" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -252,8 +378,7 @@
               </div>
             </div>
           </div>
-        </div>
-        <div class="match-actions">
+          <div class="match-actions">
             <button @click="showEditMatch = true" class="action-btn edit-btn">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708L10.5 8.207l-3-3L12.146.146zM11.207 9l-3-3L2.5 11.707V14.5a.5.5 0 0 0 .5.5h2.793L11.207 9zM1 11.5a.5.5 0 0 1 .5-.5H2v-.5a.5.5 0 0 1 .5-.5H3v-.5a.5.5 0 0 1 .5-.5h.5V9a.5.5 0 0 1 .5-.5h1V8a.5.5 0 0 1 .5-.5h1V7a.5.5 0 0 1 .5-.5h1V6a.5.5 0 0 1 .5-.5h1V5a.5.5 0 0 1 .5-.5h1V4a.5.5 0 0 1 .5-.5h1V3a.5.5 0 0 1 .5-.5h1V2a.5.5 0 0 1 .5-.5h1V1a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5v-1H8a.5.5 0 0 1-.5-.5v-1H7a.5.5 0 0 1-.5-.5v-1H6a.5.5 0 0 1-.5-.5v-1H5a.5.5 0 0 1-.5-.5v-1H4a.5.5 0 0 1-.5-.5v-1H3a.5.5 0 0 1-.5-.5v-1H2a.5.5 0 0 1-.5-.5v-1H1.5a.5.5 0 0 1-.5-.5z"/>
@@ -268,6 +393,7 @@
               Delete Match
             </button>
           </div>
+        </div>
       </div>
 
     </div>
@@ -441,7 +567,40 @@ export default {
     const combinedEvents = computed(() => {
       const goals = matchGoals.value.map(g => ({ ...g, type: 'Goal', details: 'Goal Scored', event_time: g.created_at }));
       const shots = matchShots.value.map(s => ({ ...s, type: 'Shot', details: s.on_target ? 'On Target' : 'Off Target', event_time: s.created_at }));
-      return [...goals, ...shots].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+      
+      // Only group off-target shots, keep goals and on-target shots separate
+      const eventGroups = {};
+      const ungroupedEvents = [];
+      
+      [...goals, ...shots].forEach(event => {
+        // Only group off-target shots
+        if (event.type === 'Shot' && event.details === 'Off Target') {
+          const key = `${event.type}-${event.details}`;
+          if (!eventGroups[key]) {
+            eventGroups[key] = {
+              ...event,
+              count: 1,
+              events: [event]
+            };
+          } else {
+            eventGroups[key].count++;
+            eventGroups[key].events.push(event);
+            // Keep the most recent event time
+            if (new Date(event.event_time) > new Date(eventGroups[key].event_time)) {
+              eventGroups[key].event_time = event.event_time;
+            }
+          }
+        } else {
+          // Keep goals and on-target shots as individual events
+          ungroupedEvents.push({
+            ...event,
+            count: 1,
+            events: [event]
+          });
+        }
+      });
+      
+      return [...ungroupedEvents, ...Object.values(eventGroups)].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
     });
 
     const shotsOffTarget = computed(() => {
@@ -455,6 +614,70 @@ export default {
     const winRate = computed(() => {
       if (matches.value.length === 0) return 0
       return Math.round((wins.value / matches.value.length) * 100)
+    })
+
+    const averageRating = computed(() => {
+      if (matches.value.length === 0) return '0.0'
+      const totalRating = matches.value.reduce((sum, match) => sum + parseFloat(calculateMatchRating(match)), 0)
+      return (totalRating / matches.value.length).toFixed(1)
+    })
+
+    const highestRating = computed(() => {
+      if (matches.value.length === 0) return '0.0'
+      const ratings = matches.value.map(match => parseFloat(calculateMatchRating(match)))
+      return Math.max(...ratings).toFixed(1)
+    })
+
+    const totalGoals = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.my_goals || 0), 0)
+    })
+
+    const totalAssists = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.assists || 0), 0)
+    })
+
+    const totalSuccessfulPasses = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.successful_passes || 0), 0)
+    })
+
+    const totalUnsuccessfulPasses = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.unsuccessful_passes || 0), 0)
+    })
+
+    const passAccuracy = computed(() => {
+      const total = totalSuccessfulPasses.value + totalUnsuccessfulPasses.value
+      if (total === 0) return 0
+      return Math.round((totalSuccessfulPasses.value / total) * 100)
+    })
+
+    const totalTackles = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.tackles || 0), 0)
+    })
+
+    const totalInterceptions = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.interceptions || 0), 0)
+    })
+
+    const totalClearances = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.clearances || 0), 0)
+    })
+
+    const totalFouls = computed(() => {
+      return matches.value.reduce((sum, match) => sum + (match.fouls || 0), 0)
+    })
+
+    const recentMatches = computed(() => {
+      return matches.value.slice(-8).reverse()
+    })
+
+    const averageGoalsPerMatch = computed(() => {
+      if (matches.value.length === 0) return '0.0'
+      return (totalGoals.value / matches.value.length).toFixed(1)
+    })
+
+    const maxGoalsInMatch = computed(() => {
+      if (matches.value.length === 0) return 1
+      return Math.max(...matches.value.map(match => match.my_goals || 0), 1)
     })
 
     onMounted(async () => {
@@ -522,6 +745,7 @@ export default {
           assists: 0,
           tackles: 0,
           interceptions: 0,
+          clearances: 0,
           dribbles: 0,
           fouls: 0,
           successful_passes: 0,
@@ -606,6 +830,12 @@ export default {
     };
 
     const selectEventForViz = (event) => {
+      // If the same event is already selected, close it (click-to-close functionality)
+      if (selectedEvent.value && selectedEvent.value.id === event.id) {
+        selectedEvent.value = null;
+        return;
+      }
+      
       if ((event.type === 'Shot' && event.on_target && event.quadrant) || (event.type === 'Goal' && event.quadrant)) {
         selectedEvent.value = event;
       } else {
@@ -639,22 +869,48 @@ export default {
           matchShots.value = matchShots.value.filter(s => s.id !== event.id);
         }
       } else if (event.type === 'Goal') {
-        // When removing a goal, also decrement the score and my_goals count
-        await incrementStat('score_for', -1);
-        activeMatch.value.my_goals = (activeMatch.value.my_goals || 1) - 1;
-
         const { error } = await supabase.from('goals').delete().eq('id', event.id);
         if (error) {
           console.error('Error removing goal:', error);
-          // Revert if delete fails
-          await incrementStat('score_for', 1);
-          activeMatch.value.my_goals = (activeMatch.value.my_goals || 0) + 1;
         } else {
+          // Decrement team score
+          await incrementStat('score_for', -1);
           matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
+          activeMatch.value.my_goals = Math.max(0, (activeMatch.value.my_goals || 0) - 1);
         }
       }
     };
 
+    const removeEventGroup = async (eventGroup) => {
+      if (!activeMatch.value) return;
+
+      // If any event in the group is being visualized, close the viz
+      if (selectedEvent.value && eventGroup.events.some(e => e.id === selectedEvent.value.id)) {
+        selectedEvent.value = null;
+      }
+
+      // Remove all events in the group
+      for (const event of eventGroup.events) {
+        if (event.type === 'Shot') {
+          const { error } = await supabase.from('shots').delete().eq('id', event.id);
+          if (error) {
+            console.error('Error removing shot:', error);
+          } else {
+            matchShots.value = matchShots.value.filter(s => s.id !== event.id);
+          }
+        } else if (event.type === 'Goal') {
+          const { error } = await supabase.from('goals').delete().eq('id', event.id);
+          if (error) {
+            console.error('Error removing goal:', error);
+          } else {
+            // Decrement team score for each goal
+            await incrementStat('score_for', -1);
+            matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
+            activeMatch.value.my_goals = Math.max(0, (activeMatch.value.my_goals || 0) - 1);
+          }
+        }
+      }
+    };
 
     const handleShotOnTarget = () => {
       showShotModal.value = false;
@@ -841,6 +1097,7 @@ export default {
       goalTypes,
       addGoal,
       removeEvent,
+      removeEventGroup,
       matchGoals,
       goalSummary,
       shotsOnTarget,
@@ -851,7 +1108,21 @@ export default {
       showDeleteConfirm,
       confirmDeleteMatch,
       deleteMatch,
-      updateMatch
+      updateMatch,
+      averageRating,
+      highestRating,
+      totalGoals,
+      totalAssists,
+      totalSuccessfulPasses,
+      totalUnsuccessfulPasses,
+      passAccuracy,
+      totalTackles,
+      totalInterceptions,
+      totalClearances,
+      totalFouls,
+      recentMatches,
+      averageGoalsPerMatch,
+      maxGoalsInMatch
     }
   }
 }
@@ -1115,6 +1386,12 @@ export default {
   color: #4CAF50;
   margin-left: auto;
   padding-right: 2rem; /* Space before the remove button */
+}
+
+.event-count {
+  color: #888;
+  font-size: 0.9rem;
+  margin-left: 0.5rem;
 }
 
 .event-item:hover {
@@ -1449,8 +1726,195 @@ export default {
   margin-top: 0.5rem;
 }
 
-/* Remove old grid media queries since we're using single column now */
+/* Performance Section Styles */
+.performance-section {
+  margin: 2rem 0;
+}
 
+.performance-section h3 {
+  color: #fff;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.performance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.performance-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.performance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.performance-header h4 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.performance-icon {
+  font-size: 1.5rem;
+}
+
+.performance-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.performance-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Trends Section Styles */
+.trends-section {
+  margin: 2rem 0;
+}
+
+.trends-section h3 {
+  color: #fff;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.trend-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.trend-header h4 {
+  color: #fff;
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.highest-rating, .avg-stat {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chart-wrapper {
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.chart-container {
+  display: flex;
+  align-items: end;
+  gap: 0.75rem;
+  height: 120px;
+  padding: 0.5rem 0;
+}
+
+.bar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  position: relative;
+}
+
+.rating-value, .goals-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.25rem;
+  min-height: 1rem;
+}
+
+.rating-bar, .goals-bar {
+  width: 24px;
+  border-radius: 4px 4px 0 0;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.goals-bar {
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+}
+
+/* Rating bar color classes */
+.rating-bar.stat-good {
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+}
+
+.rating-bar.stat-mid {
+  background: linear-gradient(135deg, #FFC107, #FF8F00);
+}
+
+.rating-bar.stat-bad {
+  background: linear-gradient(135deg, #FF5722, #D32F2F);
+}
+
+.rating-bar.stat-horrible {
+  background: linear-gradient(135deg, #B71C1C, #880E4F);
+}
+
+/* Default rating bar color */
+.rating-bar {
+  background: linear-gradient(135deg, #757575, #424242);
+}
+
+.match-label {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  word-wrap: break-word;
+  margin-top: auto;
+}
+
+/* Remove old grid media queries since we're using single column now */
 
 .live-stats-panel h4, .live-controls-panel h4 {
   margin-top: 0;
