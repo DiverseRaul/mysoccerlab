@@ -10,6 +10,7 @@
           <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
           <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
           <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
+          <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
           <button @click="signOut" class="nav-link logout-btn" v-if="user">Logout</button>
         </div>
 
@@ -29,6 +30,7 @@
       <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
       <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
       <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
+      <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
       <button @click="signOutAndCloseMenu" class="nav-link logout-btn" v-if="user">Logout</button>
     </div>
 

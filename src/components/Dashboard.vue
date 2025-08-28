@@ -44,6 +44,58 @@
           </div>
         </div>
 
+        <!-- EA FC Style Player Card -->
+        <div class="player-card-section">
+          <h3>Player Stats</h3>
+          <div class="ea-fc-card card-glass">
+            <div class="player-card-header">
+              <div class="player-name">
+                <h2>{{ userEmail ? userEmail.split('@')[0].toUpperCase() : 'PLAYER' }}</h2>
+              </div>
+              <div class="rating-stats-container">
+                <div class="overall-rating-container">
+                  <div class="overall-rating" :class="getStatColorClass('rating', overallRating)">
+                    {{ overallRating }}
+                  </div>
+                  <span class="rating-label">OVR</span>
+                </div>
+                <div class="form-rating-container">
+                  <div class="form-rating" :class="getStatColorClass('rating', formStat)">
+                    {{ formStat }}
+                  </div>
+                  <span class="rating-label">FORM</span>
+                </div>
+              </div>
+            </div>
+            <div class="player-stats-grid">
+              <div class="stat-item">
+                <span class="stat-name">PAC</span>
+                <span class="stat-value" :class="getStatColorClass('rating', paceStat)">{{ paceStat }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">SHO</span>
+                <span class="stat-value" :class="getStatColorClass('rating', shootingStat)">{{ shootingStat }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">PAS</span>
+                <span class="stat-value" :class="getStatColorClass('rating', passingStat)">{{ passingStat }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">DRI</span>
+                <span class="stat-value" :class="getStatColorClass('rating', dribblingStat)">{{ dribblingStat }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">DEF</span>
+                <span class="stat-value" :class="getStatColorClass('rating', defendingStat)">{{ defendingStat }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-name">PHY</span>
+                <span class="stat-value" :class="getStatColorClass('rating', physicalStat)">{{ physicalStat }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Performance Overview -->
         <div class="performance-section">
           <h3>Performance Overview</h3>
@@ -120,7 +172,10 @@
             <div class="trend-card card-glass">
               <div class="trend-header">
                 <h4>Match Ratings</h4>
-                <span :class="getStatColorClass('rating', highestRating)" class="highest-rating">Best: {{ highestRating }}</span>
+                <div class="rating-stats">
+                  <span :class="getStatColorClass('rating', averageRating)" class="avg-rating">Avg: {{ averageRating }}</span>
+                  <span :class="getStatColorClass('rating', highestRating)" class="highest-rating">Best: {{ highestRating }}</span>
+                </div>
               </div>
               <div class="chart-wrapper">
                 <div class="chart-container">
@@ -226,6 +281,19 @@
           
           
           
+          <div class="match-view-controls">
+            <div class="position-display">
+              <span>Position Played: <strong>{{ activeMatch.position_played }}</strong></span>
+            </div>
+            <div class="goalkeeper-toggle">
+              <label for="gk-mode">Goalkeeper Mode</label>
+              <label class="switch">
+                <input type="checkbox" id="gk-mode" v-model="isGoalkeeperMode">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+
           <div class="live-view-content single-column">
             <div class="live-stats-panel">
               <h4>Performance</h4>
@@ -246,6 +314,16 @@
                 <div class="live-stat"><span>Bad Passes</span> <strong>{{ activeMatch.unsuccessful_passes }}</strong></div>
                 <div class="live-stat"><span>Fouls</span> <strong>{{ activeMatch.fouls }}</strong></div>
                 <div class="live-stat"><span>Own Goals</span> <strong>{{ activeMatch.own_goals }}</strong></div>
+                <template v-if="isGoalkeeperMode && goalkeeperStats">
+                  <div class="live-stat gk-stat"><span>Saves</span> <strong>{{ goalkeeperStats.saves }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Catches</span> <strong>{{ goalkeeperStats.catches }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Punches</span> <strong>{{ goalkeeperStats.punches }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Pens Saved</span> <strong>{{ goalkeeperStats.penalties_saved }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Goals</span> <strong>{{ goalkeeperStats.goals }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Assists</span> <strong>{{ goalkeeperStats.assists }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Good Passes</span> <strong>{{ goalkeeperStats.successful_passes }}</strong></div>
+                  <div class="live-stat gk-stat"><span>Bad Passes</span> <strong>{{ goalkeeperStats.unsuccessful_passes }}</strong></div>
+                </template>
               </div>
             </div>
 
@@ -282,7 +360,65 @@
 
             <div class="live-controls-panel">
               <h4>Match Events</h4>
-              <div class="live-match-controls">
+              <div v-if="isGoalkeeperMode && goalkeeperStats" class="live-match-controls gk-controls">
+                <div class="stat-control-group">
+                  <span class="stat-label">Saves</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('saves', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('saves', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Catches</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('catches', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('catches', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Punches</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('punches', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('punches', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Penalties Saved</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('penalties_saved', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('penalties_saved', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('goals', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('goals', 1)" class="btn btn-success">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Assist</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('assists', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('assists', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Good Pass</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('successful_passes', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('successful_passes', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Bad Pass</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementGkStat('unsuccessful_passes', 1)" class="btn">+</button>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="live-match-controls">
                 <div class="stat-control-group">
                   <span class="stat-label">My Goal</span>
                   <div class="button-group">
@@ -469,6 +605,13 @@
             <label>Date</label>
             <input v-model="newMatch.match_date" type="date" required />
           </div>
+          <div class="form-group">
+            <label>Position Played</label>
+            <select v-model="newMatch.position_played" required>
+              <option disabled value="">Please select one</option>
+              <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
+            </select>
+          </div>
           <div class="modal-buttons">
             <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
             <button type="submit" class="btn btn-primary">Add Match</button>
@@ -547,10 +690,25 @@ export default {
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
     const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
-    
+    const positions = ref([
+      'Goalkeeper',
+      'Center-Back',
+      'Full-Back',
+      'Wing-Back',
+      'Defensive Midfielder',
+      'Central Midfielder',
+      'Attacking Midfielder',
+      'Winger',
+      'Striker',
+      'Center-Forward'
+    ]);
+    const isGoalkeeperMode = ref(false);
+    const goalkeeperStats = ref(null);
+
     const newMatch = ref({
       opponent: '',
-      match_date: new Date().toISOString().split('T')[0]
+      match_date: new Date().toISOString().split('T')[0],
+      position_played: ''
     })
 
     const goalSummary = computed(() => {
@@ -628,6 +786,50 @@ export default {
       return Math.max(...ratings).toFixed(1)
     })
 
+    const loadGoalkeeperStats = async (matchId) => {
+      const { data, error } = await supabase
+        .from('goalkeeper_match_stats')
+        .select('*')
+        .eq('match_id', matchId)
+        .single();
+
+      if (data) {
+        goalkeeperStats.value = data;
+      } else {
+        goalkeeperStats.value = {
+          match_id: matchId,
+          user_id: activeMatch.value.user_id,
+          saves: 0,
+          catches: 0,
+          punches: 0,
+          goals_conceded: 0,
+          penalties_saved: 0,
+          successful_passes: 0,
+          unsuccessful_passes: 0,
+          goals: 0,
+          assists: 0,
+        };
+      }
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading goalkeeper stats:', error);
+      }
+    };
+
+    const incrementGkStat = async (stat, value) => {
+      if (!goalkeeperStats.value) return;
+      goalkeeperStats.value[stat] = Math.max(0, goalkeeperStats.value[stat] + value);
+      
+      const { error } = await supabase
+        .from('goalkeeper_match_stats')
+        .upsert(goalkeeperStats.value, { onConflict: 'match_id, user_id' });
+
+      if (error) {
+        console.error(`Error updating ${stat}:`, error);
+        // Revert on error
+        goalkeeperStats.value[stat] = Math.max(0, goalkeeperStats.value[stat] - value);
+      }
+    };
+
     const totalGoals = computed(() => {
       return matches.value.reduce((sum, match) => sum + (match.my_goals || 0), 0)
     })
@@ -678,6 +880,92 @@ export default {
     const maxGoalsInMatch = computed(() => {
       if (matches.value.length === 0) return 1
       return Math.max(...matches.value.map(match => match.my_goals || 0), 1)
+    })
+
+    // EA FC Style Stats
+    const overallRating = computed(() => {
+      if (matches.value.length === 0) return 65
+      const avgStats = (shootingStat.value + passingStat.value + defendingStat.value + dribblingStat.value + paceStat.value + physicalStat.value) / 6
+      return Math.min(99, Math.max(30, Math.round(avgStats)))
+    })
+
+    const shootingStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const avgGoals = totalGoals.value / matches.value.length
+      const avgShotsOnTarget = matches.value.reduce((sum, match) => {
+        // Calculate shots on target from match data if available
+        return sum + (match.shots_on_target || 0)
+      }, 0) / matches.value.length
+      
+      let rating = 50 + (avgGoals * 15) + (avgShotsOnTarget * 5)
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const passingStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const accuracy = passAccuracy.value
+      const avgPasses = (totalSuccessfulPasses.value + totalUnsuccessfulPasses.value) / matches.value.length
+      
+      let rating = 40 + (accuracy * 0.4) + (avgPasses * 0.5)
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const defendingStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const avgTackles = totalTackles.value / matches.value.length
+      const avgInterceptions = totalInterceptions.value / matches.value.length
+      const avgClearances = totalClearances.value / matches.value.length
+      
+      let rating = 45 + (avgTackles * 8) + (avgInterceptions * 6) + (avgClearances * 4)
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const dribblingStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const avgDribbles = matches.value.reduce((sum, match) => sum + (match.dribbles || 0), 0) / matches.value.length
+      const avgGoals = totalGoals.value / matches.value.length
+      
+      let rating = 50 + (avgDribbles * 6) + (avgGoals * 5)
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const paceStat = computed(() => {
+      if (matches.value.length === 0) return 70
+      // Base pace on overall performance and assists (indicating quick play)
+      const avgAssists = totalAssists.value / matches.value.length
+      const winRateBonus = winRate.value * 0.2
+      
+      let rating = 60 + (avgAssists * 8) + winRateBonus
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const physicalStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const avgFouls = totalFouls.value / matches.value.length
+      const avgTackles = totalTackles.value / matches.value.length
+      const matchesPlayed = matches.value.length
+      
+      // Higher fouls might indicate physicality, but too many is bad
+      let rating = 55 + (avgTackles * 6) + (avgFouls * 2) + (matchesPlayed * 0.5)
+      return Math.min(99, Math.max(30, Math.round(rating)))
+    })
+
+    const formStat = computed(() => {
+      if (matches.value.length === 0) return 65
+      const recent = recentMatches.value.slice(0, 5) // Last 5 matches
+      if (recent.length === 0) return 65
+      
+      const recentRatings = recent.map(match => parseFloat(calculateMatchRating(match)))
+      const avgRecentRating = recentRatings.reduce((sum, rating) => sum + rating, 0) / recentRatings.length
+      
+      // Convert match rating (0-10) to stat rating (30-99)
+      let formRating = 30 + (avgRecentRating * 6.9) // Scale 0-10 to 30-99
+      
+      // Bonus for recent wins
+      const recentWins = recent.filter(match => match.score_for > match.score_against).length
+      const winBonus = (recentWins / recent.length) * 10
+      
+      return Math.min(99, Math.max(30, Math.round(formRating + winBonus)))
     })
 
     onMounted(async () => {
@@ -775,6 +1063,10 @@ export default {
     const selectMatch = async (match) => {
       activeMatch.value = match
       await loadMatchDetails(match.id)
+      await loadGoalkeeperStats(match.id)
+      if (match.position_played === 'Goalkeeper') {
+        isGoalkeeperMode.value = true;
+      }
     }
 
     const loadMatchDetails = async (matchId) => {
@@ -792,6 +1084,7 @@ export default {
       if (shotsError) console.error('Error loading shots:', shotsError)
       else matchShots.value = shots
     }
+
 
     const handleMyGoal = () => {
       quadrantSelectionContext.value = 'goal';
@@ -1122,13 +1415,104 @@ export default {
       totalFouls,
       recentMatches,
       averageGoalsPerMatch,
-      maxGoalsInMatch
+      maxGoalsInMatch,
+      overallRating,
+      shootingStat,
+      passingStat,
+      defendingStat,
+      dribblingStat,
+      paceStat,
+      physicalStat,
+      formStat,
+      positions,
+      isGoalkeeperMode,
+      goalkeeperStats,
+      incrementGkStat
     }
   }
 }
 </script>
 
 <style scoped>
+.goalkeeper-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.switch input { 
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4CAF50;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4CAF50;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+.match-view-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: rgba(10, 10, 10, 0.5);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.position-display strong {
+  color: #4CAF50;
+}
+
+.live-stat.gk-stat strong {
+  color: #3498db;
+}
+
 .dashboard-page {
   padding: 2rem;
 }
@@ -1286,7 +1670,8 @@ export default {
 
 .match-stats-summary {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
+  gap: 4rem;
   text-align: center;
   padding-top: 1rem;
   border-top: 1px solid #333;
@@ -1726,6 +2111,102 @@ export default {
   margin-top: 0.5rem;
 }
 
+/* EA FC Player Card Styles */
+.player-card-section {
+  margin: 2rem 0;
+}
+
+.player-card-section h3 {
+  color: #fff;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+}
+
+.ea-fc-card {
+  background: rgba(17, 17, 17, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid #222;
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.player-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.player-name h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #f0f0f0;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rating-stats-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.overall-rating-container, .form-rating-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.overall-rating, .form-rating {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rating-label {
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.player-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ccc;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+}
+
 /* Performance Section Styles */
 .performance-section {
   margin: 2rem 0;
@@ -1830,12 +2311,18 @@ export default {
   font-size: 1.1rem;
 }
 
-.highest-rating, .avg-stat {
+.highest-rating, .avg-stat, .avg-rating {
   font-size: 0.9rem;
   font-weight: 600;
   padding: 0.25rem 0.75rem;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.rating-stats {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .chart-wrapper {
