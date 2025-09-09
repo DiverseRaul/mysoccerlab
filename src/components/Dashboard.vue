@@ -310,10 +310,14 @@
                 <div class="live-stat"><span>Interceptions</span> <strong>{{ activeMatch.interceptions }}</strong></div>
                 <div class="live-stat"><span>Clearances</span> <strong>{{ activeMatch.clearances || 0 }}</strong></div>
                 <div class="live-stat"><span>Dribbles</span> <strong>{{ activeMatch.dribbles }}</strong></div>
+                <div class="live-stat"><span>Chances Created</span> <strong>{{ activeMatch.created_chances }}</strong></div>
+                <div class="live-stat"><span>Possession Lost</span> <strong>{{ activeMatch.lost_possessions }}</strong></div>
                 <div class="live-stat"><span>Good Passes</span> <strong>{{ activeMatch.successful_passes }}</strong></div>
                 <div class="live-stat"><span>Bad Passes</span> <strong>{{ activeMatch.unsuccessful_passes }}</strong></div>
                 <div class="live-stat"><span>Fouls</span> <strong>{{ activeMatch.fouls }}</strong></div>
                 <div class="live-stat"><span>Own Goals</span> <strong>{{ activeMatch.own_goals }}</strong></div>
+                <div class="live-stat card-stat yellow"><span>Yellow Cards</span> <strong>{{ activeMatch.yellow_card }}</strong></div>
+                <div class="live-stat card-stat red"><span>Red Cards</span> <strong>{{ activeMatch.red_card }}</strong></div>
                 <template v-if="isGoalkeeperMode && goalkeeperStats">
                   <div class="live-stat gk-stat"><span>Saves</span> <strong>{{ goalkeeperStats.saves }}</strong></div>
                   <div class="live-stat gk-stat"><span>Catches</span> <strong>{{ goalkeeperStats.catches }}</strong></div>
@@ -467,6 +471,20 @@
                   </div>
                 </div>
                 <div class="stat-control-group">
+                  <span class="stat-label">Chance Created</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('created_chances', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('created_chances', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Possession Lost</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('lost_possessions', -1)" class="btn btn-danger">-</button>
+                    <button @click="incrementStat('lost_possessions', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
                   <span class="stat-label">Good Pass</span>
                   <div class="button-group">
                     <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
@@ -485,6 +503,23 @@
                   <div class="button-group">
                     <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
                     <button @click="incrementStat('fouls', 1)" class="btn">+</button>
+                  </div>
+                </div>
+              </div>
+              <h4>Disciplinary</h4>
+              <div class="live-match-controls card-controls">
+                <div class="stat-control-group">
+                  <span class="stat-label">Yellow Card</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('yellow_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
+                    <button @click="incrementStat('yellow_card', 1)" class="btn btn-warning card-btn"></button>
+                  </div>
+                </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Red Card</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('red_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
+                    <button @click="incrementStat('red_card', 1)" class="btn btn-danger card-btn"></button>
                   </div>
                 </div>
               </div>
@@ -777,13 +812,13 @@ export default {
     const averageRating = computed(() => {
       if (matches.value.length === 0) return '0.0'
       const totalRating = matches.value.reduce((sum, match) => sum + parseFloat(calculateMatchRating(match)), 0)
-      return (totalRating / matches.value.length).toFixed(1)
+      return (totalRating / matches.value.length).toFixed(2)
     })
 
     const highestRating = computed(() => {
       if (matches.value.length === 0) return '0.0'
       const ratings = matches.value.map(match => parseFloat(calculateMatchRating(match)))
-      return Math.max(...ratings).toFixed(1)
+      return Math.max(...ratings).toFixed(2)
     })
 
     const loadGoalkeeperStats = async (matchId) => {
@@ -1038,7 +1073,11 @@ export default {
           fouls: 0,
           successful_passes: 0,
           unsuccessful_passes: 0,
-          own_goals: 0
+          own_goals: 0,
+          created_chances: 0,
+          lost_possessions: 0,
+          yellow_card: 0,
+          red_card: 0
         }
 
         const { data, error } = await supabase
@@ -1265,13 +1304,19 @@ export default {
       rating += match.assists * 1.0;
       rating += match.tackles * 0.2;
       rating += match.interceptions * 0.2;
-      rating += match.dribbles * 0.15;
+      rating += match.dribbles * 0.1; // Reduced from 0.15
       rating += match.successful_passes * 0.05;
+      rating += match.created_chances * 0.225; // Bonus for creating chances
 
       // Negative contributions
       rating -= match.fouls * 0.3;
-      rating -= match.unsuccessful_passes * 0.1;
+      rating -= match.lost_possessions * 0.125; // Penalty for losing possession
+      rating -= match.unsuccessful_passes * 0.05; // Reduced from 0.1
       rating -= match.own_goals * 2.0;
+
+      // Disciplinary
+      rating -= match.yellow_card * 0.75; // Penalty for yellow card
+      rating -= match.red_card * 3; // Penalty for red card
 
       // Result impact
       const result = getMatchResult(match);
@@ -1279,7 +1324,7 @@ export default {
       else if (result === 'LOSS') rating -= 1.0;
 
       // Clamp between 0 and 10
-      return Math.max(0, Math.min(10, rating)).toFixed(1);
+      return Math.max(0, Math.min(10, rating)).toFixed(2);
     }
 
     const getStatColorClass = (statType, value) => {
@@ -1675,6 +1720,12 @@ input:checked + .slider:before {
   text-align: center;
   padding-top: 1rem;
   border-top: 1px solid #333;
+}
+
+@media (max-width: 768px) {
+  .match-stats-summary {
+    gap: 2rem;
+  }
 }
 
 .stat-item span {
@@ -2268,7 +2319,7 @@ input:checked + .slider:before {
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: #888;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2453,6 +2504,44 @@ input:checked + .slider:before {
   font-weight: bold;
 }
 
+.card-stat.yellow strong {
+  color: #ffc107;
+}
+
+.card-stat.red strong {
+  color: #dc3545;
+}
+
+.card-controls {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-warning {
+  background-color: #ffc107;
+  color: #111;
+}
+
+.card-btn {
+  min-width: 50px;
+  height: 70px;
+  border-radius: 6px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-btn-remove {
+  min-width: 40px;
+  height: 70px;
+  font-size: 1.5rem;
+  background-color: #333;
+  border-radius: 6px;
+}
+
 .live-match-controls {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -2470,7 +2559,8 @@ input:checked + .slider:before {
 }
 
 .stat-label {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: #aaa;
   margin-bottom: 0.75rem;
   text-align: center;
@@ -2478,14 +2568,15 @@ input:checked + .slider:before {
 
 .button-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .button-group .btn {
   flex-grow: 1;
-  padding: 0.5rem;
-  font-size: 1.2rem;
+  padding: 1rem;
+  font-size: 1.3rem;
   line-height: 1;
+  min-width: 80px;
 }
 
 .live-match-stats-details {
@@ -2528,8 +2619,7 @@ input:checked + .slider:before {
 .match-result.loss { background: rgba(255, 71, 87, 0.2); color: #ff4757; }
 .match-result.draw { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
 
-.delete-btn {
-  background: none; border: none; cursor: pointer; color: #888; transition: color 0.3s ease;
+.delete-btn { background: none; border: 1px solid rgba(255, 255, 255, 0.05); cursor: pointer; color: #888; transition: color 0.3s ease;
 }
 .delete-btn:hover { color: #ff4757; }
 
@@ -2622,7 +2712,7 @@ input:checked + .slider:before {
 }
 
 .modal-option-btn.btn-danger:hover {
-  background: #dc3545;
+  background: #413536;
   border-color: #dc3545;
 }
 
@@ -2690,8 +2780,10 @@ input:checked + .slider:before {
   }
 
   .button-group .btn {
-    padding: 0.75rem;
-    font-size: 1.5rem;
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
+    font-size: 1.6rem;
+    min-width: 55px;
   }
 }
 </style>

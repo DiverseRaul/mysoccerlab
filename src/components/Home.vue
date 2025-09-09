@@ -9,7 +9,8 @@
           The ultimate platform for soccer analytics and team management.
         </p>
         <div class="hero-buttons">
-          <router-link to="/login" class="btn btn-primary">Get Started</router-link>
+          <router-link v-if="!user" to="/login" class="btn btn-primary">Get Started</router-link>
+          <router-link v-else to="/dashboard" class="btn btn-primary">Go to Dashboard</router-link>
           <button class="btn btn-ghost" @click="scrollToFeatures">Learn More</button>
         </div>
       </div>
@@ -46,12 +47,19 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { supabase } from '../lib/supabase'
 
 export default {
   name: 'Home',
   setup() {
     const featuresSection = ref(null)
+    const user = ref(null)
+
+    onMounted(async () => {
+      const { data } = await supabase.auth.getUser()
+      user.value = data.user
+    })
 
     const scrollToFeatures = () => {
       featuresSection.value?.scrollIntoView({ behavior: 'smooth' })
@@ -59,7 +67,8 @@ export default {
 
     return {
       featuresSection,
-      scrollToFeatures
+      scrollToFeatures,
+      user
     }
   }
 }
