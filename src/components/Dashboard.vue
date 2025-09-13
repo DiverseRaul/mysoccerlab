@@ -245,7 +245,7 @@
         </div>
         <div v-else class="live-match-view card-glass">
           <div class="match-header-redesign">
-            <button @click="activeMatch = null" class="back-button">
+            <button @click="handleBackToMatches" class="back-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
               </svg>
@@ -301,34 +301,6 @@
                 <span :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
                 <label>Match Rating</label>
               </div>
-              <div class="live-stats-grid">
-                <div class="live-stat"><span>Goals</span> <strong>{{ activeMatch.my_goals || 0 }}</strong></div>
-                <div class="live-stat"><span>Assists</span> <strong>{{ activeMatch.assists }}</strong></div>
-                <div class="live-stat"><span>Shots on Target</span> <strong>{{ shotsOnTarget }}</strong></div>
-                <div class="live-stat"><span>Shots off Target</span> <strong>{{ shotsOffTarget }}</strong></div>
-                <div class="live-stat"><span>Tackles</span> <strong>{{ activeMatch.tackles }}</strong></div>
-                <div class="live-stat"><span>Interceptions</span> <strong>{{ activeMatch.interceptions }}</strong></div>
-                <div class="live-stat"><span>Clearances</span> <strong>{{ activeMatch.clearances || 0 }}</strong></div>
-                <div class="live-stat"><span>Dribbles</span> <strong>{{ activeMatch.dribbles }}</strong></div>
-                <div class="live-stat"><span>Chances Created</span> <strong>{{ activeMatch.created_chances }}</strong></div>
-                <div class="live-stat"><span>Possession Lost</span> <strong>{{ activeMatch.lost_possessions }}</strong></div>
-                <div class="live-stat"><span>Good Passes</span> <strong>{{ activeMatch.successful_passes }}</strong></div>
-                <div class="live-stat"><span>Bad Passes</span> <strong>{{ activeMatch.unsuccessful_passes }}</strong></div>
-                <div class="live-stat"><span>Fouls</span> <strong>{{ activeMatch.fouls }}</strong></div>
-                <div class="live-stat"><span>Own Goals</span> <strong>{{ activeMatch.own_goals }}</strong></div>
-                <div class="live-stat card-stat yellow"><span>Yellow Cards</span> <strong>{{ activeMatch.yellow_card }}</strong></div>
-                <div class="live-stat card-stat red"><span>Red Cards</span> <strong>{{ activeMatch.red_card }}</strong></div>
-                <template v-if="isGoalkeeperMode && goalkeeperStats">
-                  <div class="live-stat gk-stat"><span>Saves</span> <strong>{{ goalkeeperStats.saves }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Catches</span> <strong>{{ goalkeeperStats.catches }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Punches</span> <strong>{{ goalkeeperStats.punches }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Pens Saved</span> <strong>{{ goalkeeperStats.penalties_saved }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Goals</span> <strong>{{ goalkeeperStats.goals }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Assists</span> <strong>{{ goalkeeperStats.assists }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Good Passes</span> <strong>{{ goalkeeperStats.successful_passes }}</strong></div>
-                  <div class="live-stat gk-stat"><span>Bad Passes</span> <strong>{{ goalkeeperStats.unsuccessful_passes }}</strong></div>
-                </template>
-              </div>
             </div>
 
             <div class="shot-log-panel">
@@ -350,7 +322,6 @@
                 </div>
               </div>
               <div v-if="selectedEvent" class="shot-visualization">
-                <button @click="selectedEvent = null" class="close-viz-btn">&times;</button>
                 <h5>Shot Placement</h5>
                 <div class="goal-grid-container viz-grid">
                   <div class="goal-grid">
@@ -369,6 +340,7 @@
                   <span class="stat-label">Saves</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('saves', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.saves || 0 }}</span>
                     <button @click="incrementGkStat('saves', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -376,6 +348,7 @@
                   <span class="stat-label">Catches</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('catches', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.catches || 0 }}</span>
                     <button @click="incrementGkStat('catches', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -383,6 +356,7 @@
                   <span class="stat-label">Punches</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('punches', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.punches || 0 }}</span>
                     <button @click="incrementGkStat('punches', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -390,6 +364,7 @@
                   <span class="stat-label">Penalties Saved</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('penalties_saved', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.penalties_saved || 0 }}</span>
                     <button @click="incrementGkStat('penalties_saved', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -397,6 +372,7 @@
                   <span class="stat-label">Goal</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('goals', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.goals || 0 }}</span>
                     <button @click="incrementGkStat('goals', 1)" class="btn btn-success">+</button>
                   </div>
                 </div>
@@ -404,6 +380,7 @@
                   <span class="stat-label">Assist</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('assists', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.assists || 0 }}</span>
                     <button @click="incrementGkStat('assists', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -411,6 +388,7 @@
                   <span class="stat-label">Good Pass</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('successful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.successful_passes || 0 }}</span>
                     <button @click="incrementGkStat('successful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -418,6 +396,7 @@
                   <span class="stat-label">Bad Pass</span>
                   <div class="button-group">
                     <button @click="incrementGkStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.unsuccessful_passes || 0 }}</span>
                     <button @click="incrementGkStat('unsuccessful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -426,6 +405,7 @@
                 <div class="stat-control-group">
                   <span class="stat-label">My Goal</span>
                   <div class="button-group">
+                    <span class="stat-value-display">{{ activeMatch.my_goals || 0 }}</span>
                     <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
                   </div>
                 </div>
@@ -433,12 +413,14 @@
                   <span class="stat-label">My Assist</span>
                   <div class="button-group">
                     <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
                     <button @click="incrementStat('assists', 1)" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
                   <span class="stat-label">Shot</span>
                   <div class="button-group">
+                    <span class="stat-value-display">{{ shotsOnTarget + shotsOffTarget }}</span>
                     <button @click="handleShot()" class="btn">+</button>
                   </div>
                 </div>
@@ -446,6 +428,7 @@
                   <span class="stat-label">Tackle</span>
                   <div class="button-group">
                     <button @click="incrementStat('tackles', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.tackles || 0 }}</span>
                     <button @click="incrementStat('tackles', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -453,6 +436,7 @@
                   <span class="stat-label">Interception</span>
                   <div class="button-group">
                     <button @click="incrementStat('interceptions', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.interceptions || 0 }}</span>
                     <button @click="incrementStat('interceptions', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -460,6 +444,7 @@
                   <span class="stat-label">Clearance</span>
                   <div class="button-group">
                     <button @click="incrementStat('clearances', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.clearances || 0 }}</span>
                     <button @click="incrementStat('clearances', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -467,6 +452,7 @@
                   <span class="stat-label">Dribble</span>
                   <div class="button-group">
                     <button @click="incrementStat('dribbles', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.dribbles || 0 }}</span>
                     <button @click="incrementStat('dribbles', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -474,6 +460,7 @@
                   <span class="stat-label">Chance Created</span>
                   <div class="button-group">
                     <button @click="incrementStat('created_chances', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.created_chances || 0 }}</span>
                     <button @click="incrementStat('created_chances', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -481,6 +468,7 @@
                   <span class="stat-label">Possession Lost</span>
                   <div class="button-group">
                     <button @click="incrementStat('lost_possessions', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.lost_possessions || 0 }}</span>
                     <button @click="incrementStat('lost_possessions', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -488,6 +476,7 @@
                   <span class="stat-label">Good Pass</span>
                   <div class="button-group">
                     <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
                     <button @click="incrementStat('successful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -495,6 +484,7 @@
                   <span class="stat-label">Bad Pass</span>
                   <div class="button-group">
                     <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
                     <button @click="incrementStat('unsuccessful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -502,6 +492,7 @@
                   <span class="stat-label">Foul</span>
                   <div class="button-group">
                     <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.fouls || 0 }}</span>
                     <button @click="incrementStat('fouls', 1)" class="btn">+</button>
                   </div>
                 </div>
@@ -512,6 +503,7 @@
                   <span class="stat-label">Yellow Card</span>
                   <div class="button-group">
                     <button @click="incrementStat('yellow_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
+                    <span class="stat-value-display">{{ activeMatch.yellow_card || 0 }}</span>
                     <button @click="incrementStat('yellow_card', 1)" class="btn btn-warning card-btn"></button>
                   </div>
                 </div>
@@ -519,6 +511,7 @@
                   <span class="stat-label">Red Card</span>
                   <div class="button-group">
                     <button @click="incrementStat('red_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
+                    <span class="stat-value-display">{{ activeMatch.red_card || 0 }}</span>
                     <button @click="incrementStat('red_card', 1)" class="btn btn-danger card-btn"></button>
                   </div>
                 </div>
@@ -754,8 +747,13 @@ export default {
     })
 
     const shotsOnTarget = computed(() => {
-      return matchShots.value.filter(shot => shot.on_target).length
-    })
+      if (!activeMatch.value) return 0;
+      return matchShots.value.filter(s => s.on_target).length;
+    });
+    const shotsOffTarget = computed(() => {
+      if (!activeMatch.value) return 0;
+      return matchShots.value.filter(s => !s.on_target).length;
+    });
 
     const combinedEvents = computed(() => {
       const goals = matchGoals.value.map(g => ({ ...g, type: 'Goal', details: 'Goal Scored', event_time: g.created_at }));
@@ -796,9 +794,6 @@ export default {
       return [...ungroupedEvents, ...Object.values(eventGroups)].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
     });
 
-    const shotsOffTarget = computed(() => {
-      return matchShots.value.filter(shot => !shot.on_target).length
-    })
 
     const wins = computed(() => {
       return matches.value.filter(match => match.score_for > match.score_against).length
@@ -1017,43 +1012,58 @@ export default {
 
     const loadData = async () => {
       try {
-        // Load matches for the current user
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
         const { data: matchesData, error: matchesError } = await supabase
           .from('matches')
           .select('*')
           .eq('user_id', user.id)
-          .order('match_date', { ascending: false })
+          .order('match_date', { ascending: false });
 
         if (matchesError) {
-          console.error('Error fetching matches:', matchesError)
-          return
+          console.error('Error fetching matches:', matchesError);
+          return;
         }
 
-        const { data: goalsData, error: goalsError } = await supabase
-          .from('goals')
-          .select('match_id')
-          .eq('user_id', user.id)
-
-        if (goalsError) {
-          console.error('Error fetching goals:', goalsError)
+        const matchIds = matchesData.map(m => m.id);
+        if (matchIds.length === 0) {
+          matches.value = [];
+          return;
         }
 
-        const goalsPerMatch = (goalsData || []).reduce((acc, goal) => {
-          acc[goal.match_id] = (acc[goal.match_id] || 0) + 1
-          return acc
-        }, {})
+        const { data: shotsData, error: shotsError } = await supabase
+          .from('shots')
+          .select('match_id, on_target')
+          .in('match_id', matchIds);
+
+        if (shotsError) {
+          console.error('Error fetching shots for matches:', shotsError);
+          matches.value = matchesData; // Fallback
+          return;
+        }
+
+        const statsByMatch = shotsData.reduce((acc, shot) => {
+          if (!acc[shot.match_id]) {
+            acc[shot.match_id] = { shots_on_target: 0, shots_off_target: 0 };
+          }
+          if (shot.on_target) {
+            acc[shot.match_id].shots_on_target++;
+          } else {
+            acc[shot.match_id].shots_off_target++;
+          }
+          return acc;
+        }, {});
 
         matches.value = matchesData.map(match => ({
           ...match,
-          my_goals: goalsPerMatch[match.id] || 0
-        }))
+          shots_on_target: statsByMatch[match.id]?.shots_on_target || 0,
+          shots_off_target: statsByMatch[match.id]?.shots_off_target || 0,
+        }));
       } catch (error) {
-        console.error('Error loading data:', error)
+        console.error('Error in loadData:', error);
       }
-    }
+    };
 
     const addMatch = async () => {
       try {
@@ -1100,13 +1110,38 @@ export default {
     }
 
     const selectMatch = async (match) => {
-      activeMatch.value = match
-      await loadMatchDetails(match.id)
-      await loadGoalkeeperStats(match.id)
-      if (match.position_played === 'Goalkeeper') {
-        isGoalkeeperMode.value = true;
+      if (activeMatch.value) return; // Prevent re-triggering when a match is active
+      // Fetch the full, up-to-date match object to ensure all stats are loaded
+      const { data: fullMatch, error: matchError } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', match.id)
+        .single();
+
+      if (matchError) {
+        console.error('Error fetching full match data:', matchError);
+        activeMatch.value = match; // Fallback to the list view's match object
+      } else {
+        activeMatch.value = fullMatch;
       }
-    }
+
+      // Fetch related goals for the match
+      const { data: goals, error: goalsError } = await supabase.from('goals').select('*').eq('match_id', match.id);
+      if (goalsError) console.error('Error fetching goals:', goalsError); else matchGoals.value = goals;
+
+      // Fetch related shots for the match
+      const { data: shots, error: shotsError } = await supabase.from('shots').select('*').eq('match_id', match.id);
+      if (shotsError) console.error('Error fetching shots:', shotsError); else matchShots.value = shots;
+
+      // Check if the player was a goalkeeper in this match
+      if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
+        isGoalkeeperMode.value = true;
+        fetchGoalkeeperStats(match.id);
+      } else {
+        isGoalkeeperMode.value = false;
+        goalkeeperStats.value = null;
+      }
+    };
 
     const loadMatchDetails = async (matchId) => {
       const { data: goals, error: goalsError } = await supabase
@@ -1214,34 +1249,27 @@ export default {
     };
 
     const removeEventGroup = async (eventGroup) => {
-      if (!activeMatch.value) return;
+      if (!activeMatch.value || !eventGroup.events || eventGroup.events.length === 0) return;
 
-      // If any event in the group is being visualized, close the viz
-      if (selectedEvent.value && eventGroup.events.some(e => e.id === selectedEvent.value.id)) {
+      let eventToRemove;
+
+      if (eventGroup.count > 1) {
+        // For groups, find the most recent event to remove
+        eventToRemove = eventGroup.events.reduce((latest, current) => {
+          return new Date(current.created_at) > new Date(latest.created_at) ? current : latest;
+        });
+      } else {
+        // For single-item groups, remove the only event
+        eventToRemove = eventGroup.events[0];
+      }
+
+      // If the event being removed is the one being visualized, close the viz
+      if (selectedEvent.value && selectedEvent.value.id === eventToRemove.id) {
         selectedEvent.value = null;
       }
 
-      // Remove all events in the group
-      for (const event of eventGroup.events) {
-        if (event.type === 'Shot') {
-          const { error } = await supabase.from('shots').delete().eq('id', event.id);
-          if (error) {
-            console.error('Error removing shot:', error);
-          } else {
-            matchShots.value = matchShots.value.filter(s => s.id !== event.id);
-          }
-        } else if (event.type === 'Goal') {
-          const { error } = await supabase.from('goals').delete().eq('id', event.id);
-          if (error) {
-            console.error('Error removing goal:', error);
-          } else {
-            // Decrement team score for each goal
-            await incrementStat('score_for', -1);
-            matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
-            activeMatch.value.my_goals = Math.max(0, (activeMatch.value.my_goals || 0) - 1);
-          }
-        }
-      }
+      // Call the single event removal function
+      await removeEvent(eventToRemove);
     };
 
     const handleShotOnTarget = () => {
@@ -1252,26 +1280,24 @@ export default {
 
     const saveShot = async (onTarget, quadrant) => {
       if (!activeMatch.value) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
 
       const shotData = {
-        user_id: user.id,
         match_id: activeMatch.value.id,
         on_target: onTarget,
-        quadrant: quadrant
+        quadrant: quadrant,
       };
 
-      const { data, error } = await supabase.from('shots').insert([shotData]).select();
+      const { data, error } = await supabase.from('shots').insert(shotData).select();
 
       if (error) {
-        console.error('Error adding shot:', error);
+        console.error('Error saving shot:', error);
       } else {
         matchShots.value.push(data[0]);
       }
+
       showShotModal.value = false;
       showQuadrantModal.value = false;
-    }
+    };
 
 
 
@@ -1296,45 +1322,74 @@ export default {
       }
     };
 
+    const handleBackToMatches = async () => {
+      activeMatch.value = null;
+      await loadData();
+    };
+
     const calculateMatchRating = (match) => {
-      let rating = 6.0; // Base rating
+      if (!match) return '0.00';
+
+      let rating = 6.0;
+      let shotsOnTarget = 0;
+      let shotsOffTarget = 0;
+
+      if (activeMatch.value && match.id === activeMatch.value.id) {
+        // Live view: calculate from the reactive 'matchShots' array
+        shotsOnTarget = matchShots.value.filter(s => s.on_target).length;
+        shotsOffTarget = matchShots.value.filter(s => !s.on_target).length;
+      } else {
+        // List view: use the pre-calculated stats on the match object
+        shotsOnTarget = match.shots_on_target || 0;
+        shotsOffTarget = match.shots_off_target || 0;
+      }
 
       // Contributions
-      rating += (match.my_goals || 0) * 1.7; // 1.5 per goal
-      rating += match.assists * 1.0;
-      rating += match.tackles * 0.2;
-      rating += match.interceptions * 0.2;
-      rating += match.dribbles * 0.1; // Reduced from 0.15
-      rating += match.successful_passes * 0.05;
-      rating += match.created_chances * 0.225; // Bonus for creating chances
+      rating += (match.my_goals || 0) * 1.7;
+      rating += (match.assists || 0) * 1.0;
+      rating += shotsOnTarget * 0.25;
+      rating += shotsOffTarget * 0.1;
+      rating += (match.tackles || 0) * 0.2;
+      rating += (match.interceptions || 0) * 0.2;
+      rating += (match.dribbles || 0) * 0.1;
+      rating += (match.successful_passes || 0) * 0.05;
+      rating += (match.created_chances || 0) * 0.225;
 
       // Negative contributions
-      rating -= match.fouls * 0.3;
-      rating -= match.lost_possessions * 0.125; // Penalty for losing possession
-      rating -= match.unsuccessful_passes * 0.05; // Reduced from 0.1
-      rating -= match.own_goals * 2.0;
+      rating -= (match.fouls || 0) * 0.3;
+      rating -= (match.lost_possessions || 0) * 0.125;
+      rating -= (match.unsuccessful_passes || 0) * 0.05;
+      rating -= (match.own_goals || 0) * 2.0;
 
       // Disciplinary
-      rating -= match.yellow_card * 0.75; // Penalty for yellow card
-      rating -= match.red_card * 3; // Penalty for red card
+      rating -= (match.yellow_card || 0) * 0.75;
+      rating -= (match.red_card || 0) * 3;
 
       // Result impact
       const result = getMatchResult(match);
       if (result === 'WIN') rating += 1.0;
       else if (result === 'LOSS') rating -= 1.0;
 
-      // Clamp between 0 and 10
       return Math.max(0, Math.min(10, rating)).toFixed(2);
-    }
+    };
+    const ratingColorConfig = {
+      excellent: { threshold: 9.0, class: 'stat-excellent' },
+      good: { threshold: 8.0, class: 'stat-good' },
+      mid: { threshold: 6.5, class: 'stat-mid' },
+      bad: { threshold: 5.0, class: 'stat-bad' },
+      horrible: { threshold: 0, class: 'stat-horrible' },
+    };
 
     const getStatColorClass = (statType, value) => {
       const numValue = parseFloat(value) || 0;
       if (statType === 'rating') {
-        if (numValue >= 8.5) return 'stat-good';
-        if (numValue >= 7.0) return 'stat-mid';
-        if (numValue >= 3.0) return 'stat-bad';
-        return 'stat-horrible';
+        if (numValue >= ratingColorConfig.excellent.threshold) return ratingColorConfig.excellent.class;
+        if (numValue >= ratingColorConfig.good.threshold) return ratingColorConfig.good.class;
+        if (numValue >= ratingColorConfig.mid.threshold) return ratingColorConfig.mid.class;
+        if (numValue >= ratingColorConfig.bad.threshold) return ratingColorConfig.bad.class;
+        return ratingColorConfig.horrible.class;
       }
+      // Keep original logic for other stat types
       if (statType === 'goals') {
         if (numValue >= 2) return 'stat-good';
         if (numValue >= 1) return 'stat-mid';
@@ -1346,7 +1401,7 @@ export default {
         return 'stat-bad';
       }
       return '';
-    }
+    };
 
     const confirmDeleteMatch = () => {
       showDeleteConfirm.value = true
@@ -1421,6 +1476,7 @@ export default {
       activeMatch,
       selectMatch,
       incrementStat,
+      handleBackToMatches,
       handleMyGoal,
       showGoalModal,
       showShotModal,
@@ -1724,7 +1780,7 @@ input:checked + .slider:before {
 
 @media (max-width: 768px) {
   .match-stats-summary {
-    gap: 2rem;
+    gap: 1.25rem;
   }
 }
 
@@ -1740,20 +1796,24 @@ input:checked + .slider:before {
   text-transform: uppercase;
 }
 
+.stat-excellent {
+  color: #00c8ff; /* Bright blue for excellent */
+}
+
 .stat-good {
-  color: #28a745; /* Green */
+  color: #4CAF50; /* Green for good */
 }
 
 .stat-mid {
-  color: #ffc107; /* Yellow */
+  color: #FFC107; /* Amber for mid-tier */
 }
 
 .stat-bad {
-  color: #dc3545; /* Red */
+  color: #F44336; /* Red for bad */
 }
 
 .stat-horrible {
-  color: #84359a; /* Purple */
+  color: #b71c1c; /* Dark red for horrible */
 }
 
 .live-view-content.three-columns {
@@ -1846,10 +1906,11 @@ input:checked + .slider:before {
   color: #aaa;
   border: none;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  line-height: 20px;
+  width: 25px;
+  height: 25px;
+  line-height: 25px;
   text-align: center;
+  font-size: 1.2rem;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease, background-color 0.2s ease;
@@ -2119,6 +2180,19 @@ input:checked + .slider:before {
   background: rgba(20, 20, 20, 0.5);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.button-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stat-value-display {
+  font-weight: bold;
+  font-size: 1.1rem;
+  min-width: 2ch; /* Ensure space for 2 digits */
+  text-align: center;
 }
 
 .action-btn {
@@ -2568,7 +2642,7 @@ input:checked + .slider:before {
 
 .button-group {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
 .button-group .btn {
@@ -2780,10 +2854,11 @@ input:checked + .slider:before {
   }
 
   .button-group .btn {
-    padding-left: 1.2rem;
-    padding-right: 1.2rem;
-    font-size: 1.6rem;
-    min-width: 55px;
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+    font-size: 1rem;
+    font-weight: 600;
+    min-width: 50px;
   }
 }
 </style>
