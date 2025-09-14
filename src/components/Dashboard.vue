@@ -282,15 +282,20 @@
           
           
           <div class="match-view-controls">
-            <div class="position-display">
-              <span>Position Played: <strong>{{ activeMatch.position_played }}</strong></span>
-            </div>
-            <div class="goalkeeper-toggle">
-              <label for="gk-mode">Goalkeeper Mode</label>
-              <label class="switch">
-                <input type="checkbox" id="gk-mode" v-model="isGoalkeeperMode">
-                <span class="slider round"></span>
-              </label>
+            <div class="position-controls">
+              <div class="position-display">
+                <label>Position Played:</label>
+                <select v-model="activeMatch.position_played" @change="updatePosition" class="position-select">
+                  <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
+                </select>
+              </div>
+              <div class="goalkeeper-toggle">
+                <label for="gk-mode">Goalkeeper Mode</label>
+                <label class="switch">
+                  <input type="checkbox" id="gk-mode" v-model="isGoalkeeperMode">
+                  <span class="slider round"></span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -371,33 +376,32 @@
                 <div class="stat-control-group">
                   <span class="stat-label">Goal</span>
                   <div class="button-group">
-                    <button @click="incrementGkStat('goals', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.goals || 0 }}</span>
-                    <button @click="incrementGkStat('goals', 1)" class="btn btn-success">+</button>
+                    <span class="stat-value-display">{{ activeMatch.my_goals || 0 }}</span>
+                    <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
                   <span class="stat-label">Assist</span>
                   <div class="button-group">
-                    <button @click="incrementGkStat('assists', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.assists || 0 }}</span>
-                    <button @click="incrementGkStat('assists', 1)" class="btn">+</button>
+                    <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
+                    <button @click="incrementStat('assists', 1)" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
                   <span class="stat-label">Good Pass</span>
                   <div class="button-group">
-                    <button @click="incrementGkStat('successful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.successful_passes || 0 }}</span>
-                    <button @click="incrementGkStat('successful_passes', 1)" class="btn">+</button>
+                    <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
+                    <button @click="incrementStat('successful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
                   <span class="stat-label">Bad Pass</span>
                   <div class="button-group">
-                    <button @click="incrementGkStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.unsuccessful_passes || 0 }}</span>
-                    <button @click="incrementGkStat('unsuccessful_passes', 1)" class="btn">+</button>
+                    <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
+                    <button @click="incrementStat('unsuccessful_passes', 1)" class="btn">+</button>
                   </div>
                 </div>
               </div>
@@ -522,6 +526,7 @@
                   <span class="stat-label">Our Goal</span>
                   <div class="button-group">
                     <button @click="incrementStat('score_for', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.score_for || 0 }}</span>
                     <button @click="incrementStat('score_for', 1)" class="btn btn-primary">+</button>
                   </div>
                 </div>
@@ -529,6 +534,7 @@
                   <span class="stat-label">Their Goal</span>
                   <div class="button-group">
                     <button @click="incrementStat('score_against', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.score_against || 0 }}</span>
                     <button @click="incrementStat('score_against', 1)" class="btn btn-danger">+</button>
                   </div>
                 </div>
@@ -536,6 +542,7 @@
                   <span class="stat-label">Own Goal</span>
                   <div class="button-group">
                     <button @click="incrementStat('own_goals', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.own_goals || 0 }}</span>
                     <button @click="incrementStat('own_goals', 1)" class="btn btn-danger">+</button>
                   </div>
                 </div>
@@ -834,10 +841,6 @@ export default {
           punches: 0,
           goals_conceded: 0,
           penalties_saved: 0,
-          successful_passes: 0,
-          unsuccessful_passes: 0,
-          goals: 0,
-          assists: 0,
         };
       }
       if (error && error.code !== 'PGRST116') {
@@ -849,9 +852,20 @@ export default {
       if (!goalkeeperStats.value) return;
       goalkeeperStats.value[stat] = Math.max(0, goalkeeperStats.value[stat] + value);
       
+      // Only update the specific fields that exist in the goalkeeper_match_stats table
+      const updateData = {
+        match_id: goalkeeperStats.value.match_id,
+        user_id: goalkeeperStats.value.user_id,
+        saves: goalkeeperStats.value.saves || 0,
+        catches: goalkeeperStats.value.catches || 0,
+        punches: goalkeeperStats.value.punches || 0,
+        goals_conceded: goalkeeperStats.value.goals_conceded || 0,
+        penalties_saved: goalkeeperStats.value.penalties_saved || 0,
+      };
+      
       const { error } = await supabase
         .from('goalkeeper_match_stats')
-        .upsert(goalkeeperStats.value, { onConflict: 'match_id, user_id' });
+        .upsert(updateData, { onConflict: 'match_id, user_id' });
 
       if (error) {
         console.error(`Error updating ${stat}:`, error);
@@ -1032,6 +1046,7 @@ export default {
           return;
         }
 
+        // Load shots data
         const { data: shotsData, error: shotsError } = await supabase
           .from('shots')
           .select('match_id, on_target')
@@ -1041,6 +1056,26 @@ export default {
           console.error('Error fetching shots for matches:', shotsError);
           matches.value = matchesData; // Fallback
           return;
+        }
+
+        // Load goalkeeper stats for goalkeeper matches
+        const goalkeeperMatchIds = matchesData
+          .filter(m => m.position_played && m.position_played.toLowerCase().includes('goalkeeper'))
+          .map(m => m.id);
+        
+        let goalkeeperStatsByMatch = {};
+        if (goalkeeperMatchIds.length > 0) {
+          const { data: goalkeeperData, error: goalkeeperError } = await supabase
+            .from('goalkeeper_match_stats')
+            .select('*')
+            .in('match_id', goalkeeperMatchIds);
+
+          if (!goalkeeperError && goalkeeperData) {
+            goalkeeperStatsByMatch = goalkeeperData.reduce((acc, stats) => {
+              acc[stats.match_id] = stats;
+              return acc;
+            }, {});
+          }
         }
 
         const statsByMatch = shotsData.reduce((acc, shot) => {
@@ -1059,6 +1094,7 @@ export default {
           ...match,
           shots_on_target: statsByMatch[match.id]?.shots_on_target || 0,
           shots_off_target: statsByMatch[match.id]?.shots_off_target || 0,
+          goalkeeper_stats: goalkeeperStatsByMatch[match.id] || null,
         }));
       } catch (error) {
         console.error('Error in loadData:', error);
@@ -1136,7 +1172,7 @@ export default {
       // Check if the player was a goalkeeper in this match
       if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
         isGoalkeeperMode.value = true;
-        fetchGoalkeeperStats(match.id);
+        await loadGoalkeeperStats(match.id);
       } else {
         isGoalkeeperMode.value = false;
         goalkeeperStats.value = null;
@@ -1319,6 +1355,13 @@ export default {
         console.error(`Error updating ${stat}:`, error);
         // Revert optimistic update on error
         activeMatch.value[stat] -= value;
+        return;
+      }
+
+      // If this is a goalkeeper match and we're changing score_against, also update goals_conceded
+      const isGoalkeeper = activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper');
+      if (isGoalkeeper && stat === 'score_against' && value !== 0 && goalkeeperStats.value) {
+        await incrementGkStat('goals_conceded', value);
       }
     };
 
@@ -1344,20 +1387,45 @@ export default {
         shotsOffTarget = match.shots_off_target || 0;
       }
 
-      // Contributions
+      // Check if this is a goalkeeper match and include goalkeeper stats
+      const isGoalkeeper = match.position_played && match.position_played.toLowerCase().includes('goalkeeper');
+      const currentGoalkeeperStats = (activeMatch.value && match.id === activeMatch.value.id) ? goalkeeperStats.value : null;
+
+      if (isGoalkeeper && currentGoalkeeperStats) {
+        // Goalkeeper-specific rating calculation (live view)
+        rating += (currentGoalkeeperStats.saves || 0) * 0.175;
+        rating += (currentGoalkeeperStats.catches || 0) * 0.175;
+        rating += (currentGoalkeeperStats.punches || 0) * 0.15;
+        rating += (currentGoalkeeperStats.penalties_saved || 0) * 1.25;
+        rating -= (currentGoalkeeperStats.goals_conceded || 0) * 1;
+      } else if (isGoalkeeper && match.goalkeeper_stats) {
+        // Goalkeeper-specific rating calculation (list view with preloaded stats)
+        rating += (match.goalkeeper_stats.saves || 0) * 0.175;
+        rating += (match.goalkeeper_stats.catches || 0) * 0.175;
+        rating += (match.goalkeeper_stats.punches || 0) * 0.15;
+        rating += (match.goalkeeper_stats.penalties_saved || 0) * 1.25;
+        rating -= (match.goalkeeper_stats.goals_conceded || 0) * 1;
+      } else if (isGoalkeeper) {
+        // Default goalkeeper rating when no stats are available yet - clean sheet bonus
+        const goalsAgainst = match.score_against || 0;
+
+        rating -= goalsAgainst * 1; // Goals conceded penalty
+      }
+
+      // Regular player contributions
       rating += (match.my_goals || 0) * 1.7;
       rating += (match.assists || 0) * 1.0;
-      rating += shotsOnTarget * 0.25;
+      rating += shotsOnTarget * 0.2;
       rating += shotsOffTarget * 0.1;
-      rating += (match.tackles || 0) * 0.2;
+      rating += (match.tackles || 0) * 0.1;
       rating += (match.interceptions || 0) * 0.2;
       rating += (match.dribbles || 0) * 0.1;
       rating += (match.successful_passes || 0) * 0.05;
-      rating += (match.created_chances || 0) * 0.225;
+      rating += (match.created_chances || 0) * 0.25;
 
       // Negative contributions
-      rating -= (match.fouls || 0) * 0.3;
-      rating -= (match.lost_possessions || 0) * 0.125;
+      rating -= (match.fouls || 0) * 0.25;
+      rating -= (match.lost_possessions || 0) * 0.15;
       rating -= (match.unsuccessful_passes || 0) * 0.05;
       rating -= (match.own_goals || 0) * 2.0;
 
@@ -1422,6 +1490,36 @@ export default {
         matches.value = matches.value.filter(m => m.id !== activeMatch.value.id)
         activeMatch.value = null
         showDeleteConfirm.value = false
+      }
+    }
+
+    const updatePosition = async () => {
+      if (!activeMatch.value) return
+      
+      const { error } = await supabase
+        .from('matches')
+        .update({
+          position_played: activeMatch.value.position_played
+        })
+        .eq('id', activeMatch.value.id)
+      
+      if (error) {
+        console.error('Error updating position:', error)
+      } else {
+        // Update local matches array
+        const matchIndex = matches.value.findIndex(m => m.id === activeMatch.value.id)
+        if (matchIndex > -1) {
+          matches.value[matchIndex].position_played = activeMatch.value.position_played
+        }
+        
+        // Auto-toggle goalkeeper mode based on position
+        if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
+          isGoalkeeperMode.value = true
+          await loadGoalkeeperStats(activeMatch.value.id)
+        } else {
+          isGoalkeeperMode.value = false
+          goalkeeperStats.value = null
+        }
       }
     }
 
@@ -1502,6 +1600,7 @@ export default {
       showDeleteConfirm,
       confirmDeleteMatch,
       deleteMatch,
+      updatePosition,
       updateMatch,
       averageRating,
       highestRating,
@@ -1539,6 +1638,15 @@ export default {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-direction: column;
+  text-align: center;
+}
+
+.goalkeeper-toggle > label:first-child {
+  font-size: 0.9rem;
+  color: #aaa;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
 }
 
 .switch {
@@ -1598,16 +1706,56 @@ input:checked + .slider:before {
 
 .match-view-controls {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  justify-content: center;
   padding: 1rem 2rem;
   background: rgba(10, 10, 10, 0.5);
   border-radius: 12px;
   margin-bottom: 1rem;
 }
 
-.position-display strong {
-  color: #4CAF50;
+.position-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.position-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.position-display label {
+  font-size: 0.9rem;
+  color: #aaa;
+  font-weight: 500;
+}
+
+.position-select {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #f0f0f0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.position-select:hover {
+  border-color: #4CAF50;
+}
+
+.position-select:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
 .live-stat.gk-stat strong {
