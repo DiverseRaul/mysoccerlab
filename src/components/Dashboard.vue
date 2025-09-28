@@ -376,7 +376,7 @@
                 <div class="stat-control-group">
                   <span class="stat-label">Goal</span>
                   <div class="button-group">
-                    <span class="stat-value-display">{{ activeMatch.my_goals || 0 }}</span>
+                    <span class="stat-value-display">{{ myGoalsForMatch }}</span>
                     <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
                   </div>
                 </div>
@@ -409,7 +409,7 @@
                 <div class="stat-control-group">
                   <span class="stat-label">My Goal</span>
                   <div class="button-group">
-                    <span class="stat-value-display">{{ activeMatch.my_goals || 0 }}</span>
+                    <span class="stat-value-display">{{ myGoalsForMatch }}</span>
                     <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
                   </div>
                 </div>
@@ -874,6 +874,12 @@ export default {
       }
     };
 
+    // Calculate my goals dynamically from goals table
+    const myGoalsForMatch = computed(() => {
+      if (!activeMatch.value) return 0;
+      return matchGoals.value.length;
+    });
+
     const totalGoals = computed(() => {
       return matches.value.reduce((sum, match) => sum + (match.my_goals || 0), 0)
     })
@@ -1046,6 +1052,16 @@ export default {
           return;
         }
 
+        // Load goals data to calculate my_goals for each match
+        const { data: goalsData, error: goalsError } = await supabase
+          .from('goals')
+          .select('match_id')
+          .in('match_id', matchIds);
+
+        if (goalsError) {
+          console.error('Error fetching goals for matches:', goalsError);
+        }
+
         // Load shots data
         const { data: shotsData, error: shotsError } = await supabase
           .from('shots')
@@ -1090,8 +1106,15 @@ export default {
           return acc;
         }, {});
 
+        // Calculate my_goals for each match from goals table
+        const goalsByMatch = (goalsData || []).reduce((acc, goal) => {
+          acc[goal.match_id] = (acc[goal.match_id] || 0) + 1;
+          return acc;
+        }, {});
+
         matches.value = matchesData.map(match => ({
           ...match,
+          my_goals: goalsByMatch[match.id] || 0,
           shots_on_target: statsByMatch[match.id]?.shots_on_target || 0,
           shots_off_target: statsByMatch[match.id]?.shots_off_target || 0,
           goalkeeper_stats: goalkeeperStatsByMatch[match.id] || null,
@@ -1217,11 +1240,10 @@ export default {
 
       if (error) {
         console.error('Error adding goal:', error)
-        // Revert score if goal insert fails
+        // Revert team score if goal insert fails
         await incrementStat('score_for', -1)
       } else {
         matchGoals.value.push(data[0])
-        activeMatch.value.my_goals = (activeMatch.value.my_goals || 0) + 1
       }
       showGoalModal.value = false
       quadrantForGoal.value = null; // Reset context
@@ -1279,7 +1301,6 @@ export default {
           // Decrement team score
           await incrementStat('score_for', -1);
           matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
-          activeMatch.value.my_goals = Math.max(0, (activeMatch.value.my_goals || 0) - 1);
         }
       }
     };
@@ -1376,15 +1397,20 @@ export default {
       let rating = 6.0;
       let shotsOnTarget = 0;
       let shotsOffTarget = 0;
+      let myGoalsCount = 0;
 
       if (activeMatch.value && match.id === activeMatch.value.id) {
         // Live view: calculate from the reactive 'matchShots' array
         shotsOnTarget = matchShots.value.filter(s => s.on_target).length;
         shotsOffTarget = matchShots.value.filter(s => !s.on_target).length;
+        // Live view: goals come from reactive goals array
+        myGoalsCount = matchGoals.value.length;
       } else {
         // List view: use the pre-calculated stats on the match object
         shotsOnTarget = match.shots_on_target || 0;
         shotsOffTarget = match.shots_off_target || 0;
+        // List view: goals precomputed on match object
+        myGoalsCount = match.my_goals || 0;
       }
 
       // Check if this is a goalkeeper match and include goalkeeper stats
@@ -1413,7 +1439,7 @@ export default {
       }
 
       // Regular player contributions
-      rating += (match.my_goals || 0) * 1.7;
+      rating += myGoalsCount * 1.7;
       rating += (match.assists || 0) * 1.0;
       rating += shotsOnTarget * 0.2;
       rating += shotsOffTarget * 0.1;
@@ -1576,6 +1602,7 @@ export default {
       incrementStat,
       handleBackToMatches,
       handleMyGoal,
+      myGoalsForMatch,
       showGoalModal,
       showShotModal,
       showQuadrantModal,
