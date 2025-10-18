@@ -165,6 +165,85 @@
           </div>
         </div>
 
+        <!-- Shot Map Section -->
+        <div class="shot-map-section">
+          <div class="section-header">
+            <h3><span class="section-icon">🎯</span> Shot Map Analytics</h3>
+            <p class="section-subtitle">Visualize your shooting accuracy and goal placement</p>
+          </div>
+          <div class="shot-map-container card-glass">
+            <div class="shot-map-header">
+              <div class="shot-map-stats">
+                <div class="shot-stat-item">
+                  <div class="stat-icon-wrapper shots">
+                    <span class="icon">📊</span>
+                  </div>
+                  <div class="stat-content">
+                    <span class="stat-value">{{ totalShotsWithQuadrant }}</span>
+                    <span class="stat-label">Total Shots</span>
+                  </div>
+                </div>
+                <div class="shot-stat-item">
+                  <div class="stat-icon-wrapper goals">
+                    <span class="icon">⚽</span>
+                  </div>
+                  <div class="stat-content">
+                    <span class="stat-value">{{ totalGoalsWithQuadrant }}</span>
+                    <span class="stat-label">Goals Scored</span>
+                  </div>
+                </div>
+                <div class="shot-stat-item">
+                  <div class="stat-icon-wrapper accuracy">
+                    <span class="icon">✓</span>
+                  </div>
+                  <div class="stat-content">
+                    <span class="stat-value">{{ shotAccuracy }}%</span>
+                    <span class="stat-label">Accuracy</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="shot-map-content">
+              <div class="goal-view-wrapper">
+                <div class="goal-frame">
+                  <div class="shot-heat-map">
+                    <div 
+                      v-for="i in 9" 
+                      :key="i" 
+                      class="heat-map-quadrant"
+                      :class="getHeatMapClass(i)"
+                      :style="getHeatMapStyle(i)"
+                    >
+                      <div class="quadrant-data">
+                        <div class="quadrant-goals" v-if="getQuadrantGoals(i) > 0">
+                          <span class="count">{{ getQuadrantGoals(i) }}</span>
+                        </div>
+                        <div class="quadrant-shots" v-if="getQuadrantShots(i) > 0">
+                          <span class="count">{{ getQuadrantShots(i) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="goal-legend">
+                  <div class="legend-item">
+                    <div class="legend-indicator goal"></div>
+                    <span>Goals</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-indicator shot"></div>
+                    <span>Shots on Target</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-indicator empty"></div>
+                    <span>No Shots</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Recent Form Charts -->
         <div class="trends-section">
           <h3>Recent Form</h3>
@@ -739,6 +818,8 @@ export default {
     ]);
     const isGoalkeeperMode = ref(false);
     const goalkeeperStats = ref(null);
+    const allShotsData = ref([]);
+    const allGoalsData = ref([]);
 
     const newMatch = ref({
       opponent: '',
@@ -932,6 +1013,69 @@ export default {
       return Math.max(...matches.value.map(match => match.my_goals || 0), 1)
     })
 
+    // Shot Map Computed Properties
+    const totalShotsWithQuadrant = computed(() => {
+      return allShotsData.value.filter(shot => shot.quadrant && shot.on_target).length
+    })
+
+    const totalGoalsWithQuadrant = computed(() => {
+      return allGoalsData.value.filter(goal => goal.quadrant).length
+    })
+
+    const shotAccuracy = computed(() => {
+      const totalShots = allShotsData.value.length
+      if (totalShots === 0) return 0
+      const shotsOnTarget = allShotsData.value.filter(shot => shot.on_target).length
+      return Math.round((shotsOnTarget / totalShots) * 100)
+    })
+
+    const getQuadrantShots = (quadrant) => {
+      return allShotsData.value.filter(shot => shot.quadrant === quadrant && shot.on_target).length
+    }
+
+    const getQuadrantGoals = (quadrant) => {
+      return allGoalsData.value.filter(goal => goal.quadrant === quadrant).length
+    }
+
+    const getHeatMapClass = (quadrant) => {
+      const shots = getQuadrantShots(quadrant)
+      const goals = getQuadrantGoals(quadrant)
+      const total = shots + goals
+      
+      if (total === 0) return 'heat-none'
+      if (total >= 5) return 'heat-high'
+      if (total >= 3) return 'heat-medium'
+      return 'heat-low'
+    }
+
+    const getHeatMapStyle = (quadrant) => {
+      const goals = getQuadrantGoals(quadrant)
+      const shots = getQuadrantShots(quadrant)
+      const maxCount = Math.max(
+        ...Array.from({length: 9}, (_, i) => getQuadrantShots(i + 1) + getQuadrantGoals(i + 1))
+      )
+      
+      if (maxCount === 0) return {}
+      
+      const total = goals + shots
+      const intensity = Math.min(1, total / Math.max(maxCount, 1))
+      
+      // Create a gradient from blue (shots) to green (goals)
+      if (goals > shots) {
+        const opacity = 0.3 + (intensity * 0.5)
+        return {
+          backgroundColor: `rgba(76, 175, 80, ${opacity})`
+        }
+      } else if (shots > 0) {
+        const opacity = 0.2 + (intensity * 0.4)
+        return {
+          backgroundColor: `rgba(33, 150, 243, ${opacity})`
+        }
+      }
+      
+      return {}
+    }
+
     // EA FC Style Stats
     const overallRating = computed(() => {
       if (matches.value.length === 0) return 65
@@ -1055,7 +1199,7 @@ export default {
         // Load goals data to calculate my_goals for each match
         const { data: goalsData, error: goalsError } = await supabase
           .from('goals')
-          .select('match_id')
+          .select('match_id, quadrant')
           .in('match_id', matchIds);
 
         if (goalsError) {
@@ -1065,8 +1209,12 @@ export default {
         // Load shots data
         const { data: shotsData, error: shotsError } = await supabase
           .from('shots')
-          .select('match_id, on_target')
+          .select('match_id, on_target, quadrant')
           .in('match_id', matchIds);
+        
+        // Store all shots and goals for shot map
+        allShotsData.value = shotsData || [];
+        allGoalsData.value = goalsData || [];
 
         if (shotsError) {
           console.error('Error fetching shots for matches:', shotsError);
@@ -1643,6 +1791,13 @@ export default {
       recentMatches,
       averageGoalsPerMatch,
       maxGoalsInMatch,
+      totalShotsWithQuadrant,
+      totalGoalsWithQuadrant,
+      shotAccuracy,
+      getQuadrantShots,
+      getQuadrantGoals,
+      getHeatMapClass,
+      getHeatMapStyle,
       overallRating,
       shootingStat,
       passingStat,
@@ -2574,6 +2729,335 @@ input:checked + .slider:before {
   letter-spacing: 0.5px;
 }
 
+/* Shot Map Section Styles */
+.shot-map-section {
+  margin: 2rem 0;
+}
+
+.section-header {
+  margin-bottom: 1.5rem;
+}
+
+.section-header h3 {
+  color: #fff;
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.section-icon {
+  font-size: 1.5rem;
+}
+
+.section-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+.shot-map-container {
+  padding: 2.5rem;
+  border-radius: 16px;
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.shot-map-header {
+  margin-bottom: 2.5rem;
+}
+
+.shot-map-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.shot-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.shot-stat-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.stat-icon-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.5rem;
+}
+
+.stat-icon-wrapper.shots {
+  background: linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(33, 150, 243, 0.1));
+  border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.stat-icon-wrapper.goals {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.stat-icon-wrapper.accuracy {
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 193, 7, 0.1));
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.shot-stat-item .stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.shot-stat-item .stat-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.shot-map-content {
+  margin-top: 2rem;
+}
+
+.goal-view-wrapper {
+  max-width: 650px;
+  margin: 0 auto;
+}
+
+.goal-frame {
+  position: relative;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.5) 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-left: 5px solid rgba(255, 255, 255, 0.7);
+  border-right: 5px solid rgba(255, 255, 255, 0.7);
+  border-top: 5px solid rgba(255, 255, 255, 0.7);
+}
+
+.goal-crossbar {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  height: 5px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(255, 255, 255, 0.8) 100%);
+  border-radius: 3px;
+  z-index: 15;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(255, 255, 255, 0.3) inset;
+}
+
+.shot-heat-map {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  aspect-ratio: 1.5 / 1;
+  position: relative;
+  z-index: 2;
+}
+
+.heat-map-quadrant {
+  position: relative;
+  background: rgba(0, 0, 0, 0.3);
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.heat-map-quadrant::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.heat-map-quadrant:hover::before {
+  opacity: 1;
+}
+
+.heat-map-quadrant:hover {
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+.heat-map-quadrant.heat-none {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.heat-map-quadrant.heat-low {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.heat-map-quadrant.heat-medium {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.heat-map-quadrant.heat-high {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.quadrant-data {
+  display: flex;
+  flex-direction: row;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  position: relative;
+}
+
+.quadrant-goals,
+.quadrant-shots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  min-width: 35px;
+  min-height: 35px;
+}
+
+.quadrant-data .count {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.quadrant-goals {
+  background-color: rgba(76, 175, 80, 0.8);
+}
+
+.quadrant-shots {
+  background-color: rgba(33, 150, 243, 0.8);
+}
+
+.goal-legend {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.goal-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.legend-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 2px solid;
+}
+
+.legend-indicator.goal {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.6);
+}
+
+.legend-indicator.shot {
+  background: rgba(33, 150, 243, 0.3);
+  border-color: rgba(33, 150, 243, 0.6);
+}
+
+.legend-indicator.empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.goal-legend .legend-item span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Responsive adjustments for shot map */
+@media (max-width: 768px) {
+  .shot-map-container {
+    padding: 1.5rem;
+  }
+
+  .shot-map-stats {
+    gap: 1rem;
+  }
+  
+  .shot-stat-item {
+    padding: 1rem;
+  }
+
+  .stat-icon-wrapper {
+    width: 45px;
+    height: 45px;
+    font-size: 1.3rem;
+  }
+  
+  .shot-stat-item .stat-value {
+    font-size: 1.5rem;
+  }
+  
+  .heat-map-quadrant {
+    min-height: 70px;
+  }
+
+  .quadrant-data .count {
+    font-size: 1.1rem;
+  }
+  
+  .goal-legend {
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+}
+
 /* Trends Section Styles */
 .trends-section {
   margin: 2rem 0;
@@ -2630,6 +3114,25 @@ input:checked + .slider:before {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.chart-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.chart-wrapper::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.chart-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.chart-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .chart-container {
@@ -2638,13 +3141,15 @@ input:checked + .slider:before {
   gap: 0.75rem;
   height: 120px;
   padding: 0.5rem 0;
+  min-width: min-content;
 }
 
 .bar-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 50px;
   height: 100%;
   position: relative;
 }
