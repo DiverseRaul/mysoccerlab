@@ -31,6 +31,7 @@ CREATE TABLE public.goals (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   goal_type TEXT,
   quadrant INTEGER,
+  field_position TEXT, -- X,Y coordinates on field as percentage string (e.g., "45.50,67.25")
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -41,6 +42,7 @@ CREATE TABLE public.shots (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   on_target BOOLEAN,
   quadrant INTEGER,
+  field_position TEXT, -- X,Y coordinates on field as percentage string (e.g., "45.50,67.25")
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

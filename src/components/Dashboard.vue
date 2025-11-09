@@ -181,6 +181,7 @@
                   <div class="stat-content">
                     <span class="stat-value">{{ totalShotsWithQuadrant }}</span>
                     <span class="stat-label">Total Shots</span>
+                    <span class="stat-breakdown">{{ totalShotsOnTarget }} on target • {{ totalShotsOffTarget }} off target</span>
                   </div>
                 </div>
                 <div class="shot-stat-item">
@@ -204,7 +205,24 @@
               </div>
             </div>
             <div class="shot-map-content">
-              <div class="goal-view-wrapper">
+              <!-- View Toggle -->
+              <div class="view-toggle">
+                <button 
+                  @click="shotMapView = 'goal'" 
+                  :class="['toggle-btn', { active: shotMapView === 'goal' }]"
+                >
+                  Goal Placement
+                </button>
+                <button 
+                  @click="shotMapView = 'field'" 
+                  :class="['toggle-btn', { active: shotMapView === 'field' }]"
+                >
+                  Shot Origins
+                </button>
+              </div>
+
+              <!-- Goal Placement View -->
+              <div v-if="shotMapView === 'goal'" class="goal-view-wrapper">
                 <div class="goal-frame">
                   <div class="shot-heat-map">
                     <div 
@@ -240,6 +258,96 @@
                   </div>
                 </div>
               </div>
+              
+              <!-- Shot Origin Field View -->
+              <div v-if="shotMapView === 'field'" class="field-origin-wrapper">
+                <div v-if="allShotsWithPosition.length === 0 && allGoalsWithPosition.length === 0" class="no-data-message">
+                  <p>No shot positions recorded yet.</p>
+                  <p style="font-size: 0.85rem; opacity: 0.7;">New shots/goals will appear here after you apply the database migration and record them with field positions.</p>
+                </div>
+                
+                <div v-else class="field-heat-map-frame">
+                  <div class="field-markings">
+                    <div class="penalty-box attacking-box"></div>
+                    <div class="penalty-arc attacking-arc"></div>
+                    <div class="goal-outline"></div>
+                  </div>
+                  
+                  <!-- SVG for shot trajectory lines and target markers -->
+                  <svg class="shot-trajectories" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <!-- Shot trajectory lines (only for on-target shots) -->
+                    <line 
+                      v-for="(shot, index) in allShotsWithPosition.filter(s => s.on_target)" 
+                      :key="'shot-line-' + index"
+                      :x1="getShotCoordinates(shot).x"
+                      :y1="getShotCoordinates(shot).y"
+                      :x2="getGoalTargetX(shot)"
+                      y2="0"
+                      class="shot-trajectory-line"
+                    />
+                    <line 
+                      v-for="(goal, index) in allGoalsWithPosition" 
+                      :key="'goal-line-' + index"
+                      :x1="getShotCoordinates(goal).x"
+                      :y1="getShotCoordinates(goal).y"
+                      :x2="getGoalTargetX(goal)"
+                      y2="0"
+                      class="shot-trajectory-line goal-trajectory"
+                    />
+                    
+                    <!-- Target markers on goal line (only for on-target shots and goals) -->
+                    <circle 
+                      v-for="(shot, index) in allShotsWithPosition.filter(s => s.on_target)" 
+                      :key="'shot-target-' + index"
+                      :cx="getGoalTargetX(shot)"
+                      cy="0"
+                      r="1.2"
+                      class="goal-target-marker shot-target"
+                    />
+                    <circle 
+                      v-for="(goal, index) in allGoalsWithPosition" 
+                      :key="'goal-target-' + index"
+                      :cx="getGoalTargetX(goal)"
+                      cy="0"
+                      r="1.5"
+                      class="goal-target-marker goal-target"
+                    />
+                  </svg>
+                  
+                  <div class="shot-markers">
+                    <div 
+                      v-for="(shot, index) in allShotsWithPosition" 
+                      :key="'shot-' + index" 
+                      class="shot-marker"
+                      :class="{ 'off-target-shot': !shot.on_target }"
+                      :style="getShotMarkerStyle(shot)"
+                      :title="`Shot ${index + 1} - ${shot.on_target ? 'On Target' : 'Off Target'}`"
+                    ></div>
+                    <div 
+                      v-for="(goal, index) in allGoalsWithPosition" 
+                      :key="'goal-' + index" 
+                      class="goal-marker"
+                      :style="getShotMarkerStyle(goal)"
+                      :title="`Goal ${index + 1}`"
+                    ></div>
+                  </div>
+                </div>
+                
+                <div v-if="allShotsWithPosition.length > 0 || allGoalsWithPosition.length > 0" class="goal-legend">
+                  <div class="legend-item">
+                    <div class="legend-indicator" style="background: rgba(76, 175, 80, 0.8); border: 2px solid rgba(76, 175, 80, 1);"></div>
+                    <span>Goals ({{ allGoalsWithPosition.length }})</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-indicator" style="background: rgba(33, 150, 243, 0.7); border: 2px solid rgba(33, 150, 243, 1);"></div>
+                    <span>On Target ({{ allShotsWithPosition.filter(s => s.on_target).length }})</span>
+                  </div>
+                  <div class="legend-item">
+                    <div class="legend-indicator" style="background: rgba(239, 83, 80, 0.7); border: 2px solid rgba(239, 83, 80, 1);"></div>
+                    <span>Off Target ({{ allShotsWithPosition.filter(s => !s.on_target).length }})</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -252,8 +360,8 @@
               <div class="trend-header">
                 <h4>Match Ratings</h4>
                 <div class="rating-stats">
-                  <span :class="getStatColorClass('rating', averageRating)" class="avg-rating">Avg: {{ averageRating }}</span>
-                  <span :class="getStatColorClass('rating', highestRating)" class="highest-rating">Best: {{ highestRating }}</span>
+                  <span :class="getStatColorClass('rating', recentAverageRating)" class="avg-rating">Avg: {{ recentAverageRating }}</span>
+                  <span :class="getStatColorClass('rating', recentHighestRating)" class="highest-rating">Best: {{ recentHighestRating }}</span>
                 </div>
               </div>
               <div class="chart-wrapper">
@@ -269,14 +377,14 @@
 
             <div class="trend-card card-glass">
               <div class="trend-header">
-                <h4>Goals Scored</h4>
+                <h4>G/A</h4>
                 <span class="avg-stat">Avg: {{ averageGoalsPerMatch }}</span>
               </div>
               <div class="chart-wrapper">
                 <div class="chart-container">
                   <div v-for="(match, index) in recentMatches" :key="match.id" class="bar-container">
-                    <div class="goals-value">{{ match.my_goals || 0 }}</div>
-                    <div class="goals-bar" :style="{ height: (match.my_goals || 0) === 0 ? '0%' : Math.max((match.my_goals || 0) / Math.max(maxGoalsInMatch, 1) * 100, 15) + '%' }"></div>
+                    <div class="goals-value">{{ (match.my_goals || 0) + (match.assists || 0) }}</div>
+                    <div class="goals-bar" :style="{ height: ((match.my_goals || 0) + (match.assists || 0)) === 0 ? '0%' : Math.max(((match.my_goals || 0) + (match.assists || 0)) / Math.max(maxGoalsInMatch, 1) * 100, 15) + '%' }"></div>
                     <span class="match-label">{{ match.opponent.length > 6 ? match.opponent.substring(0, 6) + '...' : match.opponent }}</span>
                   </div>
                 </div>
@@ -289,11 +397,17 @@
       <div v-if="activeTab === 'matches'" class="matches-section">
         <div class="card-header">
           <h2>All Matches</h2>
-          <button class="btn btn-primary" @click="showAddMatch = true">Add Match</button>
+          <div class="header-controls">
+            <select v-model="sortBy" class="sort-dropdown">
+              <option value="date">Sort by Date</option>
+              <option value="rating">Sort by Rating</option>
+            </select>
+            <button class="btn btn-primary" @click="showAddMatch = true">Add Match</button>
+          </div>
         </div>
         <div v-if="!activeMatch">
           <div v-if="matches.length > 0" class="matches-list">
-            <div v-for="match in matches" :key="match.id" class="match-item card-glass" @click="selectMatch(match)">
+            <div v-for="match in sortedMatches" :key="match.id" class="match-item card-glass" @click="selectMatch(match)">
               <div class="match-details">
                 <div class="match-opponent">
                   <h4>{{ match.opponent }}</h4>
@@ -706,6 +820,26 @@
       </div>
     </div>
 
+    <!-- Field Position Modal -->
+    <div v-if="showFieldPositionModal" class="modal-overlay" @click.self="showFieldPositionModal = false">
+      <div class="modal card-glass field-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Select Shot Origin</h3>
+          <button @click="showFieldPositionModal = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-instruction">Click where the {{ fieldPositionContext === 'goal' ? 'goal' : 'shot' }} was taken from</p>
+          <div class="field-grid-container" @click="handleFieldClick">
+            <div class="field-markings">
+              <div class="penalty-box attacking-box"></div>
+              <div class="penalty-arc attacking-arc"></div>
+              <div class="goal-outline"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Add Match Modal -->
     <div v-if="showAddMatch" class="modal-overlay" @click.self="showAddMatch = false">
       <div class="modal card-glass" @click.stop>
@@ -780,7 +914,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
@@ -798,9 +932,14 @@ export default {
     const showGoalModal = ref(false)
     const showShotModal = ref(false)
     const showQuadrantModal = ref(false)
+    const showFieldPositionModal = ref(false)
+    const shotMapView = ref('goal') // 'goal' or 'field'
     const selectedEvent = ref(null)
     const quadrantSelectionContext = ref('shot') // 'shot' or 'goal'
     const quadrantForGoal = ref(null)
+    const pendingShotFieldPosition = ref(null)
+    const pendingGoalFieldPosition = ref(null)
+    const fieldPositionContext = ref('shot') // 'shot' or 'goal'
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
     const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
@@ -820,6 +959,7 @@ export default {
     const goalkeeperStats = ref(null);
     const allShotsData = ref([]);
     const allGoalsData = ref([]);
+    const sortBy = ref('date'); // 'date' or 'rating'
 
     const newMatch = ref({
       opponent: '',
@@ -901,6 +1041,20 @@ export default {
     const highestRating = computed(() => {
       if (matches.value.length === 0) return '0.0'
       const ratings = matches.value.map(match => parseFloat(calculateMatchRating(match)))
+      return Math.max(...ratings).toFixed(2)
+    })
+
+    // Average rating for last 10 matches
+    const recentAverageRating = computed(() => {
+      if (recentMatches.value.length === 0) return '0.0'
+      const totalRating = recentMatches.value.reduce((sum, match) => sum + parseFloat(calculateMatchRating(match)), 0)
+      return (totalRating / recentMatches.value.length).toFixed(2)
+    })
+
+    // Highest rating in last 10 matches
+    const recentHighestRating = computed(() => {
+      if (recentMatches.value.length === 0) return '0.0'
+      const ratings = recentMatches.value.map(match => parseFloat(calculateMatchRating(match)))
       return Math.max(...ratings).toFixed(2)
     })
 
@@ -1000,22 +1154,46 @@ export default {
     })
 
     const recentMatches = computed(() => {
-      return matches.value.slice(-8).reverse()
+      return matches.value.slice(0, 10).reverse()
+    })
+
+    const sortedMatches = computed(() => {
+      const sorted = [...matches.value];
+      if (sortBy.value === 'rating') {
+        return sorted.sort((a, b) => {
+          const ratingA = parseFloat(calculateMatchRating(a));
+          const ratingB = parseFloat(calculateMatchRating(b));
+          return ratingB - ratingA; // Highest rating first
+        });
+      }
+      // Default: sort by date (already sorted from query)
+      return sorted;
     })
 
     const averageGoalsPerMatch = computed(() => {
       if (matches.value.length === 0) return '0.0'
-      return (totalGoals.value / matches.value.length).toFixed(1)
+      return ((totalGoals.value + totalAssists.value) / matches.value.length).toFixed(1)
     })
 
     const maxGoalsInMatch = computed(() => {
       if (matches.value.length === 0) return 1
-      return Math.max(...matches.value.map(match => match.my_goals || 0), 1)
+      return Math.max(...matches.value.map(match => (match.my_goals || 0) + (match.assists || 0)), 1)
     })
 
     // Shot Map Computed Properties
     const totalShotsWithQuadrant = computed(() => {
-      return allShotsData.value.filter(shot => shot.quadrant && shot.on_target).length
+      // Include ALL shots (on target + off target) and goals
+      return allShotsData.value.length + allGoalsData.value.length
+    })
+
+    const totalShotsOnTarget = computed(() => {
+      // Shots on target + goals (goals are always on target)
+      return allShotsData.value.filter(shot => shot.on_target).length + allGoalsData.value.length
+    })
+
+    const totalShotsOffTarget = computed(() => {
+      // Only off-target shots
+      return allShotsData.value.filter(shot => !shot.on_target).length
     })
 
     const totalGoalsWithQuadrant = computed(() => {
@@ -1023,14 +1201,17 @@ export default {
     })
 
     const shotAccuracy = computed(() => {
-      const totalShots = allShotsData.value.length
+      // Total shots includes all shots + goals
+      const totalShots = allShotsData.value.length + allGoalsData.value.length
       if (totalShots === 0) return 0
-      const shotsOnTarget = allShotsData.value.filter(shot => shot.on_target).length
+      // Shots on target includes on-target shots + goals (since goals are always on target)
+      const shotsOnTarget = allShotsData.value.filter(shot => shot.on_target).length + allGoalsData.value.length
       return Math.round((shotsOnTarget / totalShots) * 100)
     })
 
     const getQuadrantShots = (quadrant) => {
-      return allShotsData.value.filter(shot => shot.quadrant === quadrant && shot.on_target).length
+      // Return all shots in this quadrant (both on and off target)
+      return allShotsData.value.filter(shot => shot.quadrant === quadrant).length
     }
 
     const getQuadrantGoals = (quadrant) => {
@@ -1074,6 +1255,81 @@ export default {
       }
       
       return {}
+    }
+
+    // Field Zone Heat Map Functions
+    const allShotsWithPosition = computed(() => {
+      return allShotsData.value.filter(shot => shot.field_position && shot.field_position.includes(','))
+    })
+
+    const allGoalsWithPosition = computed(() => {
+      return allGoalsData.value.filter(goal => goal.field_position && goal.field_position.includes(','))
+    })
+
+    const getShotMarkerStyle = (item) => {
+      if (!item.field_position || !item.field_position.includes(',')) return {}
+      
+      const [x, y] = item.field_position.split(',').map(Number)
+      
+      return {
+        left: `${x}%`,
+        top: `${y}%`,
+        transform: 'translate(-50%, -50%)'
+      }
+    }
+
+    const getShotCoordinates = (item) => {
+      if (!item.field_position || !item.field_position.includes(',')) return { x: 50, y: 50 }
+      
+      const [x, y] = item.field_position.split(',').map(Number)
+      
+      return { x, y }
+    }
+
+    const getGoalTargetX = (item) => {
+      // If no quadrant, default to center
+      if (!item.quadrant) return 50
+      
+      // Quadrant layout (goal view):
+      // 1  2  3
+      // 4  5  6
+      // 7  8  9
+      
+      const quadrant = item.quadrant
+      const column = ((quadrant - 1) % 3) + 1 // 1, 2, or 3
+      
+      // Map columns to goal positions (goal is 40% wide, centered at 50%)
+      // Goal spans from 30% to 70%
+      if (column === 1) return 37  // Left post area
+      if (column === 2) return 50  // Center
+      if (column === 3) return 63  // Right post area
+      
+      return 50 // Default to center
+    }
+
+    const getFieldZoneCount = (zone) => {
+      const shotsInZone = allShotsData.value.filter(shot => shot.field_position === zone).length
+      const goalsInZone = allGoalsData.value.filter(goal => goal.field_position === zone).length
+      return shotsInZone + goalsInZone
+    }
+
+    const getFieldHeatStyle = (zone) => {
+      const count = getFieldZoneCount(zone)
+      const maxCount = Math.max(
+        ...Array.from({length: 9}, (_, i) => getFieldZoneCount(i + 1))
+      )
+      
+      if (maxCount === 0 || count === 0) return {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)'
+      }
+      
+      const intensity = count / maxCount
+      const opacity = 0.2 + (intensity * 0.6)
+      
+      return {
+        backgroundColor: `rgba(33, 150, 243, ${opacity})`,
+        borderColor: `rgba(33, 150, 243, ${Math.min(opacity + 0.2, 1)})`
+      }
     }
 
     // EA FC Style Stats
@@ -1146,7 +1402,7 @@ export default {
 
     const formStat = computed(() => {
       if (matches.value.length === 0) return 65
-      const recent = recentMatches.value.slice(0, 5) // Last 5 matches
+      const recent = recentMatches.value.slice(0, 10) // Last 10 matches
       if (recent.length === 0) return 65
       
       const recentRatings = recent.map(match => parseFloat(calculateMatchRating(match)))
@@ -1174,6 +1430,14 @@ export default {
       await loadData()
     })
 
+    // Watch for tab changes and reload data to get latest shots/goals
+    watch(activeTab, async (newTab, oldTab) => {
+      // Reload data whenever switching tabs
+      if (oldTab && newTab !== oldTab) {
+        await loadData()
+      }
+    })
+
     const loadData = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -1199,7 +1463,7 @@ export default {
         // Load goals data to calculate my_goals for each match
         const { data: goalsData, error: goalsError } = await supabase
           .from('goals')
-          .select('match_id, quadrant')
+          .select('match_id, quadrant, field_position')
           .in('match_id', matchIds);
 
         if (goalsError) {
@@ -1209,7 +1473,7 @@ export default {
         // Load shots data
         const { data: shotsData, error: shotsError } = await supabase
           .from('shots')
-          .select('match_id, on_target, quadrant')
+          .select('match_id, on_target, quadrant, field_position')
           .in('match_id', matchIds);
         
         // Store all shots and goals for shot map
@@ -1367,9 +1631,11 @@ export default {
     }
 
 
-    const handleMyGoal = () => {
-      quadrantSelectionContext.value = 'goal';
-      showQuadrantModal.value = true;
+    const handleMyGoal = async (value) => {
+      if (!activeMatch.value) return;
+      await incrementStat('score_for', value);
+      fieldPositionContext.value = 'goal';
+      showFieldPositionModal.value = true;
     }
 
     const addGoal = async (type) => {
@@ -1383,7 +1649,7 @@ export default {
 
       // 2. Add to goals table
       const { data, error } = await supabase.from('goals').insert([
-        { user_id: user.id, match_id: activeMatch.value.id, goal_type: type, quadrant: quadrant }
+        { user_id: user.id, match_id: activeMatch.value.id, goal_type: type, quadrant: quadrant, field_position: pendingGoalFieldPosition.value }
       ]).select()
 
       if (error) {
@@ -1394,12 +1660,13 @@ export default {
         matchGoals.value.push(data[0])
       }
       showGoalModal.value = false
-      quadrantForGoal.value = null; // Reset context
+      quadrantForGoal.value = null;
+      pendingGoalFieldPosition.value = null;
     }
 
     const handleShot = () => {
-      quadrantSelectionContext.value = 'shot';
-      showShotModal.value = true;
+      fieldPositionContext.value = 'shot';
+      showFieldPositionModal.value = true;
     };
 
     const selectEventForViz = (event) => {
@@ -1479,17 +1746,55 @@ export default {
 
     const handleShotOnTarget = () => {
       showShotModal.value = false;
-      // The context is already 'shot' from handleShot
+      quadrantSelectionContext.value = 'shot';
       showQuadrantModal.value = true;
+    }
+
+    const handleFieldClick = (event) => {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width * 100).toFixed(2);
+      const y = ((event.clientY - rect.top) / rect.height * 100).toFixed(2);
+      
+      // Store position as "x,y" string (e.g., "45.23,67.89")
+      const position = `${x},${y}`;
+      
+      showFieldPositionModal.value = false;
+      
+      if (fieldPositionContext.value === 'shot') {
+        pendingShotFieldPosition.value = position;
+        showShotModal.value = true;
+      } else if (fieldPositionContext.value === 'goal') {
+        pendingGoalFieldPosition.value = position;
+        quadrantSelectionContext.value = 'goal';
+        showQuadrantModal.value = true;
+      }
+    }
+
+    const handleFieldPositionSelect = (position) => {
+      showFieldPositionModal.value = false;
+      
+      if (fieldPositionContext.value === 'shot') {
+        pendingShotFieldPosition.value = position;
+        showShotModal.value = true;
+      } else if (fieldPositionContext.value === 'goal') {
+        pendingGoalFieldPosition.value = position;
+        quadrantSelectionContext.value = 'goal';
+        showQuadrantModal.value = true;
+      }
     }
 
     const saveShot = async (onTarget, quadrant) => {
       if (!activeMatch.value) return;
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       const shotData = {
         match_id: activeMatch.value.id,
+        user_id: user.id,
         on_target: onTarget,
         quadrant: quadrant,
+        field_position: pendingShotFieldPosition.value,
       };
 
       const { data, error } = await supabase.from('shots').insert(shotData).select();
@@ -1502,6 +1807,7 @@ export default {
 
       showShotModal.value = false;
       showQuadrantModal.value = false;
+      pendingShotFieldPosition.value = null;
     };
 
 
@@ -1754,9 +2060,18 @@ export default {
       showGoalModal,
       showShotModal,
       showQuadrantModal,
+      showFieldPositionModal,
+      shotMapView,
+      fieldPositionContext,
+      quadrantSelectionContext,
+      pendingShotFieldPosition,
+      pendingGoalFieldPosition,
+      quadrantForGoal,
       handleShot,
       handleShotOnTarget,
       handleQuadrantSelect,
+      handleFieldPositionSelect,
+      handleFieldClick,
       saveShot,
       combinedEvents,
       selectedEvent,
@@ -1779,6 +2094,8 @@ export default {
       updateMatch,
       averageRating,
       highestRating,
+      recentAverageRating,
+      recentHighestRating,
       totalGoals,
       totalAssists,
       totalSuccessfulPasses,
@@ -1793,11 +2110,22 @@ export default {
       maxGoalsInMatch,
       totalShotsWithQuadrant,
       totalGoalsWithQuadrant,
+      totalShotsOnTarget,
+      totalShotsOffTarget,
       shotAccuracy,
       getQuadrantShots,
       getQuadrantGoals,
       getHeatMapClass,
       getHeatMapStyle,
+      getFieldZoneCount,
+      getFieldHeatStyle,
+      allShotsData,
+      allGoalsData,
+      allShotsWithPosition,
+      allGoalsWithPosition,
+      getShotMarkerStyle,
+      getShotCoordinates,
+      getGoalTargetX,
       overallRating,
       shootingStat,
       passingStat,
@@ -1809,7 +2137,9 @@ export default {
       positions,
       isGoalkeeperMode,
       goalkeeperStats,
-      incrementGkStat
+      incrementGkStat,
+      sortBy,
+      sortedMatches
     }
   }
 }
@@ -2061,6 +2391,39 @@ input:checked + .slider:before {
 .card-header h2 {
   color: #f0f0f0;
   margin: 0;
+}
+
+.header-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.sort-dropdown {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #f0f0f0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.sort-dropdown:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #4CAF50;
+}
+
+.sort-dropdown:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.sort-dropdown option {
+  background: #1a1a1a;
+  color: #f0f0f0;
 }
 
 .player-item, .match-item {
@@ -2826,6 +3189,8 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  align-items: center;
+  text-align: center;
 }
 
 .shot-stat-item .stat-value {
@@ -2843,12 +3208,57 @@ input:checked + .slider:before {
   font-weight: 500;
 }
 
+.shot-stat-item .stat-breakdown {
+  display: block;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 0.25rem;
+  font-weight: 400;
+}
+
 .shot-map-content {
   margin-top: 2rem;
 }
 
+/* View Toggle */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.toggle-btn {
+  padding: 0.75rem 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-btn.active {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.8);
+  color: #fff;
+}
+
 .goal-view-wrapper {
-  max-width: 650px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.field-origin-wrapper {
+  max-width: 600px;
   margin: 0 auto;
 }
 
@@ -3020,6 +3430,170 @@ input:checked + .slider:before {
   font-weight: 500;
 }
 
+/* Field Origin Heat Map */
+.no-data-message {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.no-data-message p {
+  margin: 0.5rem 0;
+}
+
+.field-heat-map-frame {
+  position: relative;
+  background: transparent;
+  border-radius: 12px;
+  padding: 0;
+  border: 5px solid rgba(255, 255, 255, 1);
+  aspect-ratio: 1 / 1;
+  max-width: 350px;
+  margin: 0 auto;
+}
+
+/* SVG trajectories layer */
+.shot-trajectories {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.shot-trajectory-line {
+  stroke: rgba(33, 150, 243, 0.4);
+  stroke-width: 0.5;
+  stroke-dasharray: 2, 2;
+  transition: all 0.3s ease;
+}
+
+.shot-trajectory-line.goal-trajectory {
+  stroke: rgba(76, 175, 80, 0.6);
+  stroke-width: 0.8;
+  stroke-dasharray: none;
+}
+
+/* Goal target markers */
+.goal-target-marker {
+  transition: all 0.3s ease;
+}
+
+.goal-target-marker.shot-target {
+  fill: rgba(33, 150, 243, 0.8);
+  stroke: rgba(33, 150, 243, 1);
+  stroke-width: 0.5;
+}
+
+.goal-target-marker.goal-target {
+  fill: rgba(76, 175, 80, 0.9);
+  stroke: rgba(76, 175, 80, 1);
+  stroke-width: 0.5;
+}
+
+.shot-markers {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  z-index: 3;
+}
+
+.shot-marker {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: rgba(33, 150, 243, 0.9);
+  border: 2px solid rgba(33, 150, 243, 1);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.shot-marker:hover {
+  transform: translate(-50%, -50%) scale(1.5) !important;
+  background: rgba(33, 150, 243, 1);
+  box-shadow: 0 0 8px rgba(33, 150, 243, 1);
+}
+
+.shot-marker.off-target-shot {
+  background: rgba(239, 83, 80, 0.9);
+  border-color: rgba(239, 83, 80, 1);
+}
+
+.shot-marker.off-target-shot:hover {
+  transform: translate(-50%, -50%) scale(1.5) !important;
+  background: rgba(239, 83, 80, 1);
+  box-shadow: 0 0 8px rgba(239, 83, 80, 1);
+}
+
+.goal-marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: rgba(76, 175, 80, 0.95);
+  border: 2px solid rgba(76, 175, 80, 1);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.goal-marker:hover {
+  transform: translate(-50%, -50%) scale(1.5) !important;
+  background: rgba(76, 175, 80, 1);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 1);
+}
+
+.field-heat-map {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
+  aspect-ratio: 1 / 1;
+  max-width: 300px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.field-heat-zone {
+  position: relative;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  min-height: 40px;
+  z-index: 2;
+}
+
+.zone-data {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.zone-count {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 /* Responsive adjustments for shot map */
 @media (max-width: 768px) {
   .shot-map-container {
@@ -3175,6 +3749,10 @@ input:checked + .slider:before {
 }
 
 /* Rating bar color classes */
+.rating-bar.stat-excellent {
+  background: linear-gradient(135deg, #00c8ff, #0099cc);
+}
+
 .rating-bar.stat-good {
   background: linear-gradient(135deg, #4CAF50, #45a049);
 }
@@ -3508,6 +4086,140 @@ input:checked + .slider:before {
 
 .goal-quadrant:hover {
   background: rgba(76, 175, 80, 0.5);
+}
+
+/* Field Position Grid */
+.field-grid-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 1rem auto;
+  aspect-ratio: 1 / 1; /* Square for half field */
+  background: linear-gradient(180deg, rgba(34, 139, 34, 0.3) 0%, rgba(34, 139, 34, 0.15) 50%, rgba(34, 139, 34, 0.3) 100%);
+  border: 5px solid rgba(255, 255, 255, 1);
+  border-radius: 4px;
+  padding: 8px;
+  box-sizing: border-box;
+  cursor: crosshair;
+  overflow: hidden;
+}
+
+/* Field markings overlay */
+.field-grid-container::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: 2px;
+}
+
+/* Field markings container */
+.field-markings {
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Field markings in heat map frame */
+.field-heat-map-frame .field-markings {
+  inset: 0;
+}
+
+/* Penalty box for attacking half */
+.penalty-box.attacking-box {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70%;
+  height: 30%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Penalty arc for attacking half (semicircle) */
+.penalty-arc.attacking-arc {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 15%;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-top: none;
+  border-radius: 0 0 50% 50%;
+}
+
+/* Goal line at the top (2D view from above) */
+.goal-outline {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  height: 100%;
+  gap: 6px;
+  position: relative;
+  z-index: 2;
+}
+
+.field-zone {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.field-zone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.field-zone:hover {
+  background: rgba(76, 175, 80, 0.3);
+  border-color: rgba(76, 175, 80, 0.6);
+  transform: scale(1.05);
+}
+
+.field-zone:hover::before {
+  opacity: 1;
+}
+
+.zone-number {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  z-index: 1;
+}
+
+.modal-instruction {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
 }
 
 .form-row { display: flex; gap: 1rem; }
