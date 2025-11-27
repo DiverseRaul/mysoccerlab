@@ -109,7 +109,7 @@
             <div class="shot-log-panel">
               <h4>Goals & Shots</h4>
               <div class="event-list">
-                <div v-for="item in combinedEvents" :key="item.id" class="event-item" @click="selectEventForViz(item)">
+                <div v-for="item in combinedEvents" :key="item.type + item.id" class="event-item" @click="selectEventForViz(item)">
                   <div class="event-time-and-icon">
                     <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
                   </div>
@@ -687,42 +687,25 @@ const activeMatch = ref(null)
     });
 
     const combinedEvents = computed(() => {
-      const goals = matchGoals.value.map(g => ({ ...g, type: 'Goal', details: 'Goal Scored', event_time: g.created_at }));
-      const shots = matchShots.value.map(s => ({ ...s, type: 'Shot', details: s.on_target ? 'On Target' : 'Off Target', event_time: s.created_at }));
+      const goals = matchGoals.value.map(g => ({ 
+        ...g, 
+        type: 'Goal', 
+        details: 'Goal Scored', 
+        event_time: g.created_at,
+        count: 1,
+        events: [{ ...g, type: 'Goal' }]
+      }));
       
-      // Only group off-target shots, keep goals and on-target shots separate
-      const eventGroups = {};
-      const ungroupedEvents = [];
+      const shots = matchShots.value.map(s => ({ 
+        ...s, 
+        type: 'Shot', 
+        details: s.on_target ? 'On Target' : 'Off Target', 
+        event_time: s.created_at,
+        count: 1,
+        events: [{ ...s, type: 'Shot' }]
+      }));
       
-      [...goals, ...shots].forEach(event => {
-        // Only group off-target shots
-        if (event.type === 'Shot' && event.details === 'Off Target') {
-          const key = `${event.type}-${event.details}`;
-          if (!eventGroups[key]) {
-            eventGroups[key] = {
-              ...event,
-              count: 1,
-              events: [event]
-            };
-          } else {
-            eventGroups[key].count++;
-            eventGroups[key].events.push(event);
-            // Keep the most recent event time
-            if (new Date(event.event_time) > new Date(eventGroups[key].event_time)) {
-              eventGroups[key].event_time = event.event_time;
-            }
-          }
-        } else {
-          // Keep goals and on-target shots as individual events
-          ungroupedEvents.push({
-            ...event,
-            count: 1,
-            events: [event]
-          });
-        }
-      });
-      
-      return [...ungroupedEvents, ...Object.values(eventGroups)].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
+      return [...goals, ...shots].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
     });
 
 
@@ -1006,7 +989,7 @@ const activeMatch = ref(null)
 
     const selectEventForViz = (event) => {
       // If the same event is already selected, close it (click-to-close functionality)
-      if (selectedEvent.value && selectedEvent.value.id === event.id) {
+      if (selectedEvent.value && selectedEvent.value.id === event.id && selectedEvent.value.type === event.type) {
         selectedEvent.value = null;
         return;
       }
@@ -1320,7 +1303,7 @@ const activeMatch = ref(null)
       if (!activeMatch.value) return;
 
       // If the event being removed is the one being visualized, close the viz
-      if (selectedEvent.value && selectedEvent.value.id === event.id) {
+      if (selectedEvent.value && selectedEvent.value.id === event.id && selectedEvent.value.type === event.type) {
         selectedEvent.value = null;
       }
 
@@ -1359,7 +1342,7 @@ const activeMatch = ref(null)
       }
 
       // If the event being removed is the one being visualized, close the viz
-      if (selectedEvent.value && selectedEvent.value.id === eventToRemove.id) {
+      if (selectedEvent.value && selectedEvent.value.id === eventToRemove.id && selectedEvent.value.type === eventToRemove.type) {
         selectedEvent.value = null;
       }
 
@@ -1389,9 +1372,10 @@ const activeMatch = ref(null)
       if (fieldPositionContext.value === 'shot') {
         pendingShotFieldPosition.value = position;
         showFieldPositionModal.value = false;
-        showQuadrantModal.value = true;
+        showShotModal.value = true;
       } else if (fieldPositionContext.value === 'goal') {
         pendingGoalFieldPosition.value = position;
+        showFieldPositionModal.value = false;
         quadrantSelectionContext.value = 'goal';
         showQuadrantModal.value = true;
       }
@@ -1401,7 +1385,7 @@ const activeMatch = ref(null)
       if (fieldPositionContext.value === 'shot') {
         pendingShotFieldPosition.value = null;
         showFieldPositionModal.value = false;
-        showQuadrantModal.value = true;
+        showShotModal.value = true;
       } else if (fieldPositionContext.value === 'goal') {
         pendingGoalFieldPosition.value = null;
         showFieldPositionModal.value = false;

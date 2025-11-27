@@ -347,12 +347,44 @@
         </div>
       </div>
 
+      <!-- Performance Trends Chart (Last 25 Matches) -->
+      <div class="bento-item bento-item--wide trends-tile" style="--delay: 1100ms">
+        <div class="tile-header">
+          <div class="header-with-select">
+            <h4>Last 25 Matches</h4>
+            <select v-model="selectedStat" class="stat-select">
+              <option v-for="opt in statOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
+          </div>
+          <div class="rating-badges">
+            <span class="badge">Avg: {{ averageStat }}</span>
+          </div>
+        </div>
+        <div class="chart-area">
+          <div class="chart-container" style="overflow-x: auto;">
+            <div v-for="(match, index) in recentMatchesForStat" :key="match.id" class="bar-group" style="min-width: 20px;">
+              <div class="bar-value">{{ match.statValue || 0 }}</div>
+              <div class="bar-track">
+                <div 
+                  class="bar-fill"
+                  style="background: #4cda9c;" 
+                  :style="{ height: (match.statValue || 0) === 0 ? '4px' : Math.max(((match.statValue || 0) / Math.max(maxStatInMatch, 1) * 100), 15) + '%' }"
+                ></div>
+              </div>
+              <div class="bar-label" style="font-size: 0.55rem;">{{ match.opponent.length > 2 ? match.opponent.substring(0, 2) : match.opponent }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import ShotMapSection from './ShotMapSection.vue'
 
 const props = defineProps({
@@ -447,6 +479,44 @@ const recentMatches = computed(() => {
   const sorted = [...props.matches].sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
   // Take top 10. No reverse() means Newest -> Oldest (Most recent on left)
   return sorted.slice(0, 10)
+})
+
+// Dynamic Stat Chart Logic
+const selectedStat = ref('lost_possessions')
+
+const statOptions = [
+  { label: 'Possession Lost', value: 'lost_possessions' },
+  { label: 'Shots on Target', value: 'shots_on_target' },
+  { label: 'Shots off Target', value: 'shots_off_target' },
+  { label: 'Successful Passes', value: 'successful_passes' },
+  { label: 'Unsuccessful Passes', value: 'unsuccessful_passes' },
+  { label: 'Tackles', value: 'tackles' },
+  { label: 'Interceptions', value: 'interceptions' },
+  { label: 'Clearances', value: 'clearances' },
+  { label: 'Dribbles', value: 'dribbles' },
+  { label: 'Created Chances', value: 'created_chances' },
+  { label: 'Fouls', value: 'fouls' }
+]
+
+const recentMatchesForStat = computed(() => {
+  // Sort by date descending (Newest -> Oldest)
+  const sorted = [...props.matches].sort((a, b) => new Date(b.match_date) - new Date(a.match_date))
+  // Take top 25 and map the selected stat
+  return sorted.slice(0, 25).map(match => ({
+    ...match,
+    statValue: match[selectedStat.value] || 0
+  }))
+})
+
+const maxStatInMatch = computed(() => {
+  if (recentMatchesForStat.value.length === 0) return 1
+  return Math.max(...recentMatchesForStat.value.map(match => match.statValue), 1)
+})
+
+const averageStat = computed(() => {
+  if (recentMatchesForStat.value.length === 0) return '0.0'
+  const total = recentMatchesForStat.value.reduce((sum, match) => sum + match.statValue, 0)
+  return (total / recentMatchesForStat.value.length).toFixed(1)
 })
 
 const recentAverageRating = computed(() => {
@@ -1343,6 +1413,28 @@ const getDonutPaths = computed(() => {
 .badge.highlight {
   background: rgba(76, 218, 156, 0.15);
   color: #4cda9c;
+}
+
+.header-with-select {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.stat-select option {
+  background: #1a1d21;
+  color: #fff;
 }
 
 .chart-area {
