@@ -423,6 +423,12 @@
             </div>
           </div>
           <div class="match-actions">
+            <button @click="openShareModal" class="action-btn share-btn">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M13.5 1a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM11 2.5a2.5 2.5 0 1 1 .603 1.628l-6.718 3.12a2.499 2.499 0 0 1 0 1.504l6.718 3.12a2.5 2.5 0 1 1-.488.876l-6.718-3.12a2.5 2.5 0 1 1 0-3.256l6.718-3.12A2.5 2.5 0 0 1 11 2.5zm-8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm8.5 4a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>
+              </svg>
+              Share Match
+            </button>
             <button @click="showEditMatch = true" class="action-btn edit-btn">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708L10.5 8.207l-3-3L12.146.146zM11.207 9l-3-3L2.5 11.707V14.5a.5.5 0 0 0 .5.5h2.793L11.207 9zM1 11.5a.5.5 0 0 1 .5-.5H2v-.5a.5.5 0 0 1 .5-.5H3v-.5a.5.5 0 0 1 .5-.5h.5V9a.5.5 0 0 1 .5-.5h1V8a.5.5 0 0 1 .5-.5h1V7a.5.5 0 0 1 .5-.5h1V6a.5.5 0 0 1 .5-.5h1V5a.5.5 0 0 1 .5-.5h1V4a.5.5 0 0 1 .5-.5h1V3a.5.5 0 0 1 .5-.5h1V2a.5.5 0 0 1 .5-.5h1V1a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5h-1v1a.5.5 0 0 1-.5.5H9a.5.5 0 0 1-.5-.5v-1H8a.5.5 0 0 1-.5-.5v-1H7a.5.5 0 0 1-.5-.5v-1H6a.5.5 0 0 1-.5-.5v-1H5a.5.5 0 0 1-.5-.5v-1H4a.5.5 0 0 1-.5-.5v-1H3a.5.5 0 0 1-.5-.5v-1H2a.5.5 0 0 1-.5-.5v-1H1.5a.5.5 0 0 1-.5-.5z"/>
@@ -612,11 +618,92 @@
         </div>
       </div>
     </div>
+
+    <!-- Share Match Modal -->
+    <div v-if="showShareModal" class="modal-overlay" @click.self="showShareModal = false">
+      <div class="modal card-glass share-modal" @click.stop>
+        <div class="modal-header">
+          <h3>Share Match Result</h3>
+          <button @click="showShareModal = false" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="share-card-container">
+            <div id="share-card" class="share-card">
+              <!-- Card Content -->
+              <div class="share-card-header">
+                <div class="share-date">{{ formatDate(activeMatch.match_date) }}</div>
+                <div class="share-result" :class="getMatchResult(activeMatch).toLowerCase()">
+                  {{ getMatchResult(activeMatch) }}
+                </div>
+              </div>
+              
+              <div class="share-score">
+                <div class="share-team">
+                  <span class="share-team-name">You</span>
+                  <span class="share-score-num">{{ activeMatch.score_for }}</span>
+                </div>
+                <div class="share-divider">-</div>
+                <div class="share-team">
+                  <span class="share-team-name">{{ activeMatch.opponent }}</span>
+                  <span class="share-score-num">{{ activeMatch.score_against }}</span>
+                </div>
+              </div>
+
+              <div class="share-stats">
+                <div class="share-stat">
+                  <span class="share-stat-val" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">
+                    {{ calculateMatchRating(activeMatch) }}
+                  </span>
+                  <span class="share-stat-label">Rating</span>
+                </div>
+                <div class="share-stat">
+                  <span class="share-stat-val">{{ myGoalsForMatch }}</span>
+                  <span class="share-stat-label">Goals</span>
+                </div>
+                <div class="share-stat">
+                  <span class="share-stat-val">{{ activeMatch.assists || 0 }}</span>
+                  <span class="share-stat-label">Assists</span>
+                </div>
+                <div class="share-stat">
+                  <span class="share-stat-val">{{ getMatchPassAccuracy(activeMatch) }}%</span>
+                  <span class="share-stat-label">Pass Acc</span>
+                </div>
+                <div class="share-stat">
+                  <span class="share-stat-val">{{ activeMatch.created_chances || 0 }}</span>
+                  <span class="share-stat-label">Chances</span>
+                </div>
+                <div class="share-stat">
+                  <span class="share-stat-val">{{ activeMatch.tackles || 0 }}</span>
+                  <span class="share-stat-label">Tackles</span>
+                </div>
+              </div>
+              
+              <div class="share-footer">
+                {{ shareLink }}
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-buttons share-actions">
+            <button @click="shareViaWhatsApp" class="btn share-option-btn">
+              <span class="btn-icon">💬</span> WhatsApp
+            </button>
+            <button @click="shareNative" class="btn share-option-btn">
+              <span class="btn-icon">🔗</span> Share Image
+            </button>
+            <button @click="downloadShareImage" class="btn share-option-btn">
+              <span class="btn-icon">⬇️</span> Download
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import html2canvas from 'html2canvas'
 
 const props = defineProps({
   matches: {
@@ -645,6 +732,7 @@ const activeMatch = ref(null)
     const fieldPositionContext = ref('shot') // 'shot' or 'goal'
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
+    const showShareModal = ref(false)
     const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
     const positions = ref([
       'Goalkeeper',
@@ -1622,10 +1710,93 @@ const activeMatch = ref(null)
       }
     }
 
+    const openShareModal = () => {
+      showShareModal.value = true;
+    }
+
+    const shareLink = computed(() => {
+      return 'https://mysoccerlab.com'
+    })
+
+    const shareText = computed(() => {
+      if (!activeMatch.value) return ''
+      return `Match Result vs ${activeMatch.value.opponent}
+${getMatchResult(activeMatch.value).toUpperCase()} (${activeMatch.value.score_for}-${activeMatch.value.score_against})
+
+Rating: ${calculateMatchRating(activeMatch.value)}
+Goals: ${myGoalsForMatch.value}
+Assists: ${activeMatch.value.assists || 0}
+Pass Accuracy: ${getMatchPassAccuracy(activeMatch.value)}%
+Chances Created: ${activeMatch.value.created_chances || 0}
+
+Tracked with ${shareLink.value}`
+    })
+
+    const shareViaWhatsApp = () => {
+      const url = `https://wa.me/?text=${encodeURIComponent(shareText.value)}`
+      window.open(url, '_blank')
+    }
+
+    const shareNative = async () => {
+      const element = document.getElementById('share-card')
+      if (!element) return
+      
+      try {
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#101418', 
+          scale: 2 
+        })
+        
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], `match-vs-${activeMatch.value.opponent}.png`, { type: 'image/png' })
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: `Match vs ${activeMatch.value.opponent}`,
+              text: shareText.value
+            })
+          } else {
+            alert('Image sharing is not supported on this device. Please use the Download button.')
+          }
+        }, 'image/png')
+      } catch (error) {
+        console.error('Error sharing image:', error)
+      }
+    }
+
+    const downloadShareImage = async () => {
+      const element = document.getElementById('share-card');
+      if (!element) return;
+      
+      try {
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#101418', 
+          scale: 2 
+        });
+        
+        const link = document.createElement('a');
+        link.download = `match-vs-${activeMatch.value.opponent}-${activeMatch.value.match_date}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        showShareModal.value = false;
+      } catch (error) {
+        console.error('Error generating image:', error);
+      }
+    }
+
     const getMatchResult = (match) => {
       if (match.score_for > match.score_against) return 'Win'
       if (match.score_for < match.score_against) return 'Loss'
       return 'Draw'
+    }
+
+    const getMatchPassAccuracy = (match) => {
+      const successful = match.successful_passes || 0;
+      const unsuccessful = match.unsuccessful_passes || 0;
+      const total = successful + unsuccessful;
+      if (total === 0) return 0;
+      return Math.round((successful / total) * 100);
     }
 
     const formatDate = (dateString) => {
@@ -2457,5 +2628,161 @@ h4 {
   .matches-list {
     grid-template-columns: 1fr;
   }
+}
+
+/* Share Modal & Card */
+.share-modal {
+  max-width: 500px;
+}
+
+.share-card-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.share-card {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(135deg, #1a1d21 0%, #101418 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+}
+
+.share-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.share-date {
+  color: #89938d;
+  font-size: 0.9rem;
+}
+
+.share-result {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.share-score {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.share-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.share-team-name {
+  font-size: 0.8rem;
+  color: #89938d;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.share-score-num {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.share-divider {
+  font-size: 2rem;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 10px;
+}
+
+.share-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.share-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.share-stat-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.share-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #89938d;
+}
+
+.share-footer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: #4cda9c;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-top: 8px;
+}
+
+.center-btn {
+  justify-content: center;
+}
+
+.btn-full {
+  width: 100%;
+  justify-content: center;
+}
+
+.share-btn:hover {
+  border-color: #4cda9c;
+  color: #4cda9c;
+}
+
+.share-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.share-option-btn {
+  flex: 1;
+  min-width: 120px;
+  white-space: nowrap;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.share-option-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #4cda9c;
+  color: #fff;
+}
+
+.btn-icon {
+  margin-right: 6px;
 }
 </style>
