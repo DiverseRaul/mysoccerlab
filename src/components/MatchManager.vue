@@ -60,7 +60,7 @@
                 <div class="score-display">
                   <div class="score-container">
                     <div class="team-score home">
-                      <span class="team-label">You</span>
+                      <span class="team-label">{{ myTeamLabel }}</span>
                       <span class="score-number">{{ activeMatch.score_for }}</span>
                     </div>
                     <div class="score-divider">:</div>
@@ -627,8 +627,16 @@
           <button @click="showShareModal = false" class="close-btn">&times;</button>
         </div>
         <div class="modal-body">
+          <div class="share-bg-picker">
+            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'clean' }, 'preset-clean']" @click="shareBgPreset = 'clean'">Clean</button>
+            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'emerald' }, 'preset-emerald']" @click="shareBgPreset = 'emerald'">Emerald</button>
+            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'blue' }, 'preset-blue']" @click="shareBgPreset = 'blue'">Blue</button>
+            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'sunset' }, 'preset-sunset']" @click="shareBgPreset = 'sunset'">Sunset</button>
+            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'custom' }, 'preset-custom']" @click="triggerCustomBgUpload">Custom</button>
+          </div>
+          <input ref="customBgFileInput" type="file" accept="image/*" class="share-bg-file" @change="handleCustomBgFile" />
           <div class="share-card-container">
-            <div id="share-card" class="share-card">
+            <div id="share-card" class="share-card" :class="shareBgClass" :style="shareCardStyle">
               <!-- Card Content -->
               <div class="share-card-header">
                 <div class="share-date">{{ formatDate(activeMatch.match_date) }}</div>
@@ -639,7 +647,7 @@
               
               <div class="share-score">
                 <div class="share-team">
-                  <span class="share-team-name">You</span>
+                  <span class="share-team-name">{{ myTeamLabel }}</span>
                   <span class="share-score-num">{{ activeMatch.score_for }}</span>
                 </div>
                 <div class="share-divider">-</div>
@@ -685,14 +693,8 @@
           </div>
           
           <div class="modal-buttons share-actions">
-            <button @click="shareViaWhatsApp" class="btn share-option-btn">
-              <span class="btn-icon">💬</span> WhatsApp
-            </button>
             <button @click="shareNative" class="btn share-option-btn">
               <span class="btn-icon">🔗</span> Share Image
-            </button>
-            <button @click="downloadShareImage" class="btn share-option-btn">
-              <span class="btn-icon">⬇️</span> Download
             </button>
           </div>
         </div>
@@ -701,7 +703,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
 import html2canvas from 'html2canvas'
 
@@ -733,6 +735,20 @@ const activeMatch = ref(null)
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
     const showShareModal = ref(false)
+    const shareBgPreset = ref('clean')
+    const shareBgClass = computed(() => `bg-${shareBgPreset.value}`)
+    const customBgFileInput = ref(null)
+    const customShareBgUrl = ref('')
+    const myClubTeamName = ref('You')
+    const shareCardStyle = computed(() => {
+      if (shareBgPreset.value !== 'custom' || !customShareBgUrl.value) return {}
+      return {
+        backgroundImage: `url(${customShareBgUrl.value})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }
+    })
+    const myTeamLabel = computed(() => myClubTeamName.value || 'You')
     const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
     const positions = ref([
       'Goalkeeper',
@@ -1710,9 +1726,33 @@ const activeMatch = ref(null)
       }
     }
 
-    const openShareModal = () => {
+    const loadMyClubTeamName = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser()
+        const user = authData?.user
+        if (!user) return
+
+        const { data: profileData, error } = await supabase
+          .from('user_profiles')
+          .select('club_team')
+          .eq('user_id', user.id)
+          .single()
+
+        if (error) return
+        if (profileData?.club_team) myClubTeamName.value = profileData.club_team
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const openShareModal = async () => {
+      await loadMyClubTeamName()
       showShareModal.value = true;
     }
+
+    onMounted(() => {
+      loadMyClubTeamName()
+    })
 
     const shareLink = computed(() => {
       return 'https://mysoccerlab.com'
@@ -1743,7 +1783,8 @@ Tracked with ${shareLink.value}`
       
       try {
         const canvas = await html2canvas(element, {
-          backgroundColor: '#101418', 
+          backgroundColor: null,
+          useCORS: true,
           scale: 2 
         })
         
@@ -1757,12 +1798,28 @@ Tracked with ${shareLink.value}`
               text: shareText.value
             })
           } else {
-            alert('Image sharing is not supported on this device. Please use the Download button.')
+            alert('Image sharing is not supported on this device.')
           }
         }, 'image/png')
       } catch (error) {
         console.error('Error sharing image:', error)
       }
+    }
+
+    const triggerCustomBgUpload = () => {
+      shareBgPreset.value = 'custom'
+      if (customBgFileInput.value) customBgFileInput.value.click()
+    }
+
+    const handleCustomBgFile = (event) => {
+      const file = event.target?.files?.[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = () => {
+        customShareBgUrl.value = String(reader.result || '')
+        shareBgPreset.value = 'custom'
+      }
+      reader.readAsDataURL(file)
     }
 
     const downloadShareImage = async () => {
@@ -2635,6 +2692,49 @@ h4 {
   max-width: 500px;
 }
 
+.share-bg-picker {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  margin-bottom: 14px;
+}
+
+.share-bg-btn {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d6d6d6;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.share-bg-btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.share-bg-btn.active {
+  border-color: rgba(76, 218, 156, 0.55);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(76, 218, 156, 0.14);
+}
+
+.share-bg-btn.preset-clean { background-image: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(11, 18, 32, 0.95)); }
+.share-bg-btn.preset-emerald { background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(11, 18, 32, 0.75)); }
+.share-bg-btn.preset-blue { background-image: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(11, 18, 32, 0.75)); }
+.share-bg-btn.preset-sunset { background-image: linear-gradient(135deg, rgba(244, 63, 94, 0.20), rgba(249, 115, 22, 0.16), rgba(11, 18, 32, 0.75)); }
+.share-bg-btn.preset-custom { background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(11, 18, 32, 0.75)); }
+
+.share-bg-file {
+  display: none;
+}
+
 .share-card-container {
   display: flex;
   justify-content: center;
@@ -2644,7 +2744,6 @@ h4 {
 .share-card {
   width: 100%;
   max-width: 400px;
-  background: linear-gradient(135deg, #1a1d21 0%, #101418 100%);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   padding: 30px;
@@ -2652,6 +2751,95 @@ h4 {
   flex-direction: column;
   gap: 24px;
   box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.share-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.share-card.bg-clean {
+  background:
+    radial-gradient(900px 520px at 30% -20%, rgba(76, 218, 156, 0.14) 0%, rgba(76, 218, 156, 0) 62%),
+    radial-gradient(820px 460px at 115% 5%, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0) 60%),
+    linear-gradient(180deg, #111827 0%, #0b1220 100%);
+}
+
+.share-card.bg-clean::before {
+  background:
+    radial-gradient(800px 420px at 50% 15%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 65%),
+    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 60%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.share-card.bg-emerald {
+  background:
+    radial-gradient(880px 540px at 25% -25%, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 60%),
+    radial-gradient(740px 420px at 110% 10%, rgba(76, 218, 156, 0.12) 0%, rgba(76, 218, 156, 0) 58%),
+    linear-gradient(180deg, #0b1f1a 0%, #081017 100%);
+}
+
+.share-card.bg-emerald::before {
+  background:
+    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
+    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0) 62%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.share-card.bg-blue {
+  background:
+    radial-gradient(900px 520px at 30% -20%, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0) 62%),
+    radial-gradient(720px 420px at 115% 15%, rgba(147, 197, 253, 0.12) 0%, rgba(147, 197, 253, 0) 58%),
+    linear-gradient(180deg, #0b1630 0%, #070c16 100%);
+}
+
+.share-card.bg-blue::before {
+  background:
+    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
+    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0) 62%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.share-card.bg-sunset {
+  background:
+    radial-gradient(900px 520px at 20% -25%, rgba(244, 63, 94, 0.22) 0%, rgba(244, 63, 94, 0) 62%),
+    radial-gradient(820px 500px at 120% 0%, rgba(249, 115, 22, 0.20) 0%, rgba(249, 115, 22, 0) 60%),
+    linear-gradient(180deg, #1f1121 0%, #080b14 100%);
+}
+
+.share-card.bg-sunset::before {
+  background:
+    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
+    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.share-card.bg-custom {
+  background-color: #0b1220;
+}
+
+.share-card.bg-custom::before {
+  opacity: 0.9;
+  background:
+    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 58%),
+    radial-gradient(1100px 760px at 50% 120%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 56%),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.78) 45%, rgba(0, 0, 0, 0.86) 100%);
+}
+
+.share-card.bg-custom .share-stats {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.share-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .share-card-header {
@@ -2767,8 +2955,8 @@ h4 {
 }
 
 .share-option-btn {
-  flex: 1;
-  min-width: 120px;
+  width: 100%;
+  max-width: 260px;
   white-space: nowrap;
   font-size: 1rem;
   background: rgba(255, 255, 255, 0.05);
