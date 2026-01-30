@@ -12,6 +12,37 @@
           <h3>👤 Player Details</h3>
         </div>
         <div v-if="user" class="profile-content">
+          <!-- Profile Picture Section -->
+          <div class="avatar-section">
+            <div class="avatar-wrapper">
+              <img 
+                v-if="editableProfile.avatarUrl" 
+                :src="editableProfile.avatarUrl" 
+                alt="Profile Avatar" 
+                class="profile-avatar"
+              />
+              <div v-else class="profile-avatar placeholder">
+                {{ editableProfile.playerName ? editableProfile.playerName.substring(0, 2).toUpperCase() : '??' }}
+              </div>
+              
+              <div v-if="isEditing" class="avatar-upload-overlay">
+                <label for="avatar-upload" class="upload-btn">
+                  <span>📷</span>
+                  <span v-if="uploadingAvatar">Uploading...</span>
+                  <span v-else>Change</span>
+                </label>
+                <input 
+                  id="avatar-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  @change="uploadAvatar" 
+                  :disabled="uploadingAvatar"
+                  style="display: none;"
+                />
+              </div>
+            </div>
+          </div>
+
           <div class="field-grid">
             <!-- Player Name -->
             <div class="info-item">
@@ -19,6 +50,28 @@
               <div class="info-input-container">
                 <input v-if="isEditing" v-model="editableProfile.playerName" class="info-input" type="text" placeholder="Enter your player name" />
                 <span v-else class="info-value">{{ editableProfile.playerName || 'Not set' }}</span>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="info-item">
+              <span class="info-label">Email</span>
+              <span class="info-value readonly">{{ user.email }}</span>
+            </div>
+
+            <!-- Profile Visibility -->
+            <div class="info-item">
+              <span class="info-label">Profile Visibility</span>
+              <div class="info-input-container toggle-container">
+                <label class="switch">
+                  <input 
+                    type="checkbox" 
+                    :disabled="!isEditing" 
+                    v-model="editableProfile.isPublic"
+                  >
+                  <span class="slider round"></span>
+                </label>
+                <span class="toggle-label">{{ editableProfile.isPublic ? 'Public' : 'Private' }}</span>
               </div>
             </div>
 
@@ -44,30 +97,34 @@
             </div>
 
             <!-- Position -->
-            <div class="info-item">
+            <div class="info-item full-width-item">
               <span class="info-label">Position</span>
               <div class="info-input-container">
-                <select v-if="isEditing" v-model="editableProfile.position" class="info-select">
-                  <option value="">Select Position</option>
-                  <optgroup label="Goalkeeper">
-                    <option value="Goalkeeper">Goalkeeper</option>
-                  </optgroup>
-                  <optgroup label="Defenders">
-                    <option value="Center-Back">Center-Back</option>
-                    <option value="Full-Back">Full-Back</option>
-                    <option value="Wing-Back">Wing-Back</option>
-                  </optgroup>
-                  <optgroup label="Midfielders">
-                    <option value="Defensive Midfielder">Defensive Midfielder</option>
-                    <option value="Central Midfielder">Central Midfielder</option>
-                    <option value="Attacking Midfielder">Attacking Midfielder</option>
-                    <option value="Winger">Winger</option>
-                  </optgroup>
-                  <optgroup label="Forwards">
-                    <option value="Striker">Striker</option>
-                    <option value="Center-Forward">Center-Forward</option>
-                  </optgroup>
-                </select>
+                <div v-if="isEditing" class="field-selector">
+                  <div class="field-graphic">
+                    <!-- Field Lines -->
+                    <div class="field-line penalty-area-top"></div>
+                    <div class="field-line center-circle"></div>
+                    <div class="field-line penalty-area-bottom"></div>
+                    <div class="field-line center-line"></div>
+                    
+                    <!-- Positions -->
+                    <div 
+                      v-for="pos in availablePositions" 
+                      :key="pos.value"
+                      class="position-dot"
+                      :class="{ active: editableProfile.position === pos.value }"
+                      :style="{ top: pos.top + '%', left: pos.left + '%' }"
+                      @click="editableProfile.position = pos.value"
+                      :title="pos.label"
+                    >
+                      <span class="pos-abbr">{{ pos.abbr }}</span>
+                    </div>
+                  </div>
+                  <div class="selected-position-label">
+                    Selected: <strong>{{ editableProfile.position || 'None' }}</strong>
+                  </div>
+                </div>
                 <span v-else class="info-value">{{ editableProfile.position || 'Not set' }}</span>
               </div>
             </div>
@@ -209,10 +266,29 @@ export default {
       preferredFoot: '',
       jerseyNumber: null,
       clubTeam: '',
-      dateOfBirth: ''
+      dateOfBirth: '',
+      isPublic: false,
+      avatarUrl: null
     })
     const originalProfile = ref({})
     const profileEditCount = ref(0)
+    const uploadingAvatar = ref(false)
+
+    const availablePositions = [
+      { value: 'Striker', label: 'Striker', abbr: 'ST', top: 10, left: 50 },
+      { value: 'Center-Forward', label: 'Center Forward', abbr: 'CF', top: 20, left: 50 },
+      { value: 'Winger', label: 'Left Winger', abbr: 'LW', top: 20, left: 15 },
+      { value: 'Winger', label: 'Right Winger', abbr: 'RW', top: 20, left: 85 },
+      { value: 'Attacking Midfielder', label: 'Attacking Midfielder', abbr: 'CAM', top: 35, left: 50 },
+      { value: 'Central Midfielder', label: 'Central Midfielder', abbr: 'CM', top: 50, left: 50 },
+      { value: 'Defensive Midfielder', label: 'Defensive Midfielder', abbr: 'CDM', top: 60, left: 50 },
+      { value: 'Wing-Back', label: 'Left Wing Back', abbr: 'LWB', top: 55, left: 10 },
+      { value: 'Wing-Back', label: 'Right Wing Back', abbr: 'RWB', top: 55, left: 90 },
+      { value: 'Full-Back', label: 'Left Back', abbr: 'LB', top: 75, left: 15 },
+      { value: 'Full-Back', label: 'Right Back', abbr: 'RB', top: 75, left: 85 },
+      { value: 'Center-Back', label: 'Center Back', abbr: 'CB', top: 75, left: 50 },
+      { value: 'Goalkeeper', label: 'Goalkeeper', abbr: 'GK', top: 90, left: 50 },
+    ]
 
     const isProfileComplete = computed(() => {
       return editableProfile.value.playerName && 
@@ -262,7 +338,9 @@ export default {
           preferredFoot: profileData?.preferred_foot || '',
           jerseyNumber: profileData?.jersey_number || null,
           clubTeam: profileData?.club_team || '',
-          dateOfBirth: profileData?.date_of_birth || ''
+          dateOfBirth: profileData?.date_of_birth || '',
+          isPublic: profileData?.is_public || false,
+          avatarUrl: profileData?.avatar_url || null
         }
         profileEditCount.value = profileData?.edit_count || 0
 
@@ -270,6 +348,37 @@ export default {
         originalProfile.value = { ...profile }
       } catch (error) {
         console.error('Error loading profile:', error)
+      }
+    }
+
+    const uploadAvatar = async (event) => {
+      try {
+        uploadingAvatar.value = true
+        if (!event.target.files || event.target.files.length === 0) {
+          throw new Error('You must select an image to upload.')
+        }
+
+        const file = event.target.files[0]
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${user.value.id}/${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file)
+
+        if (uploadError) throw uploadError
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath)
+
+        editableProfile.value.avatarUrl = publicUrl
+      } catch (error) {
+        console.error('Error uploading avatar:', error)
+        alert('Error uploading avatar!')
+      } finally {
+        uploadingAvatar.value = false
       }
     }
 
@@ -302,6 +411,8 @@ export default {
           jersey_number: editableProfile.value.jerseyNumber,
           club_team: editableProfile.value.clubTeam,
           date_of_birth: editableProfile.value.dateOfBirth || null,
+          is_public: editableProfile.value.isPublic,
+          avatar_url: editableProfile.value.avatarUrl,
           edit_count: profileEditCount.value + 1
         }
 
@@ -360,7 +471,7 @@ export default {
 
     const signOut = async () => {
       await supabase.auth.signOut()
-      router.push('/')
+      router.push('/login')
     }
 
     const formatDate = (dateString) => {
@@ -382,13 +493,16 @@ export default {
       isProfileComplete,
       profileAge,
       profileEditCount,
+      uploadingAvatar,
+      uploadAvatar,
       startEditing,
       cancelEditing,
       saveProfile,
       confirmDeleteAccount,
       signOut,
       formatDate,
-      formatBirthday
+      formatBirthday,
+      availablePositions
     }
   }
 }
@@ -418,7 +532,7 @@ export default {
 
 .page-header {
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 5rem;
   margin-bottom: 3rem;
 }
 
@@ -441,6 +555,72 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.profile-content {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+/* --- Avatar Section --- */
+.avatar-section {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid #4cda9c;
+  overflow: hidden;
+  background: #1a1a1a;
+  box-shadow: 0 0 20px rgba(76, 218, 156, 0.2);
+}
+
+.profile-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #888;
+  background: #222;
+}
+
+.avatar-upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+  cursor: pointer;
+}
+
+.avatar-wrapper:hover .avatar-upload-overlay {
+  opacity: 1;
+}
+
+.upload-btn {
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
 }
 
 /* --- Cards --- */
@@ -468,15 +648,21 @@ export default {
 }
 
 .field-grid {
+  flex-grow: 1;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
+  width: 100%;
 }
 
 .info-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.full-width-item {
+  grid-column: 1 / -1;
 }
 
 .info-label {
@@ -530,6 +716,187 @@ export default {
 .info-select option {
   background: #1a1d21;
   color: #fff;
+}
+
+/* Field Selector Styles */
+.field-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.field-graphic {
+  width: 300px;
+  height: 400px;
+  background-color: #1e3a29;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.field-line {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.center-line {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.center-circle {
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.penalty-area-top {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 15%;
+  border-top: none;
+}
+
+.penalty-area-bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 15%;
+  border-bottom: none;
+}
+
+.position-dot {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.position-dot:hover {
+  background: rgba(76, 218, 156, 0.6);
+  border-color: #fff;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.position-dot.active {
+  background: #4cda9c;
+  border-color: #fff;
+  box-shadow: 0 0 10px #4cda9c;
+  z-index: 3;
+}
+
+.pos-abbr {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.position-dot.active .pos-abbr {
+  color: #003822;
+}
+
+.selected-position-label {
+  color: #4cda9c;
+  font-size: 1rem;
+}
+
+/* Toggle Switch Styles */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+
+.toggle-label {
+  font-weight: 500;
+  color: #fff;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #4cda9c;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #4cda9c;
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+input:disabled + .slider {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* --- Actions --- */
@@ -663,6 +1030,15 @@ export default {
 
 /* Responsive */
 @media (max-width: 768px) {
+  .profile-content {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .avatar-section {
+    margin-bottom: 2rem;
+  }
+
   .field-grid {
     grid-template-columns: 1fr;
   }

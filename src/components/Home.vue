@@ -6,11 +6,14 @@
           My Soccer Lab
         </h1>
         <p class="hero-subtitle">
-          The ultimate platform for soccer analytics and team management.
+          The platform for player analytics.
         </p>
         <div class="hero-buttons">
           <router-link v-if="!user" to="/login" class="btn btn-primary">Get Started</router-link>
-          <router-link v-else to="/dashboard" class="btn btn-primary">Go to Dashboard</router-link>
+          <div v-else class="auth-buttons">
+            <router-link to="/dashboard" class="btn btn-primary">Dashboard</router-link>
+            <router-link to="/feed" class="btn btn-secondary">Feed</router-link>
+          </div>
           <button class="btn btn-ghost" @click="scrollToFeatures">Learn More</button>
         </div>
       </div>
@@ -186,6 +189,29 @@ export default {
 
 .btn-primary:hover::before {
   left: 100%;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 2px solid #4CAF50;
+  color: #4CAF50;
+  padding: 0.8rem 2rem;
+  border-radius: 50px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: #4CAF50;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(76, 175, 80, 0.2);
+}
+
+.auth-buttons {
+  display: flex;
+  gap: 1rem;
 }
 
 .btn-ghost {

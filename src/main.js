@@ -6,13 +6,15 @@ import Login from './components/Login.vue'
 import SignUp from './components/SignUp.vue'
 import Dashboard from './components/Dashboard.vue'
 import Profile from './components/Profile.vue'
+import Feed from './components/Feed.vue'
 
 const routes = [
   { path: '/', component: Home },
   { path: '/login', component: Login },
   { path: '/signup', component: SignUp },
   { path: '/dashboard', component: Dashboard },
-  { path: '/profile', component: Profile }
+  { path: '/profile', component: Profile },
+  { path: '/feed', component: Feed }
 ]
 
 const router = createRouter({
