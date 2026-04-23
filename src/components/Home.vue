@@ -2,11 +2,12 @@
   <div class="home">
     <div class="hero">
       <div class="hero-content">
+        <div class="ai-badge">Powered by AI Analytics</div>
         <h1 class="hero-title">
           My Soccer Lab
         </h1>
         <p class="hero-subtitle">
-          The platform for player analytics.
+          The ultimate platform for player development.
         </p>
         <div class="hero-buttons">
           <router-link v-if="!user" to="/login" class="btn btn-primary">Get Started</router-link>
@@ -14,36 +15,56 @@
             <router-link to="/dashboard" class="btn btn-primary">Dashboard</router-link>
             <router-link to="/feed" class="btn btn-secondary">Feed</router-link>
           </div>
-          <button class="btn btn-ghost" @click="scrollToFeatures">Learn More</button>
+          <button class="btn btn-ghost" @click="scrollToHowItWorks">Learn More</button>
         </div>
       </div>
-      <div class="hero-glow"></div>
     </div>
+    <div class="how-it-works" ref="howItWorksSection">
+      <h2 class="section-title">How it works</h2>
+      <div class="steps-container">
+        
+        <!-- Step 1 -->
+        <div class="step-row">
+          <div class="step-content">
+            <span class="step-number">01</span>
+            <h3>Sign Up & Connect</h3>
+            <p>Create your profile and securely connect your match data or upload footage.</p>
+          </div>
+          <div class="step-visual">
+            <div class="visual-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            </div>
+          </div>
+        </div>
 
-    <div class="features" ref="featuresSection">
-      <h2 class="section-title">Everything you need to level up your game</h2>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20V16"/></svg>
+        <!-- Step 2 -->
+        <div class="step-row reverse">
+          <div class="step-content">
+            <span class="step-number">02</span>
+            <h3>AI Analysis</h3>
+            <p>Our advanced algorithms break down your performance, tracking key metrics like shots, passes, and chances created.</p>
           </div>
-          <h3>Advanced Analytics</h3>
-          <p>Gain deep insights with real-time performance tracking and data visualization.</p>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <div class="step-visual">
+            <div class="visual-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
           </div>
-          <h3>Player Management</h3>
-          <p>A complete and intuitive system for managing your roster and player profiles.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+
+        <!-- Step 3 -->
+        <div class="step-row">
+          <div class="step-content">
+            <span class="step-number">03</span>
+            <h3>Level Up</h3>
+            <p>Review actionable insights, monitor your progress over time, and elevate your game to the next level.</p>
           </div>
-          <h3>Match Tracking</h3>
-          <p>Easily track match results, key events, and view league standings.</p>
+          <div class="step-visual">
+            <div class="visual-placeholder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -56,7 +77,7 @@ import { supabase } from '../lib/supabase'
 export default {
   name: 'Home',
   setup() {
-    const featuresSection = ref(null)
+    const howItWorksSection = ref(null)
     const user = ref(null)
 
     onMounted(async () => {
@@ -64,13 +85,13 @@ export default {
       user.value = data.user
     })
 
-    const scrollToFeatures = () => {
-      featuresSection.value?.scrollIntoView({ behavior: 'smooth' })
+    const scrollToHowItWorks = () => {
+      howItWorksSection.value?.scrollIntoView({ behavior: 'smooth' })
     }
 
     return {
-      featuresSection,
-      scrollToFeatures,
+      howItWorksSection,
+      scrollToHowItWorks,
       user
     }
   }
@@ -92,47 +113,49 @@ export default {
   text-align: center;
   padding: 0 2rem;
   position: relative;
+  background: radial-gradient(circle at center top, #111 0%, #050505 100%);
 }
 
 .hero-content {
   position: relative;
   z-index: 2;
-  animation: fadeIn 1.5s ease-out;
+  animation: fadeIn 1s ease-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ai-badge {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #4CAF50;
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+  display: inline-block;
+  animation: slideDown 0.8s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.hero-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(circle, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0) 60%);
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  pointer-events: none;
-  animation: pulse 8s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.7; }
-  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .hero-title {
   font-size: 4.5rem;
   font-weight: 700;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.03em;
   margin-bottom: 1rem;
-  background: linear-gradient(45deg, #ffffff, #b0b0b0);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: fadeInUp 1s ease-out 0.2s both;
+  color: #ffffff;
 }
 
 .hero-subtitle {
@@ -142,53 +165,30 @@ export default {
   color: #a0a0a0;
   font-weight: 300;
   line-height: 1.6;
-  animation: fadeInUp 1s ease-out 0.4s both;
 }
 
 .hero-buttons {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  animation: fadeInUp 1s ease-out 0.6s both;
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .btn-primary {
   background: #4CAF50;
   color: white;
   border: none;
-  padding: 0.8rem 2rem;
+  padding: 0.8rem 2.5rem;
   border-radius: 50px;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.6s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px 0 rgba(76, 175, 80, 0.39);
 }
 
 .btn-primary:hover {
   background: #45a049;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(76, 175, 80, 0.2);
-}
-
-.btn-primary:hover::before {
-  left: 100%;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
 }
 
 .btn-secondary {
@@ -231,8 +231,8 @@ export default {
   color: white;
 }
 
-.features {
-  padding: 6rem 2rem;
+.how-it-works {
+  padding: 8rem 2rem;
   background-color: #0a0a0a;
   position: relative;
   z-index: 2;
@@ -242,62 +242,81 @@ export default {
 .section-title {
   text-align: center;
   font-size: 2.5rem;
-  font-weight: 600;
-  margin-bottom: 4rem;
-  color: #eee;
+  font-weight: 700;
+  margin-bottom: 5rem;
+  color: #fff;
+  letter-spacing: -0.02em;
 }
 
-.features-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-  max-width: 1200px;
+.steps-container {
+  max-width: 1000px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8rem;
 }
 
-.feature-card {
-  background: #111;
-  padding: 2.5rem;
-  border-radius: 16px;
-  border: 1px solid #222;
-  transition: all 0.3s ease;
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+}
+
+.step-row.reverse {
+  flex-direction: row-reverse;
+}
+
+.step-content {
+  flex: 1;
   text-align: left;
 }
 
-.feature-card:hover {
-  transform: translateY(-8px);
-  border-color: #4CAF50;
-  background: #141414;
+.step-number {
+  font-size: 4.5rem;
+  font-weight: 800;
+  color: rgba(76, 175, 80, 0.1);
+  line-height: 1;
+  display: block;
+  margin-bottom: 1rem;
 }
 
-.feature-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(76, 175, 80, 0.1);
-  color: #4CAF50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.step-content h3 {
+  font-size: 2.2rem;
+  font-weight: 700;
   margin-bottom: 1.5rem;
-}
-
-.feature-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.feature-card h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
   color: #f0f0f0;
 }
 
-.feature-card p {
-  color: #888;
-  line-height: 1.7;
-  font-weight: 300;
+.step-content p {
+  color: #a1a1aa;
+  line-height: 1.8;
+  font-weight: 400;
+  font-size: 1.15rem;
+}
+
+.step-visual {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.visual-placeholder {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: linear-gradient(135deg, #111 0%, #0a0a0a 100%);
+  border: 1px solid #222;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4CAF50;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  transition: transform 0.5s ease, border-color 0.5s ease;
+}
+
+.step-row:hover .visual-placeholder {
+  transform: translateY(-10px) scale(1.02);
+  border-color: rgba(76, 175, 80, 0.4);
 }
 
 @media (max-width: 768px) {
@@ -313,8 +332,12 @@ export default {
     font-size: 2rem;
   }
 
-  .features-grid {
-    grid-template-columns: 1fr;
+  .step-row, .step-row.reverse {
+    flex-direction: column;
+    gap: 3rem;
+  }
+  .step-content {
+    text-align: center;
   }
 }
 </style>

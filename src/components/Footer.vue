@@ -1,6 +1,6 @@
 <template>
   <footer class="app-footer">
-    <p>&copy; 2025 my soccer lab | v1.3 | Jan0626</p>
+    <p>&copy; 2026 my soccer lab | v3 | Apr2226</p>
   </footer>
 </template>
 

@@ -33,8 +33,29 @@
                   <label>Assists</label>
                 </div>
                 <div class="stat-item">
-                  <span :class="getStatColorClass('rating', calculateMatchRating(match))">{{ calculateMatchRating(match) }}</span>
+                  <span :class="getStatColorClass('rating', calculateMatchRating(match))"
+                    class="rating-val-cell"
+                  >
+                    <span v-if="match.id === bestRatingMatchId" class="star-badge" title="Season best!">★</span
+                    >{{ calculateMatchRating(match) }}</span>
                   <label>Rating</label>
+                </div>
+                <!-- Season tag -->
+                <div class="season-tag-wrapper" @click.stop>
+                  <div class="season-tag" @click="toggleSeasonPicker(match.id)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    {{ getSeasonName(match.season_id) }}
+                  </div>
+                  <div v-if="seasonPickerOpen === match.id" class="season-pick-dropdown">
+                    <div class="spd-option" @click="assignSeason(match, null)">No Season</div>
+                    <div
+                      v-for="s in seasons"
+                      :key="s.id"
+                      class="spd-option"
+                      :class="{ active: match.season_id === s.id }"
+                      @click="assignSeason(match, s.id)"
+                    >{{ s.name }}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -98,112 +119,109 @@
           </div>
 
           <div class="live-view-content single-column">
+            <!-- Combined Performance + Goals & Shots panel -->
             <div class="live-stats-panel">
-              <h4>Performance</h4>
-              <div class="rating-display">
-                <span :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
-                <label>Match Rating</label>
-              </div>
-            </div>
-
-            <div class="shot-log-panel">
-              <h4>Goals & Shots</h4>
-              <div class="event-list">
-                <div v-for="item in combinedEvents" :key="item.type + item.id" class="event-item" @click="selectEventForViz(item)">
-                  <div class="event-time-and-icon">
-                    <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
-                  </div>
-                  <div class="event-details">
-                    <span class="event-type">
-                      {{ item.details }}
-                      <span v-if="item.count > 1" class="event-count">({{ item.count }}x)</span>
-                    </span>
-                    <span v-if="item.type === 'Goal'" class="event-subtype">({{ item.goal_type }})</span>
-                  </div>
-                  <div v-if="item.quadrant" class="event-quadrant-indicator">🎯</div>
-                  <button @click.stop="removeEventGroup(item)" class="remove-event-btn">&times;</button>
-                </div>
-              </div>
-              <div v-if="selectedEvent" class="shot-visualization">
-                <div class="viz-header">
-                  <div class="view-toggles">
-                    <button 
-                      @click="vizView = 'field'" 
-                      class="viz-toggle-btn" 
-                      :class="{ active: vizView === 'field' }"
-                    >
-                      Origin
-                    </button>
-                    <button 
-                      @click="vizView = 'goal'" 
-                      class="viz-toggle-btn" 
-                      :class="{ active: vizView === 'goal' }"
-                    >
-                      Placement
-                    </button>
+              <div class="perf-and-events">
+                <!-- Rating sub-section -->
+                <div class="rating-display">
+                  <span :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
+                  <label>Match Rating</label>
+                  <div class="rating-tier-label" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">
+                    {{ getRatingLabel(calculateMatchRating(activeMatch)) }}
                   </div>
                 </div>
-
-                <div class="viz-container">
-                  <div v-if="vizView === 'field'" class="viz-section">
-                    <div class="field-grid-container viz-field">
-                      <!-- SVG Field Markings (Dark Theme) -->
-                      <svg class="field-markings-svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
-                        <!-- Outline -->
-                        <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
-                        <!-- Penalty Box -->
-                        <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                        <!-- Goal Area -->
-                        <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                        <!-- Penalty Spot -->
-                        <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
-                        <!-- Penalty Arc -->
-                        <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                        <!-- Center Circle -->
-                        <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                        <!-- Corner Arcs -->
-                        <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                        <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                        <!-- Goal Post -->
-                        <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
-                      </svg>
-                      <!-- Shot Trajectory Line (Only for Goals and On-Target Shots) -->
-                      <svg class="field-markings-svg overlay" viewBox="0 0 68 52.5" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                        <line 
-                          v-if="showTrajectory"
-                          :x1="shotTrajectory.x1" 
-                          :y1="shotTrajectory.y1" 
-                          :x2="shotTrajectory.x2" 
-                          :y2="shotTrajectory.y2" 
-                          stroke="rgba(255,255,255,0.4)" 
-                          stroke-width="0.5" 
-                          stroke-dasharray="2"
-                        />
-                      </svg>
-                      <div 
-                        v-if="selectedEvent.field_position" 
-                        class="shot-marker" 
-                        :class="{ 
-                          'off-target': selectedEvent.type === 'Shot' && !selectedEvent.on_target,
-                          'goal': selectedEvent.type === 'Goal'
-                        }"
-                        :style="getShotMarkerStyle(selectedEvent)"
-                      ></div>
-                      <div v-else class="viz-placeholder">
-                        <span>No origin recorded</span>
+                <!-- Event log sub-section -->
+                <div class="event-log-sub">
+                  <div class="event-log-title">Goals &amp; Shots</div>
+                  <div class="event-list">
+                    <div v-for="item in combinedEvents" :key="item.type + item.id" class="event-item" @click="selectEventForViz(item)">
+                      <div class="event-time-and-icon">
+                        <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
                       </div>
+                      <div class="event-details">
+                        <span class="event-type">
+                          {{ item.details }}
+                          <span v-if="item.count > 1" class="event-count">({{ item.count }}x)</span>
+                        </span>
+                        <span v-if="item.type === 'Goal'" class="event-subtype">({{ item.goal_type }})</span>
+                      </div>
+                      <div v-if="item.quadrant" class="event-quadrant-indicator">🎯</div>
+                      <button @click.stop="removeEventGroup(item)" class="remove-event-btn">&times;</button>
                     </div>
                   </div>
+                  <div v-if="selectedEvent" class="shot-visualization">
+                    <div class="viz-header">
+                      <div class="view-toggles">
+                        <button
+                          @click="vizView = 'field'"
+                          class="viz-toggle-btn"
+                          :class="{ active: vizView === 'field' }"
+                        >
+                          Origin
+                        </button>
+                        <button
+                          @click="vizView = 'goal'"
+                          class="viz-toggle-btn"
+                          :class="{ active: vizView === 'goal' }"
+                        >
+                          Placement
+                        </button>
+                      </div>
+                    </div>
 
-                  <div v-if="vizView === 'goal'" class="viz-section">
-                    <div class="goal-grid-container viz-grid">
-                      <div class="goal-grid">
-                        <div v-for="i in 9" :key="i" class="goal-quadrant" :class="{ 'highlight': selectedEvent.quadrant === i }">
-                          <span v-if="selectedEvent.quadrant === i">X</span>
+                    <div class="viz-container">
+                      <div v-if="vizView === 'field'" class="viz-section">
+                        <div class="field-grid-container viz-field">
+                          <!-- SVG Field Markings (Dark Theme) -->
+                          <svg class="field-markings-svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
+                            <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
+                            <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
+                            <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
+                            <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
+                            <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
+                            <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                            <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                            <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
+                            <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
+                          </svg>
+                          <svg class="field-markings-svg overlay" viewBox="0 0 68 52.5" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                            <line
+                              v-if="showTrajectory"
+                              :x1="shotTrajectory.x1"
+                              :y1="shotTrajectory.y1"
+                              :x2="shotTrajectory.x2"
+                              :y2="shotTrajectory.y2"
+                              stroke="rgba(255,255,255,0.4)"
+                              stroke-width="0.5"
+                              stroke-dasharray="2"
+                            />
+                          </svg>
+                          <div
+                            v-if="selectedEvent.field_position"
+                            class="shot-marker"
+                            :class="{
+                              'off-target': selectedEvent.type === 'Shot' && !selectedEvent.on_target,
+                              'goal': selectedEvent.type === 'Goal'
+                            }"
+                            :style="getShotMarkerStyle(selectedEvent)"
+                          ></div>
+                          <div v-else class="viz-placeholder">
+                            <span>No origin recorded</span>
+                          </div>
                         </div>
                       </div>
-                      <div v-if="!selectedEvent.quadrant" class="viz-placeholder-text">
-                        No placement recorded
+
+                      <div v-if="vizView === 'goal'" class="viz-section">
+                        <div class="goal-grid-container viz-grid">
+                          <div class="goal-grid">
+                            <div v-for="i in 9" :key="i" class="goal-quadrant" :class="{ 'highlight': selectedEvent.quadrant === i }">
+                              <span v-if="selectedEvent.quadrant === i">X</span>
+                            </div>
+                          </div>
+                          <div v-if="!selectedEvent.quadrant" class="viz-placeholder-text">
+                            No placement recorded
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -244,6 +262,14 @@
                     <button @click="incrementGkStat('penalties_saved', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ goalkeeperStats.penalties_saved || 0 }}</span>
                     <button @click="incrementGkStat('penalties_saved', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group error-stat">
+                  <span class="stat-label">Error Led to Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementGkStat('errors_led_to_goal', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ goalkeeperStats.errors_led_to_goal || 0 }}</span>
+                    <button @click="incrementGkStat('errors_led_to_goal', 1)" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -371,6 +397,14 @@
                     <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.fouls || 0 }}</span>
                     <button @click="incrementStat('fouls', 1)" class="btn">+</button>
+                  </div>
+                </div>
+                <div class="stat-control-group error-stat">
+                  <span class="stat-label">Error Led to Goal</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('errors_led_to_goal', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.errors_led_to_goal || 0 }}</span>
+                    <button @click="incrementStat('errors_led_to_goal', 1)" class="btn">+</button>
                   </div>
                 </div>
               </div>
@@ -706,15 +740,41 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
 import html2canvas from 'html2canvas'
+import { calculateMatchRating as calculateMatchRatingFn, getRatingColor, getRatingLabel } from '../lib/rating'
 
 const props = defineProps({
-  matches: {
-    type: Array,
-    required: true
-  }
+  matches: { type: Array, required: true },
+  activeSeason: { type: Object, default: null },
+  seasons: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['match-updated'])
+
+const seasonPickerOpen = ref(null)
+
+const getSeasonName = (seasonId) => {
+  if (!seasonId) return 'No Season'
+  const s = props.seasons.find(s => s.id === seasonId)
+  return s ? s.name : 'No Season'
+}
+
+const toggleSeasonPicker = (matchId) => {
+  seasonPickerOpen.value = seasonPickerOpen.value === matchId ? null : matchId
+}
+
+const assignSeason = async (match, seasonId) => {
+  seasonPickerOpen.value = null
+  try {
+    const { error } = await supabase
+      .from('matches')
+      .update({ season_id: seasonId })
+      .eq('id', match.id)
+    if (error) throw error
+    match.season_id = seasonId
+  } catch (e) {
+    console.error('Error assigning season:', e)
+  }
+}
 
 const showAddMatch = ref(false)
 const activeMatch = ref(null)
@@ -848,6 +908,16 @@ const activeMatch = ref(null)
       return Math.max(...ratings).toFixed(2)
     })
 
+    const bestRatingMatchId = computed(() => {
+      if (!props.matches || props.matches.length === 0) return null
+      let best = null, bestVal = -1
+      for (const m of props.matches) {
+        const v = parseFloat(calculateMatchRating(m))
+        if (v > bestVal) { bestVal = v; best = m.id }
+      }
+      return best
+    })
+
     const loadGoalkeeperStats = async (matchId) => {
       const { data, error } = await supabase
         .from('goalkeeper_match_stats')
@@ -866,6 +936,7 @@ const activeMatch = ref(null)
           punches: 0,
           goals_conceded: 0,
           penalties_saved: 0,
+          errors_led_to_goal: 0,
         };
       }
       if (error && error.code !== 'PGRST116') {
@@ -886,6 +957,7 @@ const activeMatch = ref(null)
         punches: goalkeeperStats.value.punches || 0,
         goals_conceded: goalkeeperStats.value.goals_conceded || 0,
         penalties_saved: goalkeeperStats.value.penalties_saved || 0,
+        errors_led_to_goal: goalkeeperStats.value.errors_led_to_goal || 0,
       };
       
       const { error } = await supabase
@@ -1267,6 +1339,7 @@ const activeMatch = ref(null)
         const matchData = {
           ...newMatch.value,
           user_id: user.id,
+          season_id: props.activeSeason?.id || null,
           score_for: 0,
           score_against: 0,
           assists: 0,
@@ -1560,92 +1633,26 @@ const activeMatch = ref(null)
       emit('match-updated');
     };
 
+    // Wrap the shared function to inject live shot/goal data when in active match view
     const calculateMatchRating = (match) => {
-      if (!match) return '0.00';
-
-      let rating = 6.0;
-      let shotsOnTarget = 0;
-      let shotsOffTarget = 0;
-      let myGoalsCount = 0;
-
+      if (!match) return '0.00'
       if (activeMatch.value && match.id === activeMatch.value.id) {
-        // Live view: calculate from the reactive 'matchShots' array
-        shotsOnTarget = matchShots.value.filter(s => s.on_target).length;
-        shotsOffTarget = matchShots.value.filter(s => !s.on_target).length;
-        // Live view: goals come from reactive goals array
-        myGoalsCount = matchGoals.value.length;
-      } else {
-        // List view: use the pre-calculated stats on the match object
-        shotsOnTarget = match.shots_on_target || 0;
-        shotsOffTarget = match.shots_off_target || 0;
-        // List view: goals precomputed on match object
-        myGoalsCount = match.my_goals || 0;
+        // Live view: inject reactive data as liveData override
+        const liveData = {
+          goals:   matchGoals.value.length,
+          shotsOn: matchShots.value.filter(s => s.on_target).length,
+          shotsOff:matchShots.value.filter(s => !s.on_target).length,
+          gkStats: goalkeeperStats.value || null,
+        }
+        return calculateMatchRatingFn(match, liveData)
       }
-
-      // Check if this is a goalkeeper match and include goalkeeper stats
-      const isGoalkeeper = match.position_played && match.position_played.toLowerCase().includes('goalkeeper');
-      const currentGoalkeeperStats = (activeMatch.value && match.id === activeMatch.value.id) ? goalkeeperStats.value : null;
-
-      if (isGoalkeeper && currentGoalkeeperStats) {
-        // Goalkeeper-specific rating calculation (live view)
-        rating += (currentGoalkeeperStats.saves || 0) * 0.175;
-        rating += (currentGoalkeeperStats.catches || 0) * 0.175;
-        rating += (currentGoalkeeperStats.punches || 0) * 0.15;
-        rating += (currentGoalkeeperStats.penalties_saved || 0) * 1.25;
-        rating -= (currentGoalkeeperStats.goals_conceded || 0) * 1;
-      } else if (isGoalkeeper && match.goalkeeper_stats) {
-        // Goalkeeper-specific rating calculation (list view with preloaded stats)
-        rating += (match.goalkeeper_stats.saves || 0) * 0.175;
-        rating += (match.goalkeeper_stats.catches || 0) * 0.175;
-        rating += (match.goalkeeper_stats.punches || 0) * 0.15;
-        rating += (match.goalkeeper_stats.penalties_saved || 0) * 1.25;
-        rating -= (match.goalkeeper_stats.goals_conceded || 0) * 1;
-      } else if (isGoalkeeper) {
-        // Default goalkeeper rating when no stats are available yet - clean sheet bonus
-        const goalsAgainst = match.score_against || 0;
-
-        rating -= goalsAgainst * 1; // Goals conceded penalty
-      }
-
-      // Regular player contributions
-      rating += myGoalsCount * 1.7;
-      rating += (match.assists || 0) * 1.0;
-      rating += shotsOnTarget * 0.2;
-      rating += shotsOffTarget * 0.1;
-      rating += (match.tackles || 0) * 0.1;
-      rating += (match.interceptions || 0) * 0.2;
-      rating += (match.dribbles || 0) * 0.1;
-      rating += (match.successful_passes || 0) * 0.05;
-      rating += (match.created_chances || 0) * 0.25;
-
-      // Negative contributions
-      rating -= (match.fouls || 0) * 0.25;
-      rating -= (match.lost_possessions || 0) * 0.15;
-      rating -= (match.unsuccessful_passes || 0) * 0.05;
-      rating -= (match.own_goals || 0) * 2.0;
-
-      // Disciplinary
-      rating -= (match.yellow_card || 0) * 0.75;
-      rating -= (match.red_card || 0) * 3;
-
-      return Math.max(0, Math.min(10, rating)).toFixed(2);
-    };
-    const ratingColorConfig = {
-      excellent: { threshold: 9.0, class: 'stat-excellent' },
-      good: { threshold: 8.0, class: 'stat-good' },
-      mid: { threshold: 6.5, class: 'stat-mid' },
-      bad: { threshold: 5.0, class: 'stat-bad' },
-      horrible: { threshold: 0, class: 'stat-horrible' },
-    };
-
+      return calculateMatchRatingFn(match)
+    }
     const getStatColorClass = (statType, value) => {
       const numValue = parseFloat(value) || 0;
       if (statType === 'rating') {
-        if (numValue >= ratingColorConfig.excellent.threshold) return ratingColorConfig.excellent.class;
-        if (numValue >= ratingColorConfig.good.threshold) return ratingColorConfig.good.class;
-        if (numValue >= ratingColorConfig.mid.threshold) return ratingColorConfig.mid.class;
-        if (numValue >= ratingColorConfig.bad.threshold) return ratingColorConfig.bad.class;
-        return ratingColorConfig.horrible.class;
+        // Delegate to shared rating utility
+        return getRatingColor(numValue)
       }
       // Keep original logic for other stat types
       if (statType === 'goals') {
@@ -1879,12 +1886,55 @@ Tracked with ${shareLink.value}`
   --md-sys-color-outline: #89938d;
 }
 
-/* --- Stat Color Classes --- */
+/* --- Stat Color Classes (goals, assists) --- */
 .stat-excellent { color: #4cda9c !important; }
 .stat-good { color: #81c784 !important; }
 .stat-mid { color: #ffb74d !important; }
 .stat-bad { color: #e57373 !important; }
 .stat-horrible { color: #ef5350 !important; }
+
+/* --- Rating Color Classes (from rating.js getRatingColor) --- */
+.rating-elite     { color: #00e5a0 !important; }
+.rating-excellent { color: #4cda9c !important; }
+.rating-good      { color: #81c784 !important; }
+.rating-average   { color: #ffb74d !important; }
+.rating-poor      { color: #e57373 !important; }
+.rating-bad       { color: #ef5350 !important; }
+
+/* World Class — solid blue, no glow */
+.rating-world-class {
+  color: #4fc3f7 !important;
+}
+
+/* Season-best star badge */
+.rating-val-cell { position: relative; display: inline-flex; align-items: center; gap: 3px; }
+.star-badge {
+  font-size: 0.75em;
+  color: #ffd700;
+  text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Error Led to Goal row — same neutral row as other stats, just label tinted */
+.error-stat { }
+
+/* Combined Performance + Events panel layout */
+.perf-and-events {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.event-log-sub { flex: 1; }
+.event-log-title {
+  font-size: 0.72rem;
+  color: #89938d;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
 
 .matches-section {
   width: 100%;
@@ -2033,6 +2083,64 @@ Tracked with ${shareLink.value}`
   background: rgba(255, 255, 255, 0.02);
   border-radius: 16px;
   border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.season-tag-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.season-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(76, 218, 156, 0.07);
+  border: 1px solid rgba(76, 218, 156, 0.2);
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #4cda9c;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.season-tag:hover {
+  background: rgba(76, 218, 156, 0.15);
+}
+
+.season-pick-dropdown {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background: #141618;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  min-width: 160px;
+  padding: 6px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.spd-option {
+  padding: 8px 10px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.spd-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.spd-option.active {
+  color: #4cda9c;
+  background: rgba(76, 218, 156, 0.08);
 }
 
 /* --- Live Match View --- */
@@ -2223,14 +2331,15 @@ input:checked + .slider:before {
 .live-view-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  gap: 16px;
 }
 
 .live-stats-panel, .shot-log-panel, .live-controls-panel {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 16px;
-  padding: 20px;
+  padding: 16px;
+  min-height: unset;
 }
 
 .live-view-content.single-column {
@@ -2239,13 +2348,13 @@ input:checked + .slider:before {
 
 @media (min-width: 1024px) {
   .live-view-content.single-column {
-    grid-template-columns: 300px 1fr 300px;
+    grid-template-columns: 280px 1fr;
   }
 }
 
 h4 {
-  margin: 0 0 16px 0;
-  font-size: 1rem;
+  margin: 0 0 12px 0;
+  font-size: 0.78rem;
   color: #89938d;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -2257,13 +2366,31 @@ h4 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px 0;
+  padding: 8px 0 4px;
+  gap: 2px;
 }
 
 .rating-display span {
-  font-size: 4rem;
+  font-size: 3rem;
   font-weight: 800;
   line-height: 1;
+}
+
+.rating-display label {
+  font-size: 0.72rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+.rating-tier-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.05);
 }
 
 /* Controls */

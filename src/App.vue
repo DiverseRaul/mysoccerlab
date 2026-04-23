@@ -39,6 +39,7 @@
     </main>
 
     <app-footer />
+
   </div>
 </template>
 

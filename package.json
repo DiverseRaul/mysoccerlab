@@ -9,8 +9,10 @@
     "deploy": "npm run build && gh-pages -d dist"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.38.0",
     "html2canvas": "^1.4.1",
+    "marked": "^18.0.2",
     "vue": "^3.3.8",
     "vue-router": "^4.2.5"
   },

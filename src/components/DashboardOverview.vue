@@ -50,7 +50,7 @@
             <!-- Player Image Removed -->
           </div>
           <div class="player-name">
-            {{ userEmail ? userEmail.split('@')[0].toUpperCase() : 'PLAYER' }}
+            {{ userName ? userName.toUpperCase() : 'PLAYER' }}
           </div>
           <div class="radar-chart-container">
             <svg viewBox="0 0 260 260" class="radar-svg">
@@ -161,11 +161,16 @@
 
       <div class="bento-item performance-tile" style="--delay: 600ms">
         <div class="tile-header header-spaced">
-          <h4>Passing</h4>
+          <h4>Playmaking</h4>
         </div>
         <div class="chart-content">
-          <div class="stacked-bar-container">
-            <div class="stacked-bar">
+          <div class="stat-bar-container">
+            <div class="bar-header">
+              <span class="label-small">Pass Accuracy</span>
+              <span class="value-small">{{ passAccuracy }}%</span>
+            </div>
+            <div class="stacked-bar-container">
+              <div class="stacked-bar">
               <div class="bar-segment segment-good" :style="{ width: passAccuracy + '%' }"></div>
               <div class="bar-segment segment-bad" :style="{ width: (100 - passAccuracy) + '%' }"></div>
             </div>
@@ -180,8 +185,9 @@
               </div>
             </div>
           </div>
+          </div>
           
-          <div class="stats-row mini-stats">
+          <div class="stats-row mini-stats condensed-row">
             <div class="stat-group">
               <span class="medium-number">{{ totalSuccessfulPasses + totalUnsuccessfulPasses }}</span>
               <span class="label">Passes</span>
@@ -190,6 +196,11 @@
             <div class="stat-group">
               <span class="medium-number">{{ totalChancesCreated }}</span>
               <span class="label">Chances</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-group">
+              <span class="medium-number">{{ totalDribbles }}</span>
+              <span class="label">Dribbles</span>
             </div>
           </div>
         </div>
@@ -219,6 +230,29 @@
                 <span>{{ slice.label }} ({{ slice.value }})</span>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discipline / Physical -->
+      <div class="bento-item performance-tile" style="--delay: 750ms">
+        <div class="tile-header header-spaced">
+          <h4>Discipline & Physical</h4>
+        </div>
+        <div class="stats-row mini-stats" style="margin-top: 1rem;">
+          <div class="stat-group">
+            <span class="medium-number">{{ totalFouls }}</span>
+            <span class="label">Fouls</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-group">
+            <span class="medium-number" style="color: #FFD700">{{ totalYellowCards }}</span>
+            <span class="label">Yellows</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-group">
+            <span class="medium-number" style="color: #ff5252">{{ totalRedCards }}</span>
+            <span class="label">Reds</span>
           </div>
         </div>
       </div>
@@ -386,13 +420,14 @@
 <script setup>
 import { computed, ref } from 'vue'
 import ShotMapSection from './ShotMapSection.vue'
+import { calculateMatchRating, getRatingColor, getRatingLabel } from '../lib/rating'
 
 const props = defineProps({
   matches: {
     type: Array,
     required: true
   },
-  userEmail: {
+  userName: {
     type: String,
     required: true
   },
@@ -578,6 +613,10 @@ const passAccuracy = computed(() => {
   return Math.round((totalSuccessfulPasses.value / total) * 100)
 })
 
+const totalDribbles = computed(() => {
+  return props.matches.reduce((sum, match) => sum + (match.dribbles || 0), 0)
+})
+
 const totalTackles = computed(() => {
   return props.matches.reduce((sum, match) => sum + (match.tackles || 0), 0)
 })
@@ -684,71 +723,15 @@ const formStat = computed(() => {
   return Math.min(99, Math.max(30, Math.round(formRating + winBonus)))
 })
 
-const calculateMatchRating = (match) => {
-  if (!match) return '0.00'
-
-  let rating = 6.0
-  const shotsOnTarget = match.shots_on_target || 0
-  const shotsOffTarget = match.shots_off_target || 0
-  const myGoalsCount = match.my_goals || 0
-
-  const isGoalkeeper = match.position_played && match.position_played.toLowerCase().includes('goalkeeper')
-
-  if (isGoalkeeper && match.goalkeeper_stats) {
-    rating += (match.goalkeeper_stats.saves || 0) * 0.175
-    rating += (match.goalkeeper_stats.catches || 0) * 0.175
-    rating += (match.goalkeeper_stats.punches || 0) * 0.15
-    rating += (match.goalkeeper_stats.penalties_saved || 0) * 1.25
-    rating -= (match.goalkeeper_stats.goals_conceded || 0) * 1
-  } else if (isGoalkeeper) {
-    const goalsAgainst = match.score_against || 0
-    rating -= goalsAgainst * 1
-  }
-
-  rating += myGoalsCount * 1.7
-  rating += (match.assists || 0) * 1.0
-  rating += shotsOnTarget * 0.2
-  rating += shotsOffTarget * 0.1
-  rating += (match.tackles || 0) * 0.1
-  rating += (match.interceptions || 0) * 0.2
-  rating += (match.dribbles || 0) * 0.1
-  rating += (match.successful_passes || 0) * 0.05
-  rating += (match.created_chances || 0) * 0.25
-
-  rating -= (match.fouls || 0) * 0.25
-  rating -= (match.lost_possessions || 0) * 0.15
-  rating -= (match.unsuccessful_passes || 0) * 0.05
-  rating -= (match.own_goals || 0) * 2.0
-
-  rating -= (match.yellow_card || 0) * 0.75
-  rating -= (match.red_card || 0) * 3
-
-  return Math.max(0, Math.min(10, rating)).toFixed(2)
-}
-
 const getMatchResult = (match) => {
   if (match.score_for > match.score_against) return 'Win'
   if (match.score_for < match.score_against) return 'Loss'
   return 'Draw'
 }
 
-const ratingColorConfig = {
-  excellent: { threshold: 9.0, class: 'stat-excellent' },
-  good: { threshold: 8.0, class: 'stat-good' },
-  mid: { threshold: 6.5, class: 'stat-mid' },
-  bad: { threshold: 5.0, class: 'stat-bad' },
-  horrible: { threshold: 0, class: 'stat-horrible' },
-}
-
 const getStatColorClass = (statType, value) => {
   const numValue = parseFloat(value) || 0
-  if (statType === 'rating') {
-    if (numValue >= ratingColorConfig.excellent.threshold) return ratingColorConfig.excellent.class
-    if (numValue >= ratingColorConfig.good.threshold) return ratingColorConfig.good.class
-    if (numValue >= ratingColorConfig.mid.threshold) return ratingColorConfig.mid.class
-    if (numValue >= ratingColorConfig.bad.threshold) return ratingColorConfig.bad.class
-    return ratingColorConfig.horrible.class
-  }
+  if (statType === 'rating') return getRatingColor(numValue)
   if (statType === 'goals') {
     if (numValue >= 2) return 'stat-good'
     if (numValue >= 1) return 'stat-mid'
@@ -1182,6 +1165,18 @@ const getDonutPaths = computed(() => {
   padding: 10px 0;
 }
 
+.condensed-row {
+  gap: 12px;
+}
+
+.condensed-row .stat-group .medium-number {
+  font-size: 1.4rem;
+}
+
+.condensed-row .stat-group .label {
+  font-size: 0.65rem;
+}
+
 .mini-stats {
   margin-top: 16px;
   padding-top: 12px;
@@ -1516,6 +1511,15 @@ const getDonutPaths = computed(() => {
 .stat-mid { color: #ffb74d !important; }
 .stat-bad { color: #e57373 !important; }
 .stat-horrible { color: #ef5350 !important; }
+
+/* --- Rating Color Classes (from rating.js) --- */
+.rating-world-class { color: #4fc3f7 !important; }
+.rating-elite     { color: #00e5a0 !important; }
+.rating-excellent { color: #4cda9c !important; }
+.rating-good      { color: #81c784 !important; }
+.rating-average   { color: #ffb74d !important; }
+.rating-poor      { color: #e57373 !important; }
+.rating-bad       { color: #ef5350 !important; }
 
 /* --- Insights Tile --- */
 .insights-tile .tile-header {

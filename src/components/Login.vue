@@ -37,7 +37,6 @@
         <div v-if="message" class="success-message">{{ message }}</div>
       </div>
     </div>
-    <div class="hero-glow"></div>
   </div>
 </template>
 
@@ -81,7 +80,7 @@ export default {
         const { error: googleError } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: window.location.origin + '/mysoccerlab/dashboard'
+            redirectTo: window.location.origin + '/dashboard'
           }
         })
         if (googleError) throw googleError
@@ -111,27 +110,9 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  background-color: #050505;
+  background: radial-gradient(circle at center top, #111 0%, #050505 100%);
   position: relative;
   overflow: hidden;
-}
-
-.hero-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(circle, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0) 60%);
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  pointer-events: none;
-  animation: pulse 8s infinite ease-in-out;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.7; }
-  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
 }
 
 .login-container {
@@ -142,10 +123,11 @@ export default {
 }
 
 .login-card {
-  background: #111;
+  background: #0a0a0a;
   padding: 2.5rem;
   border-radius: 16px;
   border: 1px solid #222;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
   animation: fadeIn 1s ease-out;
 }
 
@@ -213,10 +195,14 @@ export default {
   background: #4CAF50;
   color: white;
   border: none;
+  font-weight: 600;
+  box-shadow: 0 4px 14px 0 rgba(76, 175, 80, 0.39);
 }
 
 .btn-primary:hover {
   background: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
 }
 
 .btn-google {
