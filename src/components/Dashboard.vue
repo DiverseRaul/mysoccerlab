@@ -19,6 +19,7 @@
             @update:activeSeason="setActiveSeason"
             @season-created="onSeasonCreated"
             @season-deleted="onSeasonDeleted"
+            @season-updated="onSeasonUpdated"
           />
         </div>
 
@@ -52,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import DashboardOverview from './DashboardOverview.vue'
@@ -97,10 +98,6 @@ onMounted(async () => {
   await loadData()
 })
 
-watch(activeTab, async (newTab, oldTab) => {
-  if (oldTab && newTab !== oldTab) await loadData()
-})
-
 const loadSeasons = async () => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
@@ -129,6 +126,15 @@ const onSeasonDeleted = (seasonId) => {
   seasons.value = seasons.value.filter(s => s.id !== seasonId)
   if (activeSeason.value?.id === seasonId) {
     activeSeason.value = seasons.value[0] || null
+  }
+}
+
+const onSeasonUpdated = (updated) => {
+  if (!updated) return
+  const idx = seasons.value.findIndex(s => s.id === updated.id)
+  if (idx !== -1) seasons.value.splice(idx, 1, updated)
+  if (activeSeason.value?.id === updated.id) {
+    activeSeason.value = updated
   }
 }
 

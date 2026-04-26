@@ -28,7 +28,18 @@
         <span class="option-dot"></span>
         <span class="option-name">{{ s.name }}</span>
         <span class="season-dates" v-if="s.start_date">{{ formatDate(s.start_date) }}</span>
-        <button class="delete-season-btn" @click.stop="deleteSeason(s)" title="Delete season">
+        <button
+          class="edit-season-btn season-row-btn"
+          @click.stop="openEdit(s)"
+          title="Edit season"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button
+          class="delete-season-btn season-row-btn"
+          @click.stop="deleteSeason(s)"
+          title="Delete season"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         </button>
       </div>
@@ -51,6 +62,12 @@
       @close="showCreate = false"
       @created="onCreated"
     />
+    <CreateSeasonModal
+      v-if="editingSeason"
+      :season="editingSeason"
+      @close="editingSeason = null"
+      @updated="onUpdated"
+    />
   </div>
 </template>
 
@@ -64,10 +81,11 @@ const props = defineProps({
   activeSeason: { type: Object, default: null },
 })
 
-const emit = defineEmits(['update:activeSeason', 'season-created', 'season-deleted'])
+const emit = defineEmits(['update:activeSeason', 'season-created', 'season-deleted', 'season-updated'])
 
 const isOpen = ref(false)
 const showCreate = ref(false)
+const editingSeason = ref(null)
 
 const toggleOpen = () => { isOpen.value = !isOpen.value }
 
@@ -84,6 +102,16 @@ const openCreate = () => {
 const onCreated = (season) => {
   showCreate.value = false
   emit('season-created', season)
+}
+
+const openEdit = (season) => {
+  isOpen.value = false
+  editingSeason.value = season
+}
+
+const onUpdated = (season) => {
+  editingSeason.value = null
+  emit('season-updated', season)
 }
 
 const deleteSeason = async (season) => {
@@ -108,26 +136,40 @@ const formatDate = (dateStr) => {
   position: relative;
 }
 
+/* Trigger pill — visually matches the tab buttons (Dashboard.vue .tab-btn).
+   Same padding, font-size, border-radius and active treatment so the pill
+   reads as a sibling control rather than a stray dropdown. */
 .season-pill {
   display: flex;
   align-items: center;
-  gap: 7px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 7px 14px;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: #ccc;
-  transition: all 0.2s;
+  color: #89938d;
+  transition: all 0.3s ease;
   user-select: none;
   white-space: nowrap;
+  font-family: inherit;
 }
 
-.season-pill:hover, .season-pill.open {
-  border-color: rgba(76, 218, 156, 0.4);
-  color: #4cda9c;
+.season-pill:hover {
+  color: #e1e2e6;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.season-pill.open {
+  background: #005233;
+  color: #89f8c1;
+  box-shadow: 0 2px 12px rgba(0, 82, 51, 0.3);
+}
+
+.season-pill svg {
+  flex-shrink: 0;
 }
 
 .chevron {
@@ -168,7 +210,7 @@ const formatDate = (dateStr) => {
   color: #fff;
 }
 
-.season-option:hover .delete-season-btn {
+.season-option:hover .season-row-btn {
   opacity: 1;
 }
 
@@ -196,18 +238,31 @@ const formatDate = (dateStr) => {
   flex-shrink: 0;
 }
 
-.delete-season-btn {
+.season-row-btn {
   background: transparent;
   border: none;
-  color: #ff5252;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 4px 6px;
   border-radius: 4px;
   opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  font-family: inherit;
+}
+
+.edit-season-btn {
+  color: #89938d;
+}
+
+.edit-season-btn:hover {
+  background: rgba(76, 218, 156, 0.12);
+  color: #4cda9c;
+}
+
+.delete-season-btn {
+  color: #ff5252;
 }
 
 .delete-season-btn:hover {

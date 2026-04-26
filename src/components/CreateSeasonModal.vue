@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-card">
       <div class="modal-header">
-        <h2>New Season</h2>
+        <h2>{{ isEdit ? 'Edit Season' : 'New Season' }}</h2>
         <button class="close-btn" @click="$emit('close')">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -36,7 +36,7 @@
         <div class="modal-actions">
           <button type="button" class="btn-cancel" @click="$emit('close')">Cancel</button>
           <button type="submit" class="btn-create" :disabled="loading">
-            {{ loading ? 'Creating...' : 'Create Season' }}
+            {{ loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Season') }}
           </button>
         </div>
       </form>
@@ -45,12 +45,24 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { supabase } from '../lib/supabase'
 
-const emit = defineEmits(['close', 'created'])
+const props = defineProps({
+  // When provided, the modal switches to edit mode and updates this season
+  // instead of inserting a new one.
+  season: { type: Object, default: null }
+})
 
-const form = reactive({ name: '', start_date: '', end_date: '' })
+const emit = defineEmits(['close', 'created', 'updated'])
+
+const isEdit = computed(() => !!props.season)
+
+const form = reactive({
+  name: props.season?.name || '',
+  start_date: props.season?.start_date || '',
+  end_date: props.season?.end_date || ''
+})
 const loading = ref(false)
 const error = ref('')
 
@@ -63,21 +75,37 @@ const submit = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error: insertError } = await supabase
-      .from('seasons')
-      .insert({
-        user_id: user.id,
-        name: form.name.trim(),
-        start_date: form.start_date || null,
-        end_date: form.end_date || null,
-        is_active: true,
-      })
-      .select()
-      .single()
+    if (isEdit.value) {
+      const { data, error: updateError } = await supabase
+        .from('seasons')
+        .update({
+          name: form.name.trim(),
+          start_date: form.start_date || null,
+          end_date: form.end_date || null
+        })
+        .eq('id', props.season.id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
 
-    if (insertError) throw insertError
+      if (updateError) throw updateError
+      emit('updated', data)
+    } else {
+      const { data, error: insertError } = await supabase
+        .from('seasons')
+        .insert({
+          user_id: user.id,
+          name: form.name.trim(),
+          start_date: form.start_date || null,
+          end_date: form.end_date || null,
+          is_active: true,
+        })
+        .select()
+        .single()
 
-    emit('created', data)
+      if (insertError) throw insertError
+      emit('created', data)
+    }
   } catch (e) {
     error.value = e.message || 'Something went wrong.'
   } finally {

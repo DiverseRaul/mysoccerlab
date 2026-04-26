@@ -5,11 +5,14 @@ A modern Vue.js soccer analytics and management platform with Supabase backend i
 ## Features
 
 - 🔐 Authentication (Email/Password + Google OAuth)
-- 👥 Player Management
-- ⚽ Match Tracking
-- 📊 Analytics Dashboard
-- 🏆 Performance Statistics
-- 📱 Responsive Design
+- 👤 Player profile with position, preferred foot, club, and achievements
+- ⚽ Match tracking with per-event goals and shots (incl. on-field x/y position)
+- 🥅 Goalkeeper-specific stats (saves, catches, punches, penalties saved, …)
+- 📊 Analytics dashboard with shot maps and season filtering
+- 🏆 Dynamic 1.0–10.0 performance rating, position-aware
+- 🤖 AI Coach (Gemini) with image/video film-room analysis
+- 📰 Feed: follow other players and view their public matches
+- 📱 Responsive design
 
 ## Setup Instructions
 
@@ -32,85 +35,88 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ### 3. Create Database Tables
 
-Run these SQL commands in your Supabase SQL editor:
+The schema lives in the `database/` folder. Apply it via the Supabase SQL editor in this order:
 
-```sql
--- Create players table
-CREATE TABLE players (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    name TEXT NOT NULL,
-    position TEXT NOT NULL,
-    goals INTEGER DEFAULT 0,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
-);
+1. `database/profiles_table.sql` — `user_profiles` and `user_achievements`
+2. `database/matches_schema.sql` — `matches`, `goals`, `shots`, `goalkeeper_match_stats`
+3. Each file in `database/migrations/` in numeric order (`0001_…` through `0006_…`) — adds `position_played`, expanded GK stats, on-field shot/goal coordinates, follow graph, public profiles, avatars, and Feed visibility policies
 
--- Create matches table
-CREATE TABLE matches (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    opponent TEXT NOT NULL,
-    date DATE NOT NULL,
-    score_for INTEGER NOT NULL,
-    score_against INTEGER NOT NULL,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
-);
+RLS is enabled on every user-owned table; policies restrict reads/writes to the owning user, plus extra `SELECT` policies that let users see matches of public profiles or accounts they follow (for the Feed).
 
--- Enable Row Level Security
-ALTER TABLE players ENABLE ROW LEVEL SECURITY;
-ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
+### 4. (Optional) Set Up the AI Coach
 
--- Create policies
-CREATE POLICY "Users can view own players" ON players FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own players" ON players FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own players" ON players FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own players" ON players FOR DELETE USING (auth.uid() = user_id);
+The AI Coach calls a Supabase Edge Function (`supabase/functions/ai-coach`) that proxies Google Gemini, so the API key never ships in the client bundle.
 
-CREATE POLICY "Users can view own matches" ON matches FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own matches" ON matches FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own matches" ON matches FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own matches" ON matches FOR DELETE USING (auth.uid() = user_id);
-```
+1. Get a Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Add it as a Supabase Function secret: `supabase secrets set VITE_GEMINI_API_KEY=…`
+3. Deploy the function: `supabase functions deploy ai-coach`
 
-### 4. Development
+Without this, every other feature still works — only the "AI Coach" tab will return errors.
+
+### 5. Development
 
 ```bash
 npm run dev
 ```
 
-### 5. Build for Production
+### 6. Build for Production
 
 ```bash
 npm run build
 ```
 
-### 6. Deploy to GitHub Pages
+### 7. Deploy to GitHub Pages
 
 1. Push your code to a GitHub repository
-2. Enable GitHub Actions in your repository
-3. The included workflow will automatically deploy to GitHub Pages on every push to main
-4. Go to Settings > Pages and set source to "GitHub Actions"
+2. Go to Settings > Pages and set source to **GitHub Actions**
+3. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under Settings > Secrets and variables > Actions (the workflow reads them at build time)
+4. The workflow in `.github/workflows/deploy.yml` runs on every push to `main` and publishes `dist/`
+
+`npm run deploy` is a manual `gh-pages -d dist` fallback that bypasses the workflow.
 
 ## Technology Stack
 
 - **Frontend**: Vue 3, Vue Router
-- **Backend**: Supabase (PostgreSQL, Auth, Real-time)
-- **Styling**: Custom CSS with modern design
+- **Backend**: Supabase (PostgreSQL + Row Level Security, Auth)
+- **AI**: Google Gemini (`gemini-2.0-flash`) via a Supabase Edge Function (Deno)
+- **Styling**: Custom CSS
 - **Build Tool**: Vite
-- **Deployment**: GitHub Pages
+- **Deployment**: GitHub Pages (via GitHub Actions)
 
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── Home.vue          # Landing page
-│   ├── Login.vue         # Authentication
-│   └── Dashboard.vue     # Main app dashboard
+│   ├── Home.vue                # Landing page
+│   ├── Login.vue / SignUp.vue  # Authentication
+│   ├── Dashboard.vue           # Dashboard shell (Overview / Matches / AI Coach tabs)
+│   ├── DashboardOverview.vue   # Stats summary + shot map
+│   ├── MatchManager.vue        # Match CRUD + per-event goal/shot entry
+│   ├── DashboardAICoach.vue    # AI Coach tab
+│   ├── AIChatbot.vue           # Reusable chatbot UI
+│   ├── ShotMapSection.vue      # On-field shot/goal heatmap
+│   ├── SeasonSelector.vue      # Season filter + create/delete
+│   ├── CreateSeasonModal.vue
+│   ├── TrainingPlanCard.vue    # Renders AI-generated training calendars
+│   ├── Profile.vue             # User profile + achievements
+│   ├── Feed.vue                # Follow graph + public matches
+│   └── Footer.vue
 ├── lib/
-│   └── supabase.js       # Supabase configuration
-├── App.vue               # Root component
-└── main.js               # App entry point
+│   ├── supabase.js             # Supabase client
+│   ├── gemini.js               # Calls the ai-coach edge function
+│   └── rating.js               # Position-aware 1.0–10.0 match rating engine
+├── App.vue
+└── main.js                     # Vue Router setup
+
+database/
+├── matches_schema.sql          # matches / goals / shots / goalkeeper_match_stats
+├── profiles_table.sql          # user_profiles + user_achievements
+├── fix_rls_goals_shots.sql
+└── migrations/                 # numbered, applied manually via Supabase SQL editor
+
+supabase/
+└── functions/ai-coach/         # Deno edge function — proxies Gemini
 ```
 
 ## Contributing

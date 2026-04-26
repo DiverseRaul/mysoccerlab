@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -rn '#[0-9a-fA-F]\\\\{3,6\\\\}' src/components/dashboard/overview/ --include=\"*.vue\")",
+      "Bash(grep -v \"//.*#\")",
+      "Bash(grep -rn '#[0-9a-fA-F]\\\\{3,6\\\\}' src/components/ui/ --include=\"*.vue\")",
+      "Bash(npm run *)"
+    ]
+  }
+}

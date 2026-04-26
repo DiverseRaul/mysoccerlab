@@ -2,7 +2,6 @@
   <div class="home">
     <div class="hero">
       <div class="hero-content">
-        <div class="ai-badge">Powered by AI Analytics</div>
         <h1 class="hero-title">
           My Soccer Lab
         </h1>

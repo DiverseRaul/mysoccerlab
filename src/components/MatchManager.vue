@@ -1,67 +1,13 @@
 <template>
   <div class="matches-section">
-        <div class="card-header">
-          <h2>All Matches</h2>
-          <div class="header-controls">
-            <select v-model="sortBy" class="sort-dropdown">
-              <option value="date">Sort by Date</option>
-              <option value="rating">Sort by Rating</option>
-            </select>
-            <button class="btn btn-primary btn-icon-only" @click="showAddMatch = true" title="Add Match">+</button>
-          </div>
-        </div>
-        <div v-if="!activeMatch">
-          <div v-if="matches.length > 0" class="matches-list">
-            <div v-for="match in sortedMatches" :key="match.id" class="match-item card-glass" @click="selectMatch(match)">
-              <div class="match-details">
-                <div class="match-opponent">
-                  <h4>{{ match.opponent }}</h4>
-                  <p>{{ formatDate(match.match_date) }}</p>
-                </div>
-                <div class="match-score-result">
-                  <p class="score">{{ match.score_for }} - {{ match.score_against }}</p>
-                  <span :class="['match-result', getMatchResult(match).toLowerCase()]">{{ getMatchResult(match) }}</span>
-                </div>
-              </div>
-              <div class="match-stats-summary">
-                <div class="stat-item">
-                  <span :class="getStatColorClass('goals', match.my_goals || 0)">{{ match.my_goals || 0 }}</span>
-                  <label>Goals</label>
-                </div>
-                <div class="stat-item">
-                  <span :class="getStatColorClass('assists', match.assists)">{{ match.assists }}</span>
-                  <label>Assists</label>
-                </div>
-                <div class="stat-item">
-                  <span :class="getStatColorClass('rating', calculateMatchRating(match))"
-                    class="rating-val-cell"
-                  >
-                    <span v-if="match.id === bestRatingMatchId" class="star-badge" title="Season best!">★</span
-                    >{{ calculateMatchRating(match) }}</span>
-                  <label>Rating</label>
-                </div>
-                <!-- Season tag -->
-                <div class="season-tag-wrapper" @click.stop>
-                  <div class="season-tag" @click="toggleSeasonPicker(match.id)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    {{ getSeasonName(match.season_id) }}
-                  </div>
-                  <div v-if="seasonPickerOpen === match.id" class="season-pick-dropdown">
-                    <div class="spd-option" @click="assignSeason(match, null)">No Season</div>
-                    <div
-                      v-for="s in seasons"
-                      :key="s.id"
-                      class="spd-option"
-                      :class="{ active: match.season_id === s.id }"
-                      @click="assignSeason(match, s.id)"
-                    >{{ s.name }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <p v-else class="empty-state">No matches recorded yet. Add your first match!</p>
-        </div>
+        <MatchList
+          v-if="!activeMatch"
+          :matches="matches"
+          :seasons="seasons"
+          @select-match="selectMatch"
+          @add-match="showAddMatch = true"
+          @assign-season="onAssignSeason"
+        />
         <div v-else class="live-match-view card-glass">
           <div class="match-header-redesign">
             <button @click="handleBackToMatches" class="back-button">
@@ -71,28 +17,19 @@
               <span>Back to Matches</span>
             </button>
             
-            <div class="match-card">
+            <div class="match-card" :class="`match-card--${getMatchResult(activeMatch).toLowerCase()}`">
               <div class="match-card-content">
                 <div class="match-info">
-                  <h2 class="opponent-name">vs {{ activeMatch.opponent }}</h2>
+                  <h3 class="opponent-name">vs {{ activeMatch.opponent }}</h3>
                   <div class="match-date">{{ formatDate(activeMatch.match_date) }}</div>
                 </div>
-                
                 <div class="score-display">
                   <div class="score-container">
-                    <div class="team-score home">
-                      <span class="team-label">{{ myTeamLabel }}</span>
-                      <span class="score-number">{{ activeMatch.score_for }}</span>
-                    </div>
-                    <div class="score-divider">:</div>
-                    <div class="team-score away">
-                      <span class="team-label">{{ activeMatch.opponent }}</span>
-                      <span class="score-number">{{ activeMatch.score_against }}</span>
-                    </div>
+                    <span class="score-number">{{ activeMatch.score_for }}</span>
+                    <span class="score-divider">–</span>
+                    <span class="score-number">{{ activeMatch.score_against }}</span>
                   </div>
-                  <div class="match-result">
-                    <span class="result-badge" :class="getMatchResult(activeMatch).toLowerCase()">{{ getMatchResult(activeMatch) }}</span>
-                  </div>
+                  <span class="result-badge" :class="getMatchResult(activeMatch).toLowerCase()">{{ getMatchResult(activeMatch) }}</span>
                 </div>
               </div>
             </div>
@@ -480,136 +417,14 @@
         </div>
       </div>
 
-    <!-- Shot Type Modal -->
-    <div v-if="showShotModal" class="modal-overlay" @click.self="showShotModal = false">
-      <div class="modal card-glass" @click.stop>
-        <div class="modal-header">
-          <h3>Shot Outcome</h3>
-          <button @click="showShotModal = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-options-grid shot-options">
-            <button @click="handleShotOnTarget()" class="modal-option-btn btn-success">
-              <span class="option-icon">🎯</span>
-              <span>On Target</span>
-            </button>
-            <button @click="saveShot(false, null)" class="modal-option-btn btn-danger">
-              <span class="option-icon">❌</span>
-              <span>Off Target</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Event Capture Flow (4-modal state machine) -->
+    <EventCaptureFlow
+      ref="eventCaptureFlow"
+      @shot-captured="onShotCaptured"
+      @goal-captured="onGoalCaptured"
+    />
 
-    <!-- Goal Type Modal -->
-    <div v-if="showGoalModal" class="modal-overlay" @click.self="showGoalModal = false">
-      <div class="modal card-glass" @click.stop>
-        <div class="modal-header">
-          <h3>Goal Type</h3>
-          <button @click="showGoalModal = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-options-grid">
-            <button v-for="type in goalTypes" :key="type" @click="addGoal(type)" class="modal-option-btn">
-              <span>{{ type }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Goal Quadrant Modal -->
-    <div v-if="showQuadrantModal" class="modal-overlay" @click.self="showQuadrantModal = false">
-      <div class="modal card-glass" @click.stop>
-        <div class="modal-header">
-          <h3>Select Shot Placement</h3>
-          <button @click="showQuadrantModal = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="goal-grid-container">
-            <div class="goal-grid">
-              <div v-for="i in 9" :key="i" @click="handleQuadrantSelect(i)" class="goal-quadrant">
-                {{ i }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Field Position Modal -->
-    <div v-if="showFieldPositionModal" class="modal-overlay" @click.self="showFieldPositionModal = false">
-      <div class="modal card-glass field-modal" @click.stop>
-        <div class="modal-header">
-          <h3>Select Shot Origin</h3>
-          <button @click="showFieldPositionModal = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p class="modal-instruction">Click where the {{ fieldPositionContext === 'goal' ? 'goal' : 'shot' }} was taken from</p>
-          <div class="field-grid-container" @click="handleFieldClick">
-            <!-- SVG Field Markings (Dark Theme) -->
-            <svg class="field-markings-svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
-              <!-- Outline -->
-              <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
-              
-              <!-- Penalty Box (16.5m deep, 40.32m wide) -->
-              <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Goal Area (5.5m deep, 18.32m wide) -->
-              <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Penalty Spot (11m from goal) -->
-              <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
-              
-              <!-- Penalty Arc (Radius 9.15m) -->
-              <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Center Circle Arc (at 52.5m) -->
-              <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              
-              <!-- Corner Arcs -->
-              <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              
-              <!-- Goal Post (External) -->
-              <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
-            </svg>
-          </div>
-          <div class="modal-footer-actions">
-            <button @click="skipFieldPosition" class="btn btn-secondary btn-sm">Skip</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Add Match Modal -->
-    <div v-if="showAddMatch" class="modal-overlay" @click.self="showAddMatch = false">
-      <div class="modal card-glass" @click.stop>
-        <h3>Add New Match</h3>
-        <form @submit.prevent="addMatch">
-          <div class="form-group">
-            <label>Opponent</label>
-            <input v-model="newMatch.opponent" type="text" required />
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input v-model="newMatch.match_date" type="date" required />
-          </div>
-          <div class="form-group">
-            <label>Position Played</label>
-            <select v-model="newMatch.position_played" required>
-              <option disabled value="">Please select one</option>
-              <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
-            </select>
-          </div>
-          <div class="modal-buttons">
-            <button type="button" @click="showAddMatch = false" class="btn btn-secondary">Cancel</button>
-            <button type="submit" class="btn btn-primary">Add Match</button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <AddMatchModal v-model="showAddMatch" @submit="addMatch" />
 
     <!-- Edit Match Modal -->
     <div v-if="showEditMatch" class="modal-overlay" @click.self="showEditMatch = false">
@@ -653,94 +468,24 @@
       </div>
     </div>
 
-    <!-- Share Match Modal -->
-    <div v-if="showShareModal" class="modal-overlay" @click.self="showShareModal = false">
-      <div class="modal card-glass share-modal" @click.stop>
-        <div class="modal-header">
-          <h3>Share Match Result</h3>
-          <button @click="showShareModal = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <div class="share-bg-picker">
-            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'clean' }, 'preset-clean']" @click="shareBgPreset = 'clean'">Clean</button>
-            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'emerald' }, 'preset-emerald']" @click="shareBgPreset = 'emerald'">Emerald</button>
-            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'blue' }, 'preset-blue']" @click="shareBgPreset = 'blue'">Blue</button>
-            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'sunset' }, 'preset-sunset']" @click="shareBgPreset = 'sunset'">Sunset</button>
-            <button class="share-bg-btn" :class="[{ active: shareBgPreset === 'custom' }, 'preset-custom']" @click="triggerCustomBgUpload">Custom</button>
-          </div>
-          <input ref="customBgFileInput" type="file" accept="image/*" class="share-bg-file" @change="handleCustomBgFile" />
-          <div class="share-card-container">
-            <div id="share-card" class="share-card" :class="shareBgClass" :style="shareCardStyle">
-              <!-- Card Content -->
-              <div class="share-card-header">
-                <div class="share-date">{{ formatDate(activeMatch.match_date) }}</div>
-                <div class="share-result" :class="getMatchResult(activeMatch).toLowerCase()">
-                  {{ getMatchResult(activeMatch) }}
-                </div>
-              </div>
-              
-              <div class="share-score">
-                <div class="share-team">
-                  <span class="share-team-name">{{ myTeamLabel }}</span>
-                  <span class="share-score-num">{{ activeMatch.score_for }}</span>
-                </div>
-                <div class="share-divider">-</div>
-                <div class="share-team">
-                  <span class="share-team-name">{{ activeMatch.opponent }}</span>
-                  <span class="share-score-num">{{ activeMatch.score_against }}</span>
-                </div>
-              </div>
-
-              <div class="share-stats">
-                <div class="share-stat">
-                  <span class="share-stat-val" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">
-                    {{ calculateMatchRating(activeMatch) }}
-                  </span>
-                  <span class="share-stat-label">Rating</span>
-                </div>
-                <div class="share-stat">
-                  <span class="share-stat-val">{{ myGoalsForMatch }}</span>
-                  <span class="share-stat-label">Goals</span>
-                </div>
-                <div class="share-stat">
-                  <span class="share-stat-val">{{ activeMatch.assists || 0 }}</span>
-                  <span class="share-stat-label">Assists</span>
-                </div>
-                <div class="share-stat">
-                  <span class="share-stat-val">{{ getMatchPassAccuracy(activeMatch) }}%</span>
-                  <span class="share-stat-label">Pass Acc</span>
-                </div>
-                <div class="share-stat">
-                  <span class="share-stat-val">{{ activeMatch.created_chances || 0 }}</span>
-                  <span class="share-stat-label">Chances</span>
-                </div>
-                <div class="share-stat">
-                  <span class="share-stat-val">{{ activeMatch.tackles || 0 }}</span>
-                  <span class="share-stat-label">Tackles</span>
-                </div>
-              </div>
-              
-              <div class="share-footer">
-                {{ shareLink }}
-              </div>
-            </div>
-          </div>
-          
-          <div class="modal-buttons share-actions">
-            <button @click="shareNative" class="btn share-option-btn">
-              <span class="btn-icon">🔗</span> Share Image
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Share Match Modal — delegated to the dedicated component
+         (caption editor, layout variants, copy-as-text live there) -->
+    <ShareMatchModal
+      v-model="showShareModal"
+      :match="activeMatch"
+      :my-team-label="myTeamLabel"
+      :my-goals="myGoalsForMatch"
+    />
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
-import html2canvas from 'html2canvas'
 import { calculateMatchRating as calculateMatchRatingFn, getRatingColor, getRatingLabel } from '../lib/rating'
+import EventCaptureFlow from './dashboard/matches/EventCaptureFlow.vue'
+import MatchList from './dashboard/matches/MatchList.vue'
+import AddMatchModal from './dashboard/matches/AddMatchModal.vue'
+import ShareMatchModal from './dashboard/matches/ShareMatchModal.vue'
 
 const props = defineProps({
   matches: { type: Array, required: true },
@@ -750,20 +495,7 @@ const props = defineProps({
 
 const emit = defineEmits(['match-updated'])
 
-const seasonPickerOpen = ref(null)
-
-const getSeasonName = (seasonId) => {
-  if (!seasonId) return 'No Season'
-  const s = props.seasons.find(s => s.id === seasonId)
-  return s ? s.name : 'No Season'
-}
-
-const toggleSeasonPicker = (matchId) => {
-  seasonPickerOpen.value = seasonPickerOpen.value === matchId ? null : matchId
-}
-
-const assignSeason = async (match, seasonId) => {
-  seasonPickerOpen.value = null
+const onAssignSeason = async ({ match, seasonId }) => {
   try {
     const { error } = await supabase
       .from('matches')
@@ -780,36 +512,15 @@ const showAddMatch = ref(false)
 const activeMatch = ref(null)
     const matchGoals = ref([])
     const matchShots = ref([])
-    const showGoalModal = ref(false)
-    const showShotModal = ref(false)
-    const showQuadrantModal = ref(false)
-    const showFieldPositionModal = ref(false)
+    const eventCaptureFlow = ref(null)
     const shotMapView = ref('goal') // 'goal' or 'field'
     const vizView = ref('field') // 'field' or 'goal' for sidebar visualization
     const selectedEvent = ref(null)
-    const quadrantSelectionContext = ref('shot') // 'shot' or 'goal'
-    const quadrantForGoal = ref(null)
-    const pendingShotFieldPosition = ref(null)
-    const pendingGoalFieldPosition = ref(null)
-    const fieldPositionContext = ref('shot') // 'shot' or 'goal'
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
     const showShareModal = ref(false)
-    const shareBgPreset = ref('clean')
-    const shareBgClass = computed(() => `bg-${shareBgPreset.value}`)
-    const customBgFileInput = ref(null)
-    const customShareBgUrl = ref('')
     const myClubTeamName = ref('You')
-    const shareCardStyle = computed(() => {
-      if (shareBgPreset.value !== 'custom' || !customShareBgUrl.value) return {}
-      return {
-        backgroundImage: `url(${customShareBgUrl.value})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }
-    })
     const myTeamLabel = computed(() => myClubTeamName.value || 'You')
-    const goalTypes = ref(['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in'])
     const positions = ref([
       'Goalkeeper',
       'Center-Back',
@@ -826,13 +537,6 @@ const activeMatch = ref(null)
     const goalkeeperStats = ref(null);
     const allShotsData = ref([]);
     const allGoalsData = ref([]);
-    const sortBy = ref('date'); // 'date' or 'rating'
-
-    const newMatch = ref({
-      opponent: '',
-      match_date: new Date().toISOString().split('T')[0],
-      position_played: ''
-    })
 
     const goalSummary = computed(() => {
       return matchGoals.value.reduce((acc, goal) => {
@@ -906,16 +610,6 @@ const activeMatch = ref(null)
       if (recentMatches.value.length === 0) return '0.0'
       const ratings = recentMatches.value.map(match => parseFloat(calculateMatchRating(match)))
       return Math.max(...ratings).toFixed(2)
-    })
-
-    const bestRatingMatchId = computed(() => {
-      if (!props.matches || props.matches.length === 0) return null
-      let best = null, bestVal = -1
-      for (const m of props.matches) {
-        const v = parseFloat(calculateMatchRating(m))
-        if (v > bestVal) { bestVal = v; best = m.id }
-      }
-      return best
     })
 
     const loadGoalkeeperStats = async (matchId) => {
@@ -1017,19 +711,6 @@ const activeMatch = ref(null)
 
     const recentMatches = computed(() => {
       return props.matches.slice(0, 10).reverse()
-    })
-
-    const sortedMatches = computed(() => {
-      const sorted = [...props.matches];
-      if (sortBy.value === 'rating') {
-        return sorted.sort((a, b) => {
-          const ratingA = parseFloat(calculateMatchRating(a));
-          const ratingB = parseFloat(calculateMatchRating(b));
-          return ratingB - ratingA; // Highest rating first
-        });
-      }
-      // Default: sort by date (already sorted from query)
-      return sorted;
     })
 
     const averageGoalsPerMatch = computed(() => {
@@ -1331,13 +1012,13 @@ const activeMatch = ref(null)
       return Math.min(99, Math.max(30, Math.round(formRating + winBonus)))
     })
 
-    const addMatch = async () => {
+    const addMatch = async (formData) => {
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) throw new Error('User not authenticated')
 
         const matchData = {
-          ...newMatch.value,
+          ...formData,
           user_id: user.id,
           season_id: props.activeSeason?.id || null,
           score_for: 0,
@@ -1357,17 +1038,13 @@ const activeMatch = ref(null)
           red_card: 0
         }
 
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('matches')
           .insert([matchData])
           .select()
 
         if (error) throw error
 
-        newMatch.value = {
-          opponent: '',
-          match_date: new Date().toISOString().split('T')[0]
-        }
         showAddMatch.value = false
         emit('match-updated')
       } catch (error) {
@@ -1427,54 +1104,60 @@ const activeMatch = ref(null)
     }
 
 
-    const handleMyGoal = async (value) => {
-      if (!activeMatch.value) return;
-      await incrementStat('score_for', value);
-      fieldPositionContext.value = 'goal';
-      showFieldPositionModal.value = true;
+    const handleMyGoal = () => {
+      if (!activeMatch.value) return
+      eventCaptureFlow.value?.triggerGoal()
     }
 
-    const addGoal = async (type) => {
-      const quadrant = quadrantForGoal.value;
+    const handleShot = () => {
+      if (!activeMatch.value) return
+      eventCaptureFlow.value?.triggerShot()
+    }
+
+    const onShotCaptured = async ({ onTarget, quadrant, fieldPosition }) => {
       if (!activeMatch.value) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // 1. Increment team score
+      const { data, error } = await supabase.from('shots').insert({
+        match_id: activeMatch.value.id,
+        user_id: user.id,
+        on_target: onTarget,
+        quadrant,
+        field_position: fieldPosition,
+      }).select()
+
+      if (error) {
+        console.error('Error saving shot:', error)
+        return
+      }
+      matchShots.value.push(data[0])
+    }
+
+    const onGoalCaptured = async ({ goalType, quadrant, fieldPosition }) => {
+      if (!activeMatch.value) return
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Increment team score (single source of truth — fixes prior double-increment bug).
       await incrementStat('score_for', 1)
 
-      // 2. Add to goals table
-      const { data, error } = await supabase.from('goals').insert([
-        { user_id: user.id, match_id: activeMatch.value.id, goal_type: type, quadrant: quadrant, field_position: pendingGoalFieldPosition.value }
-      ]).select()
+      const { data, error } = await supabase.from('goals').insert({
+        user_id: user.id,
+        match_id: activeMatch.value.id,
+        goal_type: goalType,
+        quadrant,
+        field_position: fieldPosition,
+      }).select()
 
       if (error) {
         console.error('Error adding goal:', error)
         // Revert team score if goal insert fails
         await incrementStat('score_for', -1)
-      } else {
-        matchGoals.value.push(data[0])
+        return
       }
-      showGoalModal.value = false
-      quadrantForGoal.value = null;
-      pendingGoalFieldPosition.value = null;
+      matchGoals.value.push(data[0])
     }
-
-    const handleShot = () => {
-      fieldPositionContext.value = 'shot';
-      showFieldPositionModal.value = true;
-    };
-
-
-    const handleQuadrantSelect = (quadrant) => {
-      showQuadrantModal.value = false;
-      if (quadrantSelectionContext.value === 'shot') {
-        saveShot(true, quadrant);
-      } else if (quadrantSelectionContext.value === 'goal') {
-        quadrantForGoal.value = quadrant;
-        showGoalModal.value = true;
-      }
-    };
 
     const removeEvent = async (event) => {
       if (!activeMatch.value) return;
@@ -1526,79 +1209,6 @@ const activeMatch = ref(null)
       // Call the single event removal function
       await removeEvent(eventToRemove);
     };
-
-    const handleShotOnTarget = () => {
-      showShotModal.value = false;
-      quadrantSelectionContext.value = 'shot';
-      showQuadrantModal.value = true;
-    }
-
-    const handleFieldClick = (event) => {
-      if (!event.currentTarget) return;
-      
-      const rect = event.currentTarget.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      
-      // Convert to percentages (0-100)
-      const xPct = Math.round((x / rect.width) * 100);
-      const yPct = Math.round((y / rect.height) * 100);
-      
-      const position = `${xPct},${yPct}`;
-      
-      if (fieldPositionContext.value === 'shot') {
-        pendingShotFieldPosition.value = position;
-        showFieldPositionModal.value = false;
-        showShotModal.value = true;
-      } else if (fieldPositionContext.value === 'goal') {
-        pendingGoalFieldPosition.value = position;
-        showFieldPositionModal.value = false;
-        quadrantSelectionContext.value = 'goal';
-        showQuadrantModal.value = true;
-      }
-    }
-
-    const skipFieldPosition = () => {
-      if (fieldPositionContext.value === 'shot') {
-        pendingShotFieldPosition.value = null;
-        showFieldPositionModal.value = false;
-        showShotModal.value = true;
-      } else if (fieldPositionContext.value === 'goal') {
-        pendingGoalFieldPosition.value = null;
-        showFieldPositionModal.value = false;
-        quadrantSelectionContext.value = 'goal';
-        showQuadrantModal.value = true;
-      }
-    }
-
-    const saveShot = async (onTarget, quadrant) => {
-      if (!activeMatch.value) return;
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const shotData = {
-        match_id: activeMatch.value.id,
-        user_id: user.id,
-        on_target: onTarget,
-        quadrant: quadrant,
-        field_position: pendingShotFieldPosition.value,
-      };
-
-      const { data, error } = await supabase.from('shots').insert(shotData).select();
-
-      if (error) {
-        console.error('Error saving shot:', error);
-      } else {
-        matchShots.value.push(data[0]);
-      }
-
-      showShotModal.value = false;
-      showQuadrantModal.value = false;
-      pendingShotFieldPosition.value = null;
-    };
-
-
 
     const incrementStat = async (stat, value) => {
       if (!activeMatch.value) return;
@@ -1761,106 +1371,13 @@ const activeMatch = ref(null)
       loadMyClubTeamName()
     })
 
-    const shareLink = computed(() => {
-      return 'https://mysoccerlab.com'
-    })
-
-    const shareText = computed(() => {
-      if (!activeMatch.value) return ''
-      return `Match Result vs ${activeMatch.value.opponent}
-${getMatchResult(activeMatch.value).toUpperCase()} (${activeMatch.value.score_for}-${activeMatch.value.score_against})
-
-Rating: ${calculateMatchRating(activeMatch.value)}
-Goals: ${myGoalsForMatch.value}
-Assists: ${activeMatch.value.assists || 0}
-Pass Accuracy: ${getMatchPassAccuracy(activeMatch.value)}%
-Chances Created: ${activeMatch.value.created_chances || 0}
-
-Tracked with ${shareLink.value}`
-    })
-
-    const shareViaWhatsApp = () => {
-      const url = `https://wa.me/?text=${encodeURIComponent(shareText.value)}`
-      window.open(url, '_blank')
-    }
-
-    const shareNative = async () => {
-      const element = document.getElementById('share-card')
-      if (!element) return
-      
-      try {
-        const canvas = await html2canvas(element, {
-          backgroundColor: null,
-          useCORS: true,
-          scale: 2 
-        })
-        
-        canvas.toBlob(async (blob) => {
-          const file = new File([blob], `match-vs-${activeMatch.value.opponent}.png`, { type: 'image/png' })
-          
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              files: [file],
-              title: `Match vs ${activeMatch.value.opponent}`,
-              text: shareText.value
-            })
-          } else {
-            alert('Image sharing is not supported on this device.')
-          }
-        }, 'image/png')
-      } catch (error) {
-        console.error('Error sharing image:', error)
-      }
-    }
-
-    const triggerCustomBgUpload = () => {
-      shareBgPreset.value = 'custom'
-      if (customBgFileInput.value) customBgFileInput.value.click()
-    }
-
-    const handleCustomBgFile = (event) => {
-      const file = event.target?.files?.[0]
-      if (!file) return
-      const reader = new FileReader()
-      reader.onload = () => {
-        customShareBgUrl.value = String(reader.result || '')
-        shareBgPreset.value = 'custom'
-      }
-      reader.readAsDataURL(file)
-    }
-
-    const downloadShareImage = async () => {
-      const element = document.getElementById('share-card');
-      if (!element) return;
-      
-      try {
-        const canvas = await html2canvas(element, {
-          backgroundColor: '#101418', 
-          scale: 2 
-        });
-        
-        const link = document.createElement('a');
-        link.download = `match-vs-${activeMatch.value.opponent}-${activeMatch.value.match_date}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-        showShareModal.value = false;
-      } catch (error) {
-        console.error('Error generating image:', error);
-      }
-    }
+    // Share helpers (preview, native share, copy summary, layout variants,
+    // caption, presets) all live in <ShareMatchModal> now.
 
     const getMatchResult = (match) => {
       if (match.score_for > match.score_against) return 'Win'
       if (match.score_for < match.score_against) return 'Loss'
       return 'Draw'
-    }
-
-    const getMatchPassAccuracy = (match) => {
-      const successful = match.successful_passes || 0;
-      const unsuccessful = match.unsuccessful_passes || 0;
-      const total = successful + unsuccessful;
-      if (total === 0) return 0;
-      return Math.round((successful / total) * 100);
     }
 
     const formatDate = (dateString) => {
@@ -2175,82 +1692,99 @@ Tracked with ${shareLink.value}`
   color: #fff;
 }
 
+/* ── Compact match card header (~40% shorter than before) ──── */
 .match-card {
+  position: relative;
   background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 30px;
+  border-radius: 14px;
+  padding: 14px 20px;
+  overflow: hidden;
 }
+
+/* Result-colored accent stripe (mirrors the list cards) */
+.match-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--color-neutral);
+}
+.match-card--win::before  { background: var(--color-success); }
+.match-card--loss::before { background: var(--color-danger); }
+.match-card--draw::before { background: var(--color-neutral); }
 
 .match-card-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 }
 
 .match-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .opponent-name {
-  font-size: 2rem;
+  font-size: 1.15rem;
   margin: 0;
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match-date {
   color: #89938d;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
 }
 
 .score-display {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .score-container {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  font-size: 3rem;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.6rem;
   font-weight: 800;
   line-height: 1;
 }
 
-.team-score {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.team-label {
-  font-size: 0.7rem;
-  color: #89938d;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  font-weight: 600;
-}
-
-.score-number {
-  color: #fff;
-}
+.score-number { color: #fff; }
 
 .score-divider {
-  color: rgba(255, 255, 255, 0.2);
-  margin-top: 12px; /* Align with numbers */
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 400;
 }
 
 .result-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+@media (max-width: 600px) {
+  .match-card { padding: 12px 16px; }
+  .match-card-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .score-display { align-self: stretch; justify-content: space-between; }
+  .opponent-name { font-size: 1.05rem; }
+  .score-container { font-size: 1.4rem; }
 }
 
 .match-view-controls {
@@ -2393,15 +1927,28 @@ h4 {
   background: rgba(255,255,255,0.05);
 }
 
-/* Controls */
+/* Controls — responsive auto-fill grid on desktop, single column on mobile */
+.live-match-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .stat-control-group {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  padding: 8px;
+  padding: 10px 12px;
   background: rgba(255,255,255,0.02);
-  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.stat-control-group:hover {
+  border-color: rgba(76, 218, 156, 0.18);
+  background: rgba(255,255,255,0.04);
 }
 
 .button-group {
@@ -2814,290 +2361,11 @@ h4 {
   }
 }
 
-/* Share Modal & Card */
-.share-modal {
-  max-width: 500px;
-}
-
-.share-bg-picker {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-  margin-bottom: 14px;
-}
-
-.share-bg-btn {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
-  color: #d6d6d6;
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
-}
-
-.share-bg-btn:hover {
-  transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-.share-bg-btn.active {
-  border-color: rgba(76, 218, 156, 0.55);
-  color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(76, 218, 156, 0.14);
-}
-
-.share-bg-btn.preset-clean { background-image: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(11, 18, 32, 0.95)); }
-.share-bg-btn.preset-emerald { background-image: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(11, 18, 32, 0.75)); }
-.share-bg-btn.preset-blue { background-image: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(11, 18, 32, 0.75)); }
-.share-bg-btn.preset-sunset { background-image: linear-gradient(135deg, rgba(244, 63, 94, 0.20), rgba(249, 115, 22, 0.16), rgba(11, 18, 32, 0.75)); }
-.share-bg-btn.preset-custom { background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(11, 18, 32, 0.75)); }
-
-.share-bg-file {
-  display: none;
-}
-
-.share-card-container {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-}
-
-.share-card {
-  width: 100%;
-  max-width: 400px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
-  padding: 30px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-  position: relative;
-  overflow: hidden;
-}
-
-.share-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.share-card.bg-clean {
-  background:
-    radial-gradient(900px 520px at 30% -20%, rgba(76, 218, 156, 0.14) 0%, rgba(76, 218, 156, 0) 62%),
-    radial-gradient(820px 460px at 115% 5%, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0) 60%),
-    linear-gradient(180deg, #111827 0%, #0b1220 100%);
-}
-
-.share-card.bg-clean::before {
-  background:
-    radial-gradient(800px 420px at 50% 15%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 65%),
-    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0) 60%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
-}
-
-.share-card.bg-emerald {
-  background:
-    radial-gradient(880px 540px at 25% -25%, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 60%),
-    radial-gradient(740px 420px at 110% 10%, rgba(76, 218, 156, 0.12) 0%, rgba(76, 218, 156, 0) 58%),
-    linear-gradient(180deg, #0b1f1a 0%, #081017 100%);
-}
-
-.share-card.bg-emerald::before {
-  background:
-    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
-    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0) 62%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
-}
-
-.share-card.bg-blue {
-  background:
-    radial-gradient(900px 520px at 30% -20%, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0) 62%),
-    radial-gradient(720px 420px at 115% 15%, rgba(147, 197, 253, 0.12) 0%, rgba(147, 197, 253, 0) 58%),
-    linear-gradient(180deg, #0b1630 0%, #070c16 100%);
-}
-
-.share-card.bg-blue::before {
-  background:
-    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
-    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0) 62%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
-}
-
-.share-card.bg-sunset {
-  background:
-    radial-gradient(900px 520px at 20% -25%, rgba(244, 63, 94, 0.22) 0%, rgba(244, 63, 94, 0) 62%),
-    radial-gradient(820px 500px at 120% 0%, rgba(249, 115, 22, 0.20) 0%, rgba(249, 115, 22, 0) 60%),
-    linear-gradient(180deg, #1f1121 0%, #080b14 100%);
-}
-
-.share-card.bg-sunset::before {
-  background:
-    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 68%),
-    radial-gradient(900px 520px at 50% 120%, rgba(0, 0, 0, 0.60) 0%, rgba(0, 0, 0, 0) 62%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0.03) 100%);
-}
-
-.share-card.bg-custom {
-  background-color: #0b1220;
-}
-
-.share-card.bg-custom::before {
-  opacity: 0.9;
-  background:
-    radial-gradient(760px 380px at 50% 12%, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 58%),
-    radial-gradient(1100px 760px at 50% 120%, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0) 56%),
-    linear-gradient(135deg, rgba(0, 0, 0, 0.86) 0%, rgba(0, 0, 0, 0.78) 45%, rgba(0, 0, 0, 0.86) 100%);
-}
-
-.share-card.bg-custom .share-stats {
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-}
-
-.share-card > * {
-  position: relative;
-  z-index: 1;
-}
-
-.share-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.share-date {
-  color: #89938d;
-  font-size: 0.9rem;
-}
-
-.share-result {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.share-score {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 20px;
-}
-
-.share-team {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.share-team-name {
-  font-size: 0.8rem;
-  color: #89938d;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.share-score-num {
-  font-size: 3rem;
-  font-weight: 800;
-  color: #fff;
-  line-height: 1;
-}
-
-.share-divider {
-  font-size: 2rem;
-  color: rgba(255, 255, 255, 0.2);
-  margin-top: 10px;
-}
-
-.share-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.share-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.share-stat-val {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: #fff;
-  margin-bottom: 4px;
-}
-
-.share-stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  color: #89938d;
-}
-
-.share-footer {
-  text-align: center;
-  font-size: 0.8rem;
-  color: #4cda9c;
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin-top: 8px;
-}
-
-.center-btn {
-  justify-content: center;
-}
-
-.btn-full {
-  width: 100%;
-  justify-content: center;
-}
-
+/* Share trigger button (live-view header). All other share styles live
+   inside the dedicated <ShareMatchModal> component. */
 .share-btn:hover {
   border-color: #4cda9c;
   color: #4cda9c;
 }
 
-.share-actions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  width: 100%;
-}
-
-.share-option-btn {
-  width: 100%;
-  max-width: 260px;
-  white-space: nowrap;
-  font-size: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ccc;
-}
-
-.share-option-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #4cda9c;
-  color: #fff;
-}
-
-.btn-icon {
-  margin-right: 6px;
-}
 </style>

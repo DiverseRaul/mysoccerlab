@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -30,13 +29,17 @@ Deno.serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-    // --- Build match history log ---
-    let matchHistoryLog = "No matches recorded yet.";
+    // --- Pre-compute ALL aggregates in code (don't trust the LLM with math) ---
     let totalGoals = 0, totalAssists = 0, totalChances = 0;
     let totalPasses = 0, totalSuccessfulPasses = 0;
+    let totalDribbles = 0, totalTackles = 0, totalFouls = 0;
+    let teamGoalsFor = 0, teamGoalsAgainst = 0;
     let wins = 0, draws = 0, losses = 0;
+    let cleanSheets = 0;
+
+    let matchHistoryLog = "No matches recorded yet.";
 
     if (matchesData && matchesData.length > 0) {
       matchHistoryLog = matchesData.map((match: any) => {
@@ -45,6 +48,12 @@ Deno.serve(async (req) => {
         totalChances += match.created_chances || 0;
         totalPasses += (match.successful_passes || 0) + (match.unsuccessful_passes || 0);
         totalSuccessfulPasses += match.successful_passes || 0;
+        totalDribbles += match.dribbles || 0;
+        totalTackles += match.tackles || 0;
+        totalFouls += match.fouls || 0;
+        teamGoalsFor += match.score_for || 0;
+        teamGoalsAgainst += match.score_against || 0;
+        if ((match.score_against || 0) === 0) cleanSheets++;
         if (match.score_for > match.score_against) wins++;
         else if (match.score_for < match.score_against) losses++;
         else draws++;
@@ -58,76 +67,99 @@ Deno.serve(async (req) => {
 
     const avgPassAcc = totalPasses > 0 ? Math.round((totalSuccessfulPasses / totalPasses) * 100) : 0;
     const totalMatches = matchesData.length;
+    const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : "0";
+    const avgAssistsPerMatch = totalMatches > 0 ? (totalAssists / totalMatches).toFixed(2) : "0";
+    const teamAvgGoalsFor = totalMatches > 0 ? (teamGoalsFor / totalMatches).toFixed(2) : "0";
+    const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
     const position = playerProfile.position || "";
 
     const positionGuide: Record<string, string> = {
-      "Winger": "As a Winger, focus on dribbles, chances created, and key passes. Speed of play on the flank and decision-making (cut in vs. cross) are critical.",
-      "Striker": "As a Striker, goals per game and shots on target are the primary metrics. Movement off the ball and finishing quality are the priority.",
-      "Central Midfielder": "As a CM, pass accuracy and chances created are your north star. Ball retention under pressure and vertical penetration define your impact.",
-      "Attacking Midfielder": "As an AM, you are judged by chances created, assists, and goal threat. Vision, creativity, and final-third execution are everything.",
-      "Defensive Midfielder": "As a DM, tackles, interceptions, and pass accuracy define your performance. You are the shield in front of the defence.",
-      "Centre-Back": "As a Centre-Back, clearances, tackles, interceptions and preventing goals scored define your rating.",
-      "Full Back": "As a Full Back, balance defensive solidity (tackles) with attacking contribution (assists, chances). Width in attack, discipline in defence.",
-      "Goalkeeper": "As a Goalkeeper, saves, clean sheets, and goals conceded are your headline stats.",
+      "Winger": "Wingers are judged on dribbles, chances created, key passes, and 1v1 success rate.",
+      "Striker": "Strikers are judged on goals per game, shots on target, and conversion rate.",
+      "Central Midfielder": "CMs are judged on pass accuracy, chances created, and ball retention under pressure.",
+      "Attacking Midfielder": "AMs are judged on chances created, assists, and goal threat.",
+      "Defensive Midfielder": "DMs are judged on tackles, interceptions, and pass accuracy.",
+      "Centre-Back": "CBs are judged on clearances, tackles, interceptions, and goals conceded.",
+      "Full Back": "Full Backs balance tackles with attacking output (assists, chances).",
+      "Goalkeeper": "Goalkeepers are judged on saves, clean sheets, and goals conceded.",
     };
     const positionContext = positionGuide[position] || (position ? `Position: ${position}.` : "");
 
-    const systemPrompt = `You are Coach AI, an elite UEFA Pro License tactical manager and lead data analyst for the MySoccerLab academy. You are conducting a 1-on-1 performance debrief with ${playerName}.
+    const systemPrompt = `You are Coach AI, a global football tactical coach for ${playerName}. You blend coaching philosophies from across the world — Spanish positional play, German gegenpressing, Italian tactical discipline, Brazilian flair, Dutch total football, English intensity. You pick the right idea for the right moment, not one rigid school.
 
 ## Player Profile
-- **Name:** ${playerName}
-- **Position:** ${position || "Not set"}
-- **Preferred Foot:** ${playerProfile.preferredFoot || "Not set"}
-- **Club:** ${playerProfile.clubTeam || "Not set"}
-${positionContext ? `\n**Position Coaching Note:** ${positionContext}` : ""}
+- Name: ${playerName}
+- Position: ${position || "Not set"}
+- Preferred Foot: ${playerProfile.preferredFoot || "Not set"}
+- Club: ${playerProfile.clubTeam || "Not set"}
+${positionContext ? `- Position Note: ${positionContext}` : ""}
 
-## Full Match History (Newest → Oldest — ALL ${totalMatches} matches)
+## PRE-COMPUTED CAREER TOTALS (these numbers are authoritative — use these, do not recalculate)
+- Total Matches: ${totalMatches}
+- Record: ${wins}W / ${draws}D / ${losses}L (Win rate: ${winRate}%)
+- Player Total Goals: ${totalGoals}
+- Player Total Assists: ${totalAssists}
+- Player Total Chances Created: ${totalChances}
+- Player Total Dribbles: ${totalDribbles}
+- Player Total Tackles: ${totalTackles}
+- Player Total Fouls: ${totalFouls}
+- Player Avg Goals/Match: ${avgGoalsPerMatch}
+- Player Avg Assists/Match: ${avgAssistsPerMatch}
+- Player Avg Pass Accuracy: ${avgPassAcc}%
+- Team Total Goals Scored: ${teamGoalsFor}
+- Team Total Goals Conceded: ${teamGoalsAgainst}
+- Team Avg Goals Scored/Match: ${teamAvgGoalsFor}
+- Team Clean Sheets: ${cleanSheets}
+
+## Match History (Newest → Oldest, all ${totalMatches} matches)
 ${matchHistoryLog}
 
-## Career Stats Summary
-| Metric | Value |
-|---|---|
-| Matches | ${totalMatches} |
-| Record | ${wins}W / ${draws}D / ${losses}L |
-| Goals | ${totalGoals} |
-| Assists | ${totalAssists} |
-| Chances Created | ${totalChances} |
-| Avg Pass Accuracy | ${avgPassAcc}% |
+## CRITICAL RULES — read carefully
 
-## Your Coaching Persona
-- Analytical & Direct: You speak like a top-tier European manager. Demand excellence, provide the blueprint.
-- Data-Driven: Every piece of feedback is anchored in the actual stats above. NEVER invent or guess numbers.
-- Position-Aware: Tailor all advice specifically to ${playerName}'s position (${position || "unknown"}).
-- Constructively Ruthless: Celebrate great performances, but dissect poor stats with clarity.
+### Math & Numbers
+- NEVER calculate totals or averages yourself. The "PRE-COMPUTED CAREER TOTALS" section above has every aggregate already done. Read from it.
+- For single-match stats, read directly from the match history log. Do not estimate.
+- If a number isn't in the data, say "I don't have that stat logged" — do not invent.
 
-## Strict Response Rules
-1. **Match Analysis:** Your opening sentence MUST include the exact date and opponent from the log.
-2. **Statistical Proof:** Back every claim with a specific number from the data.
-3. **Film Room:** For uploaded images/videos, pause the frame — call out formation, body shape, positioning, movement.
-4. **Formatting:** Use **bold** for stats/key terms. Use tight bullet points for multi-part analysis.
-5. **Training Calendar:** When asked for a training plan or calendar, output it in this EXACT format so the UI can render it — one day per line, like this:
-   Monday – Passing Precision
-   - Rondo drill (4v2), 15 min
-   - Long-range switch passes
-   Tuesday – Finishing
-   - 1v1 vs goalkeeper, 20 reps
-   (continue for each day)
-6. **Closing Action:** End EVERY response with one specific, named drill or tactical tip for ${playerName} to do in their next session.`;
+### Response Length — match the question
+- Quick factual question ("How many goals this season?", "What was my pass accuracy last game?") → 1–2 sentences. No headers, no bullets, no training plan.
+- Single match analysis ("Analyze my last game") → 4–6 short bullet points covering what went well, what didn't, and ONE specific thing to fix. No film room. No training calendar. No simulated frames.
+- Trend question ("How am I doing this season?") → short paragraph + 2–3 bullets on patterns from the actual data.
+- Training plan → ONLY when the user explicitly asks for a plan, calendar, drills, or "what should I work on this week". Never volunteer one.
+
+### What NOT to do
+- Do NOT invent "film room frames" or describe video footage unless the user actually uploaded an image or video in this message. If no media is attached, you have no footage to analyze.
+- Do NOT add a training calendar to every response. Only when asked.
+- Do NOT pad responses with persona-flavoured filler ("As a UEFA Pro analyst..."). Get to the point.
+- Do NOT close every response with a tactical tip. Only when it genuinely fits.
+
+### Style
+- Direct, calm, knowledgeable. You're a coach, not a hype man.
+- Use **bold** sparingly for the key stat or word in a point.
+- Use bullets only when listing 3+ distinct items.
+- Reference real numbers from the data above when making a point.
+
+### Training plan format (only when asked)
+When the user explicitly requests a training plan, output one day per line:
+Monday – [Theme]
+- Drill 1
+- Drill 2
+Tuesday – [Theme]
+- Drill 1
+(etc.)`;
 
     const chat = model.startChat({
       history: [
-        {
-          role: "user",
-          parts: [{ text: systemPrompt }],
-        },
+        { role: "user", parts: [{ text: systemPrompt }] },
         {
           role: "model",
-          parts: [{ text: `Understood. I am Coach AI, fully briefed on ${playerName}'s profile as a ${position || "player"} with ${totalMatches} matches logged. Ready to analyze.` }],
+          parts: [{ text: `Understood. I have ${playerName}'s profile and ${totalMatches} matches loaded with all aggregates pre-computed. I'll keep responses sized to the question and only include training plans when asked.` }],
         },
         ...conversationHistory,
       ],
       generationConfig: {
         maxOutputTokens: 8192,
+        temperature: 0.4,
       },
     });
 

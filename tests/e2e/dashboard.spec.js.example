@@ -1,0 +1,57 @@
+/**
+ * Authenticated dashboard tests — TEMPLATE.
+ *
+ * To enable:
+ *   1. Create a Supabase test user with some sample matches logged.
+ *   2. Add VITE_TEST_EMAIL and VITE_TEST_PASSWORD to .env.test (gitignored).
+ *   3. Uncomment the `globalSetup` line in playwright.config.js.
+ *   4. Add `storageState: 'tests/.auth/user.json'` to the `use` block.
+ *   5. Rename this file: dashboard.spec.js.example → dashboard.spec.js
+ *
+ * See testing-policy.md (root) for the full rules on what to cover.
+ */
+
+import { test, expect } from '@playwright/test'
+
+test.describe('Dashboard overview', () => {
+  test('header tiles render', async ({ page }) => {
+    await page.goto('/dashboard')
+    await expect(page.getByText('Matches')).toBeVisible()
+    await expect(page.getByText(/win rate/i)).toBeVisible()
+    await expect(page.getByText(/avg rating/i)).toBeVisible()
+    await expect(page.getByText(/last match/i)).toBeVisible()
+  })
+
+  test('shot map tooltip shows match info on hover (desktop)', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'desktop hover only — see mobile tap test')
+    await page.goto('/dashboard')
+    await page.getByRole('button', { name: 'Shot Origins' }).click()
+    const marker = page.locator('.marker').first()
+    await marker.hover()
+    await expect(page.locator('.shot-tooltip')).toBeVisible()
+    await expect(page.locator('.shot-tooltip')).toContainText('vs ')
+  })
+
+  test('shot map tooltip toggles on tap (mobile)', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'mobile tap only')
+    await page.goto('/dashboard')
+    await page.getByRole('button', { name: 'Shot Origins' }).click()
+    const marker = page.locator('.marker').first()
+    await marker.tap()
+    await expect(page.locator('.shot-tooltip')).toBeVisible()
+    await page.locator('body').tap({ position: { x: 5, y: 5 } })
+    await expect(page.locator('.shot-tooltip')).toBeHidden()
+  })
+
+  test('select dropdowns are readable in dark mode', async ({ page }) => {
+    await page.goto('/dashboard')
+    const select = page.locator('.match-select').first()
+    await expect(select).toBeVisible()
+    // The :root color-scheme: dark fix means the native options panel renders
+    // dark. We can't inspect the native panel directly in Playwright, but we
+    // verify the select itself uses the dark surface token.
+    const bg = await select.evaluate((el) => getComputedStyle(el).backgroundColor)
+    // bg should be a non-white tone. White (#fff / rgb(255,255,255)) means the fix regressed.
+    expect(bg).not.toBe('rgb(255, 255, 255)')
+  })
+})

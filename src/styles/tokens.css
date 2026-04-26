@@ -1,0 +1,117 @@
+/*
+ * Design Tokens — MySoccerLab Dashboard
+ *
+ * Values are derived from existing literals in DashboardOverview.vue,
+ * MatchManager.vue, DashboardAICoach.vue and ShotMapSection.vue.
+ * Phase 0 ships zero visual change — adding more callsites in later phases.
+ */
+
+:root {
+  /* Tells the browser to render native form controls (select options panel,
+     scrollbars, date pickers) using dark variants — fixes white-on-white
+     dropdown text in our dark UI. */
+  color-scheme: dark;
+
+  /* ── Surfaces ────────────────────────────────────────────────── */
+  --color-bg-page:        #050608;                  /* Dashboard page bg */
+  --color-bg-app:         #0a0a0a;                  /* Global #app bg */
+  --color-bg-surface:     rgba(15, 18, 20, 0.9);    /* Glass card */
+  --color-bg-surface-2:   rgba(255, 255, 255, 0.03);/* Subtle nested card */
+  --color-bg-surface-3:   rgba(255, 255, 255, 0.05);/* One step lighter */
+  --color-bg-field:       #1a1d21;                  /* Soccer field grid bg */
+
+  /* ── Borders ─────────────────────────────────────────────────── */
+  --color-border-subtle:  rgba(255, 255, 255, 0.05);
+  --color-border-soft:    rgba(255, 255, 255, 0.1);
+  --color-border-strong:  rgba(255, 255, 255, 0.3);
+
+  /* ── Text ────────────────────────────────────────────────────── */
+  --color-text-primary:   #ffffff;
+  --color-text-secondary: #e1e2e6;
+  --color-text-muted:     #89938d;
+  --color-text-faint:     #666666;
+  --color-text-disabled:  #444444;
+
+  /* ── Brand ───────────────────────────────────────────────────── */
+  --color-brand:          #005233;                   /* Active tab bg */
+  --color-brand-fg:       #89f8c1;                   /* Text on brand */
+  --color-accent:         #4cda9c;                   /* Primary accent */
+  --color-accent-soft:    rgba(76, 218, 156, 0.1);   /* Tinted bg */
+  --color-accent-border:  rgba(76, 218, 156, 0.25);  /* Tinted border */
+
+  /* ── Semantic ────────────────────────────────────────────────── */
+  --color-success:        #4cda9c;
+  --color-success-bg:     rgba(76, 218, 156, 0.1);
+  --color-warning:        #ffb74d;
+  --color-warning-bg:     rgba(255, 183, 77, 0.1);
+  --color-danger:         #ef5350;
+  --color-danger-bg:      rgba(239, 83, 80, 0.1);
+  --color-info:           #3b82f6;                   /* On-target shot blue */
+  --color-info-bg:        rgba(59, 130, 246, 0.1);
+  --color-neutral:        #bdbdbd;                   /* Draw badge gray */
+  --color-neutral-bg:     rgba(189, 189, 189, 0.1);
+
+  /* ── Rating tiers (mirror src/lib/rating.js getRatingColor) ──── */
+  --color-rating-world-class: #4fc3f7;
+  --color-rating-elite:       #00e5a0;
+  --color-rating-excellent:   #4cda9c;
+  --color-rating-good:        #81c784;
+  --color-rating-average:     #ffb74d;
+  --color-rating-poor:        #e57373;
+  --color-rating-bad:         #ef5350;
+
+  /* ── Card-specific ──────────────────────────────────────────── */
+  --color-card-yellow:      #FFD700;   /* Yellow card / trophy badge */
+  --color-player-card-gold: #daa520;   /* EA FC player card gold accent */
+  --color-player-card-bg:   #0f1113;   /* Player card dark surface + radar point fill */
+
+  /* ── Radii ───────────────────────────────────────────────────── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --radius-pill: 9999px;
+
+  /* ── Spacing scale ───────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  --font-size-xs:   0.72rem;
+  --font-size-sm:   0.85rem;
+  --font-size-base: 1rem;
+  --font-size-md:   1.1rem;
+  --font-size-lg:   1.4rem;
+  --font-size-xl:   2rem;
+  --font-size-2xl:  2.8rem;
+  --font-size-3xl:  3rem;
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-heavy:    800;
+
+  /* ── Shadows ─────────────────────────────────────────────────── */
+  --shadow-sm: 0 2px 8px  rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  /* ── Breakpoints (reference; CSS @media still needs hardcodes) ── */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+}
+
+/* Native select options — Firefox respects these explicitly; Chromium
+   already inherits from color-scheme: dark on :root. */
+select option {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}

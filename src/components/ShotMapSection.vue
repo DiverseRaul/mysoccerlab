@@ -1,670 +1,882 @@
 <template>
   <div class="shot-map-section">
-    <div class="section-header">
-      <h3>Shot Map Analytics</h3>
-      <p class="section-subtitle">Visualize your shooting accuracy and goal placement</p>
+    <header class="section-header">
+      <div>
+        <h3>Shot Map Analytics</h3>
+        <p class="section-subtitle">Visualize your shooting accuracy and goal placement</p>
+      </div>
+    </header>
+
+    <!-- Filters row -->
+    <div class="filters-row">
+      <select v-model="selectedMatchId" class="match-select">
+        <option :value="null">All Matches</option>
+        <option
+          v-for="m in sortedMatches"
+          :key="m.id"
+          :value="m.id"
+        >vs {{ m.opponent || 'Unknown' }} • {{ formatDate(m.date) }}</option>
+      </select>
+      <div class="type-pills">
+        <button
+          v-for="f in shotFilters"
+          :key="f.value"
+          :class="['type-pill', { active: shotTypeFilter === f.value }]"
+          @click="shotTypeFilter = f.value"
+        >{{ f.label }}</button>
+      </div>
     </div>
-    <div class="shot-map-container card-glass">
-      <div class="shot-map-header">
-        <div class="shot-map-stats">
-          <div class="shot-stat-item">
-            <div class="stat-icon-wrapper shots">
-              <span class="icon">📊</span>
-            </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ totalShotsWithQuadrant }}</span>
-              <span class="stat-label">Total Shots</span>
-              <span class="stat-breakdown">{{ totalShotsOnTarget }} on target • {{ totalShotsOffTarget }} off target</span>
-            </div>
-          </div>
-          <div class="shot-stat-item">
-            <div class="stat-icon-wrapper goals">
-              <span class="icon">⚽</span>
-            </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ totalGoalsWithQuadrant }}</span>
-              <span class="stat-label">Goals Scored</span>
-            </div>
-          </div>
-          <div class="shot-stat-item">
-            <div class="stat-icon-wrapper accuracy">
-              <span class="icon">✓</span>
-            </div>
-            <div class="stat-content">
-              <span class="stat-value">{{ shotAccuracy }}%</span>
-              <span class="stat-label">Accuracy</span>
-            </div>
-          </div>
+
+    <!-- Stat row -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-card__icon stat-card__icon--shots">📊</div>
+        <div class="stat-card__content">
+          <span class="stat-card__value">{{ totalShots }}</span>
+          <span class="stat-card__label">Total Shots</span>
+          <span class="stat-card__breakdown">
+            {{ totalOnTarget }} on • {{ totalOffTarget }} off
+          </span>
         </div>
       </div>
-      <div class="shot-map-content">
-        <div class="view-toggle">
-          <button 
-            @click="shotMapView = 'goal'" 
-            :class="['toggle-btn', { active: shotMapView === 'goal' }]"
-          >
-            Goal Placement
-          </button>
-          <button 
-            @click="shotMapView = 'field'" 
-            :class="['toggle-btn', { active: shotMapView === 'field' }]"
-          >
-            Shot Origins
-          </button>
+      <div class="stat-card">
+        <div class="stat-card__icon stat-card__icon--goals">⚽</div>
+        <div class="stat-card__content">
+          <span class="stat-card__value">{{ totalGoals }}</span>
+          <span class="stat-card__label">Goals</span>
         </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__icon stat-card__icon--accuracy">🎯</div>
+        <div class="stat-card__content">
+          <span class="stat-card__value">{{ shotAccuracy }}%</span>
+          <span class="stat-card__label">Accuracy</span>
+        </div>
+      </div>
+    </div>
 
-        <div v-if="shotMapView === 'goal'" class="goal-view-wrapper">
-          <div class="goal-frame shared-frame">
-            <div class="shot-heat-map">
-              <div 
-                v-for="i in 9" 
-                :key="i" 
-                class="heat-map-quadrant"
-                :class="getHeatMapClass(i)"
-                :style="getHeatMapStyle(i)"
-              >
-                <div class="quadrant-data">
-                  <div class="quadrant-goals" v-if="getQuadrantGoals(i) > 0">
-                    <span class="count">{{ getQuadrantGoals(i) }}</span>
-                  </div>
-                  <div class="quadrant-shots" v-if="getQuadrantShots(i) > 0">
-                    <span class="count">{{ getQuadrantShots(i) }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="goal-legend">
-            <div class="legend-item">
-              <div class="legend-indicator goal"></div>
-              <span>Goals</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-indicator shot"></div>
-              <span>Shots on Target</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-indicator empty"></div>
-              <span>No Shots</span>
+    <!-- View toggle -->
+    <div class="view-toggle">
+      <button
+        @click="shotMapView = 'goal'"
+        :class="['toggle-btn', { active: shotMapView === 'goal' }]"
+      >
+        Goal Placement
+      </button>
+      <button
+        @click="shotMapView = 'field'"
+        :class="['toggle-btn', { active: shotMapView === 'field' }]"
+      >
+        Shot Origins
+      </button>
+    </div>
+
+    <!-- Goal Placement view -->
+    <div v-if="shotMapView === 'goal'" class="view-wrapper">
+      <div class="goal-frame">
+        <div class="goal-net">
+          <div
+            v-for="i in 9"
+            :key="i"
+            class="goal-cell"
+            :class="{ 'goal-cell--has-data': getQuadrantShots(i) + getQuadrantGoals(i) > 0 }"
+          >
+            <div class="goal-cell__data">
+              <span v-if="getQuadrantGoals(i) > 0" class="cell-pill cell-pill--goal">
+                {{ getQuadrantGoals(i) }}
+              </span>
+              <span v-if="getQuadrantShots(i) > 0" class="cell-pill cell-pill--shot">
+                {{ getQuadrantShots(i) }}
+              </span>
             </div>
           </div>
         </div>
-        
-        <div v-if="shotMapView === 'field'" class="field-origin-wrapper">
-          <div v-if="allShotsWithPosition.length === 0 && allGoalsWithPosition.length === 0" class="no-data-message">
-            <p>No shot positions recorded yet.</p>
-            <p style="font-size: 0.85rem; opacity: 0.7;">New shots/goals will appear here after you apply the database migration and record them with field positions.</p>
-          </div>
-          
-          <div v-else class="field-heat-map-frame shared-frame">
-            <div class="field-pattern"></div>
-            
-            <!-- SVG Field Markings -->
-            <svg class="field-markings-svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
-              <!-- Outline -->
-              <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
-              
-              <!-- Penalty Box (16.5m deep, 40.32m wide) -->
-              <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Goal Area (5.5m deep, 18.32m wide) -->
-              <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Penalty Spot (11m from goal) -->
-              <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
-              
-              <!-- Penalty Arc (Radius 9.15m) -->
-              <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-              
-              <!-- Center Circle Arc (at 52.5m) -->
-              <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              
-              <!-- Corner Arcs -->
-              <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-              
-              <!-- Goal Post (External) -->
-              <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
-            </svg>
-            
-            <svg class="shot-trajectories" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <line 
-                v-for="(shot, index) in allShotsWithPosition.filter(s => s.on_target)" 
-                :key="'shot-line-' + index"
-                :x1="getShotCoordinates(shot).x"
-                :y1="getShotCoordinates(shot).y"
+        <div v-if="!hasQuadrantData" class="empty-overlay">
+          <span class="empty-overlay__icon">🥅</span>
+          <p>No shot placements logged yet</p>
+          <p class="empty-overlay__hint">Pick a quadrant when logging on-target shots</p>
+        </div>
+      </div>
+      <div class="legend">
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--goal"></span>Goals
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--shot"></span>Shots on Target
+        </span>
+      </div>
+    </div>
+
+    <!-- Shot Origins view -->
+    <div v-else class="view-wrapper">
+      <div class="origin-field-wrapper">
+        <ShotField mode="origin" :show-placeholder="false" class="origin-field">
+          <template #overlay>
+            <svg
+              v-if="hasOriginData"
+              class="trajectories"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              <line
+                v-for="(shot, i) in onTargetShots"
+                :key="'sl-' + i"
+                :x1="getCoords(shot).x"
+                :y1="getCoords(shot).y"
                 :x2="getGoalTargetX(shot)"
                 y2="0"
-                class="shot-trajectory-line"
+                class="trajectory trajectory--shot"
               />
-              <line 
-                v-for="(goal, index) in allGoalsWithPosition" 
-                :key="'goal-line-' + index"
-                :x1="getShotCoordinates(goal).x"
-                :y1="getShotCoordinates(goal).y"
+              <line
+                v-for="(goal, i) in goalsWithPos"
+                :key="'gl-' + i"
+                :x1="getCoords(goal).x"
+                :y1="getCoords(goal).y"
                 :x2="getGoalTargetX(goal)"
                 y2="0"
-                class="shot-trajectory-line goal-trajectory"
-              />
-              
-              <circle 
-                v-for="(shot, index) in allShotsWithPosition.filter(s => s.on_target)" 
-                :key="'shot-target-' + index"
-                :cx="getGoalTargetX(shot)"
-                cy="0"
-                r="1.2"
-                class="goal-target-marker shot-target"
-              />
-              <circle 
-                v-for="(goal, index) in allGoalsWithPosition" 
-                :key="'goal-target-' + index"
-                :cx="getGoalTargetX(goal)"
-                cy="0"
-                r="1.5"
-                class="goal-target-marker goal-target"
+                class="trajectory trajectory--goal"
               />
             </svg>
-            
-            <div class="shot-markers">
-              <div 
-                v-for="(shot, index) in allShotsWithPosition" 
-                :key="'shot-' + index" 
-                class="shot-marker"
-                :class="{ 'off-target-shot': !shot.on_target }"
-                :style="getShotMarkerStyle(shot)"
-                :title="`Shot ${index + 1} - ${shot.on_target ? 'On Target' : 'Off Target'}`"
+
+            <div v-if="hasOriginData" class="markers">
+              <div
+                v-for="(shot, i) in shotsWithPos"
+                :key="'sm-' + i"
+                class="marker marker--shot"
+                :class="{ 'marker--off': !shot.on_target }"
+                :style="markerStyle(shot)"
+                @mouseenter="showTooltip(shot, 'shot', $event)"
+                @mouseleave="hideTooltip"
+                @click.stop="clickMarker(shot, 'shot', $event)"
               ></div>
-              <div 
-                v-for="(goal, index) in allGoalsWithPosition" 
-                :key="'goal-' + index" 
-                class="goal-marker"
-                :style="getShotMarkerStyle(goal)"
-                :title="`Goal ${index + 1}`"
+              <div
+                v-for="(goal, i) in goalsWithPos"
+                :key="'gm-' + i"
+                class="marker marker--goal"
+                :style="markerStyle(goal)"
+                @mouseenter="showTooltip(goal, 'goal', $event)"
+                @mouseleave="hideTooltip"
+                @click.stop="clickMarker(goal, 'goal', $event)"
               ></div>
             </div>
-          </div>
-          
-          <div v-if="allShotsWithPosition.length > 0 || allGoalsWithPosition.length > 0" class="goal-legend">
-            <div class="legend-item">
-              <div class="legend-indicator" style="background: rgba(76, 175, 80, 0.8); border: 2px solid rgba(76, 175, 80, 1);"></div>
-              <span>Goals ({{ allGoalsWithPosition.length }})</span>
+
+            <div v-else class="empty-overlay">
+              <span class="empty-overlay__icon">⚽</span>
+              <p>No shot origins logged yet</p>
+              <p class="empty-overlay__hint">Tap the field while logging shots to mark origin</p>
             </div>
-            <div class="legend-item">
-              <div class="legend-indicator" style="background: rgba(33, 150, 243, 0.7); border: 2px solid rgba(33, 150, 243, 1);"></div>
-              <span>On Target ({{ allShotsWithPosition.filter(s => s.on_target).length }})</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-indicator" style="background: rgba(239, 83, 80, 0.7); border: 2px solid rgba(239, 83, 80, 1);"></div>
-              <span>Off Target ({{ allShotsWithPosition.filter(s => !s.on_target).length }})</span>
-            </div>
-          </div>
-        </div>
+          </template>
+        </ShotField>
+      </div>
+
+      <div v-if="hasOriginData" class="legend">
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--goal"></span>Goals ({{ goalsWithPos.length }})
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--shot"></span>On Target ({{ onTargetShots.length }})
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot legend-dot--off"></span>Off Target ({{ offTargetShots.length }})
+        </span>
       </div>
     </div>
+
   </div>
+
+  <!-- Teleported to body so BentoItem's hover transform doesn't offset position:fixed -->
+  <Teleport to="body">
+    <Transition name="tooltip-fade">
+      <div
+        v-if="tooltip.visible"
+        class="shot-tooltip"
+        :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }"
+      >
+        <span class="tooltip-type">{{ tooltip.typeIcon }} {{ tooltip.typeLabel }}</span>
+        <span class="tooltip-match">vs {{ tooltip.opponent }}</span>
+        <span class="tooltip-meta">{{ tooltip.date }} • {{ tooltip.result }}</span>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import ShotField from './ui/ShotField.vue'
 
 const props = defineProps({
-  allShotsData: {
-    type: Array,
-    required: true
-  },
-  allGoalsData: {
-    type: Array,
-    required: true
+  allShotsData: { type: Array, required: true },
+  allGoalsData:  { type: Array, required: true },
+  matches:       { type: Array, required: true }
+})
+
+const shotMapView    = ref('goal')
+const selectedMatchId = ref(null)
+const shotTypeFilter  = ref('all')
+
+const shotFilters = [
+  { value: 'all',        label: 'All' },
+  { value: 'goals',      label: 'Goals' },
+  { value: 'on_target',  label: 'On Target' },
+  { value: 'off_target', label: 'Off Target' }
+]
+
+// ── Match lookup map ────────────────────────────────────────
+const matchMap = computed(() => {
+  const map = {}
+  for (const m of props.matches) {
+    const sf = m.score_for  ?? 0
+    const sa = m.score_against ?? 0
+    map[m.id] = {
+      opponent: m.opponent || 'Unknown',
+      date:     m.date ? formatDate(m.date) : '—',
+      result:   sf > sa ? 'W' : sf < sa ? 'L' : 'D',
+      score:    `${sf}–${sa}`
+    }
   }
+  return map
 })
 
-const shotMapView = ref('goal')
+const sortedMatches = computed(() =>
+  [...props.matches].sort((a, b) => new Date(b.date) - new Date(a.date))
+)
 
-const totalShotsWithQuadrant = computed(() => {
-  return props.allShotsData.length + props.allGoalsData.length
-})
-
-const totalShotsOnTarget = computed(() => {
-  return props.allShotsData.filter(shot => shot.on_target).length + props.allGoalsData.length
-})
-
-const totalShotsOffTarget = computed(() => {
-  return props.allShotsData.filter(shot => !shot.on_target).length
-})
-
-const totalGoalsWithQuadrant = computed(() => {
-  return props.allGoalsData.filter(goal => goal.quadrant).length
-})
-
-const shotAccuracy = computed(() => {
-  const totalShots = props.allShotsData.length + props.allGoalsData.length
-  if (totalShots === 0) return 0
-  const shotsOnTarget = props.allShotsData.filter(shot => shot.on_target).length + props.allGoalsData.length
-  return Math.round((shotsOnTarget / totalShots) * 100)
-})
-
-const allShotsWithPosition = computed(() => {
-  return props.allShotsData.filter(shot => shot.field_position && shot.field_position.includes(','))
-})
-
-const allGoalsWithPosition = computed(() => {
-  return props.allGoalsData.filter(goal => goal.field_position && goal.field_position.includes(','))
-})
-
-const getQuadrantShots = (quadrant) => {
-  return props.allShotsData.filter(shot => shot.quadrant === quadrant).length
+function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-const getQuadrantGoals = (quadrant) => {
-  return props.allGoalsData.filter(goal => goal.quadrant === quadrant).length
-}
-
-const getHeatMapClass = (quadrant) => {
-  const shots = getQuadrantShots(quadrant)
-  const goals = getQuadrantGoals(quadrant)
-  const total = shots + goals
-  
-  if (total === 0) return 'heat-none'
-}
-
-const getHeatMapStyle = (quadrant) => {
-  return {}
-}
-
-const getShotMarkerStyle = (item) => {
-  if (!item.field_position || !item.field_position.includes(',')) return {}
-  
-  const [x, y] = item.field_position.split(',').map(Number)
-  
-  return {
-    left: `${x}%`,
-    top: `${y}%`,
-    transform: 'translate(-50%, -50%)'
+// ── Filtered data ───────────────────────────────────────────
+const filteredGoals = computed(() => {
+  let data = props.allGoalsData
+  if (selectedMatchId.value !== null) {
+    data = data.filter(g => g.match_id === selectedMatchId.value)
   }
+  if (shotTypeFilter.value !== 'all' && shotTypeFilter.value !== 'goals') return []
+  return data
+})
+
+const filteredShots = computed(() => {
+  let data = props.allShotsData
+  if (selectedMatchId.value !== null) {
+    data = data.filter(s => s.match_id === selectedMatchId.value)
+  }
+  if (shotTypeFilter.value === 'goals')      return []
+  if (shotTypeFilter.value === 'on_target')  return data.filter(s => s.on_target)
+  if (shotTypeFilter.value === 'off_target') return data.filter(s => !s.on_target)
+  return data
+})
+
+// ── Aggregate stats (reflect active filters) ───────────────
+const totalShots    = computed(() => filteredShots.value.length + filteredGoals.value.length)
+const totalOnTarget = computed(() =>
+  filteredShots.value.filter(s => s.on_target).length + filteredGoals.value.length
+)
+const totalOffTarget = computed(() => filteredShots.value.filter(s => !s.on_target).length)
+const totalGoals     = computed(() => filteredGoals.value.length)
+const shotAccuracy   = computed(() => {
+  if (totalShots.value === 0) return 0
+  return Math.round((totalOnTarget.value / totalShots.value) * 100)
+})
+
+// ── Quadrant counts (Goal Placement view) ──────────────────
+const getQuadrantShots = (q) =>
+  filteredShots.value.filter(s => s.quadrant === q && s.on_target).length
+const getQuadrantGoals = (q) => filteredGoals.value.filter(g => g.quadrant === q).length
+const hasQuadrantData  = computed(() =>
+  filteredShots.value.some(s => s.quadrant) || filteredGoals.value.some(g => g.quadrant)
+)
+
+// ── Origin data (Shot Origins view) ────────────────────────
+const hasFieldPosition = (item) =>
+  typeof item.field_position === 'string' && item.field_position.includes(',')
+
+const shotsWithPos   = computed(() => filteredShots.value.filter(hasFieldPosition))
+const goalsWithPos   = computed(() => filteredGoals.value.filter(hasFieldPosition))
+const onTargetShots  = computed(() => shotsWithPos.value.filter(s => s.on_target))
+const offTargetShots = computed(() => shotsWithPos.value.filter(s => !s.on_target))
+const hasOriginData  = computed(
+  () => shotsWithPos.value.length > 0 || goalsWithPos.value.length > 0
+)
+
+// ── Coordinate helpers ──────────────────────────────────────
+const getCoords = (item) => {
+  const [x, y] = item.field_position.split(',').map(Number)
+  return { x: Number.isFinite(x) ? x : 50, y: Number.isFinite(y) ? y : 50 }
 }
 
-const getShotCoordinates = (item) => {
-  if (!item.field_position || !item.field_position.includes(',')) return { x: 50, y: 50 }
-  
-  const [x, y] = item.field_position.split(',').map(Number)
-  
-  return { x, y }
+const markerStyle = (item) => {
+  const { x, y } = getCoords(item)
+  return { left: `${x}%`, top: `${y}%` }
 }
 
 const getGoalTargetX = (item) => {
   if (!item.quadrant) return 50
-  
-  const quadrant = item.quadrant
-  const column = ((quadrant - 1) % 3) + 1
-  
+  const column = ((item.quadrant - 1) % 3) + 1
   if (column === 1) return 37
-  if (column === 2) return 50
   if (column === 3) return 63
-  
   return 50
 }
+
+// ── Tooltip ─────────────────────────────────────────────────
+const tooltip = ref({
+  visible:   false,
+  typeIcon:  '',
+  typeLabel: '',
+  opponent:  '',
+  date:      '',
+  result:    '',
+  x:         0,
+  y:         0,
+  _matchId:  null
+})
+
+function buildTooltipData(item, type) {
+  const info = matchMap.value[item.match_id] || {}
+  return {
+    typeIcon:  type === 'goal' ? '⚽' : item.on_target ? '🎯' : '✗',
+    typeLabel: type === 'goal' ? 'Goal' : item.on_target ? 'On Target' : 'Off Target',
+    opponent:  info.opponent || 'Unknown',
+    date:      info.date     || '—',
+    result:    info.result && info.score ? `${info.result} ${info.score}` : '—',
+    _matchId:  item.match_id
+  }
+}
+
+function showTooltip(item, type, event) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  Object.assign(tooltip.value, {
+    visible: true,
+    x: rect.left + rect.width / 2,
+    y: rect.top,
+    ...buildTooltipData(item, type)
+  })
+}
+
+function hideTooltip() {
+  tooltip.value.visible = false
+}
+
+function clickMarker(item, type, event) {
+  if (tooltip.value.visible && tooltip.value._matchId === item.match_id &&
+      tooltip.value.typeLabel === buildTooltipData(item, type).typeLabel) {
+    hideTooltip()
+  } else {
+    showTooltip(item, type, event)
+  }
+}
+
+function handleDocumentClick(e) {
+  if (!e.target.closest('.marker') && !e.target.closest('.shot-tooltip')) {
+    hideTooltip()
+  }
+}
+
+onMounted(() => document.addEventListener('click', handleDocumentClick))
+onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 </script>
 
 <style scoped>
 .shot-map-section {
-  height: 100%;
   display: flex;
   flex-direction: column;
-  color: white;
+  gap: var(--space-5);
+  height: 100%;
+  color: var(--color-text-primary);
 }
 
+/* ── Header ───────────────────────────────────────────────── */
 .section-header {
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .section-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: linear-gradient(135deg, #fff 30%, #4cda9c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  margin: 0 0 4px;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .section-subtitle {
-  margin: 5px 0 0;
-  font-size: 0.85rem;
-  color: #89938d;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
-.shot-map-container {
+/* ── Filters ──────────────────────────────────────────────── */
+.filters-row {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
 }
 
-/* Stats Row */
-.shot-map-stats {
+.match-select {
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  padding: 8px 12px;
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 0;
+  flex: 1 1 200px;
+  max-width: 320px;
+  transition: border-color 0.2s ease;
+  appearance: auto;
+}
+
+.match-select:focus {
+  outline: none;
+  border-color: var(--color-accent-border);
+}
+
+.type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.type-pill {
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+.type-pill:hover {
+  border-color: var(--color-accent-border);
+  color: var(--color-text-secondary);
+}
+
+.type-pill.active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
+  color: var(--color-accent);
+}
+
+/* ── Stat row ─────────────────────────────────────────────── */
+.stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
 }
 
-.shot-stat-item {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 16px;
+.stat-card {
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: all 0.3s ease;
+  gap: var(--space-3);
+  transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 
-.shot-stat-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+.stat-card:hover {
+  background: var(--color-bg-surface-3);
+  border-color: var(--color-accent-border);
   transform: translateY(-2px);
-  border-color: rgba(76, 218, 156, 0.2);
 }
 
-.stat-icon-wrapper {
+.stat-card__icon {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  padding: 6px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  flex-shrink: 0;
 }
 
-.stat-icon-wrapper.shots { background: rgba(33, 150, 243, 0.15); color: #2196F3; }
-.stat-icon-wrapper.goals { background: rgba(76, 218, 156, 0.15); color: #4cda9c; }
-.stat-icon-wrapper.accuracy { background: rgba(255, 193, 7, 0.15); color: #FFC107; }
+.stat-card__icon--shots    { background: var(--color-info-bg);    color: var(--color-info); }
+.stat-card__icon--goals    { background: var(--color-success-bg); color: var(--color-success); }
+.stat-card__icon--accuracy { background: var(--color-warning-bg); color: var(--color-warning); }
 
-.stat-content {
+.stat-card__content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-.stat-value {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #fff;
+.stat-card__value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-heavy);
+  color: var(--color-text-primary);
   line-height: 1.1;
 }
 
-.stat-label {
-  font-size: 0.75rem;
-  color: #89938d;
+.stat-card__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
+  margin-top: 3px;
 }
 
-.stat-breakdown {
+.stat-card__breakdown {
   font-size: 0.65rem;
-  color: #666;
-  margin-top: 4px;
+  color: var(--color-text-faint);
+  margin-top: 3px;
 }
 
-/* Content Area */
-.shot-map-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  flex: 1;
-}
-
-/* Toggle */
+/* ── View toggle ──────────────────────────────────────────── */
 .view-toggle {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--color-bg-surface-2);
   padding: 4px;
-  border-radius: 12px;
-  display: flex;
-  gap: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  display: inline-flex;
+  gap: 2px;
+  align-self: center;
 }
 
 .toggle-btn {
   background: transparent;
   border: none;
-  color: #89938d;
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .toggle-btn.active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  background: var(--color-bg-surface-3);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .toggle-btn:hover:not(.active) {
-  color: #ccc;
+  color: var(--color-text-secondary);
 }
 
-/* Goal View */
-.goal-view-wrapper {
-  width: 100%;
+/* ── View wrapper (shared by both views) ──────────────────── */
+.view-wrapper {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-}
-
-.shared-frame {
+  gap: var(--space-4);
+  flex: 1;
   width: 100%;
-  max-width: 320px;
-  aspect-ratio: 4/3;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  border-radius: 4px;
 }
 
+/* ── Goal Placement view ──────────────────────────────────── */
 .goal-frame {
-  border: 8px solid #e0e0e0;
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 3;
+  background: var(--color-bg-field);
+  border: 6px solid var(--color-border-strong);
   border-bottom: none;
-  background: rgba(20, 25, 30, 0.5);
-  box-shadow: inset 0 0 50px rgba(0,0,0,0.7), 0 10px 30px rgba(0,0,0,0.3);
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  box-shadow: var(--shadow-md), inset 0 0 50px rgba(0, 0, 0, 0.5);
 }
 
 .goal-frame::after {
   content: '';
   position: absolute;
   bottom: -4px;
-  left: -8px;
-  right: -8px;
+  left: -6px;
+  right: -6px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: var(--color-border-strong);
+  border-radius: 0 0 2px 2px;
 }
 
-.shot-heat-map {
+.goal-net {
+  position: absolute;
+  inset: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  width: 100%;
-  height: 100%;
 }
 
-.heat-map-quadrant {
-  border: 1px solid rgba(255, 255, 255, 0.03);
+.goal-cell {
+  border: 1px dashed var(--color-border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
-  transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.25s ease;
 }
 
-.quadrant-data {
+.goal-cell--has-data {
+  background: var(--color-accent-soft);
+}
+
+.goal-cell__data {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   z-index: 2;
 }
 
-.quadrant-goals, .quadrant-shots {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
+.cell-pill {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-heavy);
+  box-shadow: var(--shadow-sm);
 }
 
-.quadrant-goals {
-  background: #4cda9c;
-  color: #003822;
-}
+.cell-pill--goal { background: var(--color-success); color: var(--color-bg-page); }
+.cell-pill--shot { background: var(--color-info);    color: #fff; }
 
-.quadrant-shots {
-  background: #2196F3;
-  color: #fff;
-}
-
-/* Field View */
-.field-origin-wrapper {
+/* ── Shot Origins view ────────────────────────────────────── */
+.origin-field-wrapper {
+  position: relative;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  max-width: 480px;
 }
 
-.field-heat-map-frame {
-  background: #1a1d21; /* Dark gray background */
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: inset 0 0 60px rgba(0,0,0,0.4);
+.origin-field {
+  width: 100%;
 }
 
-/* Grass Pattern - Removed or made very subtle gray */
-.field-pattern {
-  display: none;
-}
-
-.field-markings-svg {
+.trajectories {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   pointer-events: none;
   z-index: 1;
-  opacity: 0.5; /* Fainter lines */
 }
 
-/* Remove old marking styles */
+.trajectory {
+  fill: none;
+  stroke-width: 0.4;
+}
 
-.shot-marker {
+.trajectory--shot { stroke: rgba(59, 130, 246, 0.4); }
+.trajectory--goal { stroke: rgba(76, 218, 156, 0.55); stroke-width: 0.5; }
+
+.markers {
   position: absolute;
-  width: 8px;
-  height: 8px;
-  background: rgba(33, 150, 243, 0.7); /* Less bright blue */
+  inset: 0;
+  pointer-events: none;
+}
+
+.marker {
+  position: absolute;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  box-shadow: 0 0 4px rgba(33, 150, 243, 0.3);
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  transform: translate(-50%, -50%);
   z-index: 5;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.shot-marker.off-target-shot {
-  background: rgba(239, 83, 80, 0.7); /* Less bright red */
-  box-shadow: 0 0 4px rgba(239, 83, 80, 0.3);
+.marker:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  z-index: 10;
 }
 
-.goal-marker {
-  position: absolute;
-  width: 8px; /* Same size */
-  height: 8px;
-  background: rgba(76, 218, 156, 0.8); /* Less bright green */
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(76, 218, 156, 0.4);
-  border: 1px solid rgba(255,255,255,0.5);
+.marker--shot {
+  background: var(--color-info);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+}
+
+.marker--shot.marker--off {
+  background: var(--color-danger);
+  box-shadow: 0 0 6px rgba(239, 83, 80, 0.5);
+}
+
+.marker--goal {
+  background: var(--color-success);
+  box-shadow: 0 0 8px rgba(76, 218, 156, 0.6);
+  width: 16px;
+  height: 16px;
   z-index: 6;
 }
 
-.shot-trajectories {
+/* ── Empty state overlay (shared by both views) ───────────── */
+.empty-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.shot-trajectory-line {
-  stroke: rgba(255, 255, 255, 0.2);
-  stroke-width: 1;
-}
-
-.shot-trajectory-line.goal-trajectory {
-  stroke: rgba(76, 218, 156, 0.5);
-  stroke-width: 1.5;
-}
-
-.goal-target-marker {
-  fill: rgba(255, 255, 255, 0.5);
-}
-
-.goal-target-marker.goal-target {
-  fill: #4cda9c;
-}
-
-.no-data-message {
-  padding: 40px;
-  text-align: center;
-  color: #89938d;
-  background: rgba(255,255,255,0.02);
-  border-radius: 12px;
-  border: 1px dashed rgba(255,255,255,0.1);
-}
-
-/* Legend */
-.goal-legend {
+  inset: 0;
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  text-align: center;
+  padding: var(--space-5);
+  color: var(--color-text-muted);
+  z-index: 5;
+}
+
+.empty-overlay__icon {
+  font-size: 2.4rem;
+  opacity: 0.5;
+  margin-bottom: var(--space-2);
+}
+
+.empty-overlay p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
+.empty-overlay__hint {
+  font-size: var(--font-size-xs) !important;
+  color: var(--color-text-faint);
+}
+
+/* ── Legend (shared) ──────────────────────────────────────── */
+.legend {
+  display: flex;
+  gap: var(--space-5);
   flex-wrap: wrap;
   justify-content: center;
+  padding-top: var(--space-2);
 }
 
 .legend-item {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: #ccc;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
-.legend-indicator {
-  width: 12px;
-  height: 12px;
+.legend-dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
 }
 
-.legend-indicator.goal { background: #4cda9c; box-shadow: 0 0 5px rgba(76, 218, 156, 0.5); }
-.legend-indicator.shot { background: rgba(33, 150, 243, 0.8); box-shadow: 0 0 5px rgba(33, 150, 243, 0.5); }
-.legend-indicator.empty { border: 1px solid #666; background: rgba(255,255,255,0.05); }
+.legend-dot--goal { background: var(--color-success); }
+.legend-dot--shot { background: var(--color-info); }
+.legend-dot--off  { background: var(--color-danger); }
 
-@media (max-width: 768px) {
-  .shot-map-stats {
-    grid-template-columns: 1fr;
+/* ── Shot tooltip ─────────────────────────────────────────── */
+.shot-tooltip {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 10px));
+  z-index: 9999;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: none;
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.tooltip-type {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.tooltip-match {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.tooltip-meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Tooltip transition ───────────────────────────────────── */
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translate(-50%, calc(-100% - 4px));
+}
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .filters-row {
+    flex-direction: column;
+    align-items: stretch;
   }
-  
-  .goal-frame {
+
+  .match-select {
     max-width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .type-pills {
+    justify-content: flex-start;
+  }
+
+  .stat-grid {
+    gap: var(--space-2);
+  }
+
+  .stat-card {
+    padding: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .stat-card__icon {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+
+  .stat-card__value {
+    font-size: var(--font-size-base);
+  }
+
+  .goal-frame,
+  .origin-field-wrapper {
+    max-width: 100%;
+  }
+
+  .legend {
+    gap: var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+
+  .toggle-btn {
+    padding: 8px 14px;
+    font-size: var(--font-size-xs);
+  }
+
+  .marker {
+    width: 16px;
+    height: 16px;
+  }
+
+  .marker--goal {
+    width: 18px;
+    height: 18px;
   }
 }
 </style>
