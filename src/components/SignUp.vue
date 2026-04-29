@@ -42,11 +42,13 @@
 
 <script>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
 
 export default {
   name: 'SignUp',
   setup() {
+    const router = useRouter()
     const email = ref('')
     const password = ref('')
     const loading = ref(false)
@@ -57,12 +59,16 @@ export default {
       try {
         loading.value = true
         error.value = ''
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email: email.value,
           password: password.value,
         })
         if (signUpError) throw signUpError
-        message.value = 'Check your email for the confirmation link!'
+        if (data.session) {
+          router.push('/dashboard')
+        } else {
+          message.value = 'Check your email for the confirmation link!'
+        }
       } catch (err) {
         error.value = err.message
       } finally {
