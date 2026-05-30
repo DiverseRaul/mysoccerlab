@@ -11,6 +11,7 @@
           <div class="tabs">
             <button class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
             <button class="tab-btn" :class="{ active: activeTab === 'matches' }" @click="activeTab = 'matches'">Matches</button>
+            <button class="tab-btn" :class="{ active: activeTab === 'practice' }" @click="activeTab = 'practice'">Practice</button>
             <button class="tab-btn" :class="{ active: activeTab === 'ai-coach' }" @click="activeTab = 'ai-coach'">AI Coach</button>
           </div>
           <SeasonSelector
@@ -39,6 +40,11 @@
           @match-updated="loadData"
         />
 
+        <PracticeTracker
+          v-if="activeTab === 'practice'"
+          :userName="userName"
+        />
+
         <DashboardAICoach
           v-if="activeTab === 'ai-coach'"
           :matches="filteredMatches"
@@ -60,6 +66,7 @@ import DashboardOverview from './DashboardOverview.vue'
 import MatchManager from './MatchManager.vue'
 import DashboardAICoach from './DashboardAICoach.vue'
 import SeasonSelector from './SeasonSelector.vue'
+import PracticeTracker from './dashboard/practice/PracticeTracker.vue'
 
 const router = useRouter()
 const matches = ref([])

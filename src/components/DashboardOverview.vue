@@ -18,6 +18,7 @@
 
       <MatchRatingsChart :matches="matches" />
       <GoalsAssistsLast10Chart :matches="matches" />
+      <PracticeRecentTile />
     </div>
   </div>
 </template>
@@ -33,6 +34,7 @@ import DefensiveActionsTile from './dashboard/overview/DefensiveActionsTile.vue'
 import SeasonInsightsTile from './dashboard/overview/SeasonInsightsTile.vue'
 import MatchRatingsChart from './dashboard/overview/MatchRatingsChart.vue'
 import GoalsAssistsLast10Chart from './dashboard/overview/GoalsAssistsLast10Chart.vue'
+import PracticeRecentTile from './dashboard/overview/PracticeRecentTile.vue'
 
 defineProps({
   matches:       { type: Array, required: true },
