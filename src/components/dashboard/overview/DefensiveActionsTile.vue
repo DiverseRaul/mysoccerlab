@@ -43,6 +43,11 @@
           <span class="card-lbl">Fouls</span>
           <span class="card-val card-val--muted">{{ totalFouls }}</span>
         </div>
+        <div v-if="totalPenaltiesConceded > 0" class="card-item">
+          <span class="card-icon">🎯</span>
+          <span class="card-lbl">Penalties Conceded</span>
+          <span class="card-val card-val--red">{{ totalPenaltiesConceded }}</span>
+        </div>
       </div>
     </div>
   </BentoItem>
@@ -82,6 +87,10 @@ const totalRedCards = computed(() =>
 
 const totalFouls = computed(() =>
   props.matches.reduce((sum, m) => sum + (m.fouls || 0), 0)
+)
+
+const totalPenaltiesConceded = computed(() =>
+  props.matches.reduce((sum, m) => sum + (m.penalties_conceded || 0), 0)
 )
 
 const donutConfig = { size: 200, center: 100, radius: 80, hole: 50 }

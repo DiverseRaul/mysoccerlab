@@ -1,0 +1,133 @@
+/*
+ * Shared controls — buttons & form fields
+ *
+ * Promotes the proven control system from the practice modals'
+ * `modal-shared.css` to a single global definition so every screen shares one
+ * look. Imported once in main.js, right after tokens.css.
+ *
+ * Safety: the native-element defaults use :where() (zero specificity), so any
+ * component's own scoped rules always win — this only styles controls that
+ * would otherwise be unstyled. The .btn / .field classes are normal-specificity
+ * so screens can opt in, and a component's scoped .btn-* still overrides them.
+ */
+
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-5);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+}
+
+.btn:disabled,
+.btn[disabled],
+.btn.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-bg-page);
+}
+.btn-primary:not(:disabled):hover {
+  background: #3cb885;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-soft);
+}
+.btn-secondary:not(:disabled):hover {
+  background: var(--color-bg-surface-3);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-soft);
+}
+.btn-ghost:not(:disabled):hover {
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-primary);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+.btn-danger:not(:disabled):hover {
+  background: #d44343;
+  transform: translateY(-1px);
+}
+
+/* Sizes / modifiers */
+.btn-sm    { padding: 6px var(--space-3); font-size: var(--font-size-xs); }
+.btn-lg    { padding: 14px var(--space-6); font-size: var(--font-size-base); }
+.btn-block { display: flex; width: 100%; }
+
+/* ── Form fields — zero-specificity safe defaults ───────────────── */
+:where(.field),
+:where(
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  select,
+  textarea
+) {
+  width: 100%;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  box-sizing: border-box;
+}
+
+:where(textarea) { resize: vertical; }
+
+:where(
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  select,
+  textarea
+):focus {
+  outline: none;
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+:where(input)::placeholder,
+:where(textarea)::placeholder {
+  color: var(--color-text-faint);
+}

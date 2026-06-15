@@ -1,12 +1,12 @@
 <template>
-  <BentoItem :delay="0">
+  <BentoItem :delay="0" extra-class="header-stat-tile">
     <StatTile label="Matches" :value="matchesCount">
       <template #icon>⚽</template>
     </StatTile>
   </BentoItem>
 
   <!-- Win Record: combines Wins + Win Rate into one tile -->
-  <BentoItem :delay="100">
+  <BentoItem :delay="100" extra-class="header-stat-tile">
     <div class="record-tile">
       <div class="record-icon">🏆</div>
       <div class="wdl-row">
@@ -29,14 +29,14 @@
     </div>
   </BentoItem>
 
-  <BentoItem :delay="200">
+  <BentoItem :delay="200" extra-class="header-stat-tile">
     <StatTile label="Avg Rating" :value="averageRating" :accent="ratingAccent">
       <template #icon>⭐</template>
     </StatTile>
   </BentoItem>
 
   <!-- Last Match: most recent match's rating + result badge -->
-  <BentoItem :delay="300">
+  <BentoItem :delay="300" extra-class="header-stat-tile">
     <div class="last-match-tile">
       <div class="last-match-icon">🔥</div>
       <div class="last-match-row">

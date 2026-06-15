@@ -1,6 +1,12 @@
 <template>
   <footer class="app-footer">
-    <p>&copy; 2026 my soccer lab | v3 | Apr2226</p>
+    <nav class="app-footer__links">
+      <router-link to="/faq" class="app-footer__link">FAQ</router-link>
+      <router-link to="/privacy" class="app-footer__link">Privacy</router-link>
+      <router-link to="/terms" class="app-footer__link">Terms</router-link>
+    </nav>
+    <p class="app-footer__copy">&copy; 2026 my soccer lab</p>
+    <p class="version">Version 0.9.0</p>
   </footer>
 </template>
 
@@ -12,12 +18,45 @@ export default {
 
 <style scoped>
 .app-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   text-align: center;
-  padding: 2rem 0;
-  margin-top: auto; /* Pushes footer to the bottom */
-  background-color: #050505;
-  color: #666;
-  font-size: 0.9rem;
-  border-top: 1px solid #1a1a1a;
+  padding: 2rem 1rem;
+  margin-top: auto;
+  background-color: #050608;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.app-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.app-footer__link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: var(--font-weight-medium);
+  transition: color 0.2s ease;
+}
+
+.app-footer__link:hover {
+  color: var(--color-accent);
+}
+
+.app-footer__copy {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 0.85rem;
+}
+
+.version {
+  margin: 0;
+  color: var(--color-text-faint);
+  font-size: 0.85rem;
 }
 </style>

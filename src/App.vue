@@ -10,6 +10,7 @@
           <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
           <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
           <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
+          <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
           <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
           <button @click="signOut" class="nav-link logout-btn" v-if="user">Logout</button>
         </div>
@@ -30,6 +31,7 @@
       <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
       <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
       <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
+      <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
       <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
       <button @click="signOutAndCloseMenu" class="nav-link logout-btn" v-if="user">Logout</button>
     </div>
@@ -310,33 +312,38 @@ export default {
 }
 
 .mobile-nav-dropdown {
-  display: none; /* Hidden by default, shown in mobile media query */
+  display: none;
   position: fixed;
-  top: calc(2rem + 60px); /* Position below the navbar (1rem top + navbar height) */
+  top: calc(2rem + 60px);
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
   z-index: 99;
   flex-direction: column;
-  gap: 0.5rem;
-  background: rgba(18, 18, 18, 0.7);
-  backdrop-filter: blur(15px);
-  border-radius: 35px;
+  gap: 0.75rem;
+  background: rgba(18, 18, 18, 0.65);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 28px;
   padding: 0;
   max-height: 0;
   overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
   transition: max-height 0.4s ease-in-out, padding 0.3s ease;
 }
 
 .mobile-nav-dropdown.is-open {
   padding: 1rem;
-  max-height: 500px; /* A large enough value to show all items */
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-height: 500px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .mobile-nav-dropdown .nav-link {
   width: 100%;
   text-align: center;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  font-size: 1.05rem;
 }
 
 

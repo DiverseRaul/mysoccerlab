@@ -1,15 +1,25 @@
 <template>
   <div class="profile-page">
-    <div class="page-header">
-      <h1>Player Profile</h1>
-      <p>Manage your account, profile, and achievements.</p>
+    <div class="profile-hero-wrap">
+      <PageHero
+        title="Profile"
+        subtitle="Manage your account, profile, and achievements."
+        :chip="editableProfile.position || 'Player'"
+      />
     </div>
 
     <div class="profile-container">
       <!-- Profile Information -->
       <div class="profile-section card-glass">
-        <div class="section-header">
-          <h3>👤 Player Details</h3>
+        <div class="section-header section-header--row">
+          <h3>Player Details</h3>
+          <span class="save-status" :class="`save-status--${saveStatus}`">
+            <span class="save-status__dot"></span>
+            <template v-if="saveStatus === 'saving'">Saving…</template>
+            <template v-else-if="saveStatus === 'saved'">Saved</template>
+            <template v-else-if="saveStatus === 'error'">Couldn’t save</template>
+            <template v-else>Auto-saves as you type</template>
+          </span>
         </div>
         <div v-if="user" class="profile-content">
           <!-- Profile Picture Section -->
@@ -25,7 +35,7 @@
                 {{ editableProfile.playerName ? editableProfile.playerName.substring(0, 2).toUpperCase() : '??' }}
               </div>
               
-              <div v-if="isEditing" class="avatar-upload-overlay">
+              <div class="avatar-upload-overlay">
                 <label for="avatar-upload" class="upload-btn">
                   <span>📷</span>
                   <span v-if="uploadingAvatar">Uploading...</span>
@@ -48,8 +58,7 @@
             <div class="info-item">
               <span class="info-label">Player Name</span>
               <div class="info-input-container">
-                <input v-if="isEditing" v-model="editableProfile.playerName" class="info-input" type="text" placeholder="Enter your player name" />
-                <span v-else class="info-value">{{ editableProfile.playerName || 'Not set' }}</span>
+                <input v-model="editableProfile.playerName" class="info-input" type="text" placeholder="Enter your player name" />
               </div>
             </div>
 
@@ -64,9 +73,8 @@
               <span class="info-label">Profile Visibility</span>
               <div class="info-input-container toggle-container">
                 <label class="switch">
-                  <input 
-                    type="checkbox" 
-                    :disabled="!isEditing" 
+                  <input
+                    type="checkbox"
                     v-model="editableProfile.isPublic"
                   >
                   <span class="slider round"></span>
@@ -75,18 +83,40 @@
               </div>
             </div>
 
-            <!-- Email -->
+            <!-- Heatmap Tracking -->
             <div class="info-item">
-              <span class="info-label">Email</span>
-              <span class="info-value readonly">{{ user.email }}</span>
+              <span class="info-label">Heatmap Tracking</span>
+              <div class="info-input-container toggle-container">
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    v-model="editableProfile.enableHeatmapTracking"
+                  >
+                  <span class="slider round"></span>
+                </label>
+                <span class="toggle-label">{{ editableProfile.enableHeatmapTracking ? 'Enabled' : 'Disabled' }}</span>
+              </div>
+            </div>
+
+            <!-- Default Match Logger View -->
+            <div class="info-item">
+              <span class="info-label">Default Match Logger</span>
+              <div class="info-input-container">
+                <select
+                  class="info-input"
+                  v-model="editableProfile.defaultMatchLoggerView"
+                >
+                  <option value="map">Map (tap the pitch)</option>
+                  <option value="counters">Counters (+/- cards)</option>
+                </select>
+              </div>
             </div>
 
             <!-- Birthday -->
             <div class="info-item">
               <span class="info-label">Birthday</span>
               <div class="info-input-container">
-                <input v-if="isEditing" v-model="editableProfile.dateOfBirth" class="info-input" type="date" />
-                <span v-else class="info-value">{{ formatBirthday(editableProfile.dateOfBirth) || 'Not set' }}</span>
+                <input v-model="editableProfile.dateOfBirth" class="info-input" type="date" />
               </div>
             </div>
 
@@ -100,7 +130,7 @@
             <div class="info-item full-width-item">
               <span class="info-label">Position</span>
               <div class="info-input-container">
-                <div v-if="isEditing" class="field-selector">
+                <div class="field-selector">
                   <div class="field-graphic">
                     <!-- Field Lines -->
                     <div class="field-line penalty-area-top"></div>
@@ -125,7 +155,6 @@
                     Selected: <strong>{{ editableProfile.position || 'None' }}</strong>
                   </div>
                 </div>
-                <span v-else class="info-value">{{ editableProfile.position || 'Not set' }}</span>
               </div>
             </div>
 
@@ -133,13 +162,12 @@
             <div class="info-item">
               <span class="info-label">Preferred Foot</span>
               <div class="info-input-container">
-                <select v-if="isEditing" v-model="editableProfile.preferredFoot" class="info-select">
+                <select v-model="editableProfile.preferredFoot" class="info-select">
                   <option value="">Select Foot</option>
                   <option value="Right">Right</option>
                   <option value="Left">Left</option>
                   <option value="Both">Both</option>
                 </select>
-                <span v-else class="info-value">{{ editableProfile.preferredFoot || 'Not set' }}</span>
               </div>
             </div>
 
@@ -147,8 +175,7 @@
             <div class="info-item">
               <span class="info-label">Jersey Number</span>
               <div class="info-input-container">
-                <input v-if="isEditing" v-model.number="editableProfile.jerseyNumber" class="info-input" type="number" min="1" max="99" placeholder="1-99" />
-                <span v-else class="info-value">{{ editableProfile.jerseyNumber || 'Not set' }}</span>
+                <input v-model.number="editableProfile.jerseyNumber" class="info-input" type="number" min="1" max="99" placeholder="1-99" />
               </div>
             </div>
 
@@ -156,8 +183,7 @@
             <div class="info-item">
               <span class="info-label">Club Team</span>
               <div class="info-input-container">
-                <input v-if="isEditing" v-model="editableProfile.clubTeam" class="info-input" type="text" placeholder="Enter your club team" />
-                <span v-else class="info-value">{{ editableProfile.clubTeam || 'Not set' }}</span>
+                <input v-model="editableProfile.clubTeam" class="info-input" type="text" placeholder="Enter your club team" />
               </div>
             </div>
           </div>
@@ -165,27 +191,8 @@
         
         <!-- Actions -->
         <div class="profile-actions">
-          <div class="edit-actions">
-            <button v-if="!isEditing" @click="startEditing" class="btn btn-primary">
-              <span>✏️</span> Edit Profile
-            </button>
-            <template v-else>
-              <button @click="saveProfile" class="btn btn-success">
-                <span>💾</span> Save Changes
-              </button>
-              <button @click="cancelEditing" class="btn btn-secondary">
-                <span>❌</span> Cancel
-              </button>
-            </template>
-          </div>
-          <div class="account-actions">
-            <button @click="signOut" class="btn btn-danger-outline">
-              <span>🚪</span> Sign Out
-            </button>
-            <button @click="confirmDeleteAccount" class="btn btn-danger">
-              <span>🗑️</span> Delete Account
-            </button>
-          </div>
+          <button @click="signOut" class="btn btn-ghost">Sign Out</button>
+          <button @click="confirmDeleteAccount" class="btn btn-danger">Delete Account</button>
         </div>
       </div>
 
@@ -250,16 +257,19 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'vue-router'
+import PageHero from './ui/PageHero.vue'
 
 export default {
   name: 'ProfileView',
+  components: { PageHero },
   setup() {
     const user = ref(null)
     const router = useRouter()
-    const isEditing = ref(false)
+    // 'idle' | 'saving' | 'saved' | 'error' — drives the inline auto-save chip.
+    const saveStatus = ref('idle')
     const editableProfile = ref({
       playerName: '',
       position: '',
@@ -268,15 +278,21 @@ export default {
       clubTeam: '',
       dateOfBirth: '',
       isPublic: false,
+      enableHeatmapTracking: true,
+      defaultMatchLoggerView: 'map',
       avatarUrl: null
     })
-    const originalProfile = ref({})
     const profileEditCount = ref(0)
     const uploadingAvatar = ref(false)
 
+    // Auto-save plumbing: a deep watcher on editableProfile debounces a save.
+    // `ready` gates out the initial load assignment so we don't save on mount.
+    let ready = false
+    let saveTimer = null
+    let statusTimer = null
+
     const availablePositions = [
-      { value: 'Striker', label: 'Striker', abbr: 'ST', top: 10, left: 50 },
-      { value: 'Center-Forward', label: 'Center Forward', abbr: 'CF', top: 20, left: 50 },
+      { value: 'Striker', label: 'Striker', abbr: 'ST', top: 15, left: 50 },
       { value: 'Winger', label: 'Left Winger', abbr: 'LW', top: 20, left: 15 },
       { value: 'Winger', label: 'Right Winger', abbr: 'RW', top: 20, left: 85 },
       { value: 'Attacking Midfielder', label: 'Attacking Midfielder', abbr: 'CAM', top: 35, left: 50 },
@@ -306,14 +322,31 @@ export default {
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
     })
 
+    const scheduleSave = () => {
+      if (!ready) return
+      saveStatus.value = 'saving'
+      if (statusTimer) { clearTimeout(statusTimer); statusTimer = null }
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(saveProfile, 700)
+    }
+
     onMounted(async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         user.value = session.user
         await loadProfile()
+        // Let the load assignment settle before arming the auto-save watcher.
+        await nextTick()
+        ready = true
+        watch(editableProfile, scheduleSave, { deep: true })
       } else {
         router.push('/login')
       }
+    })
+
+    onBeforeUnmount(() => {
+      if (saveTimer) clearTimeout(saveTimer)
+      if (statusTimer) clearTimeout(statusTimer)
     })
 
     const loadProfile = async () => {
@@ -340,12 +373,13 @@ export default {
           clubTeam: profileData?.club_team || '',
           dateOfBirth: profileData?.date_of_birth || '',
           isPublic: profileData?.is_public || false,
+          enableHeatmapTracking: profileData?.enable_heatmap_tracking ?? true,
+          defaultMatchLoggerView: profileData?.default_match_logger_view === 'counters' ? 'counters' : 'map',
           avatarUrl: profileData?.avatar_url || null
         }
         profileEditCount.value = profileData?.edit_count || 0
 
         editableProfile.value = { ...profile }
-        originalProfile.value = { ...profile }
       } catch (error) {
         console.error('Error loading profile:', error)
       }
@@ -382,17 +416,7 @@ export default {
       }
     }
 
-    const startEditing = () => {
-      isEditing.value = true
-      originalProfile.value = { ...editableProfile.value }
-    }
-
-    const cancelEditing = () => {
-      isEditing.value = false
-      editableProfile.value = { ...originalProfile.value }
-    }
-
-    const saveProfile = async () => {
+    async function saveProfile() {
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser()
         if (!currentUser) return
@@ -403,41 +427,63 @@ export default {
           .eq('user_id', currentUser.id)
           .single()
 
+        // The DB CHECK constraints reject '' for position/preferred_foot (only
+        // the enumerated values or NULL are allowed), and jersey_number must be
+        // 1–99. Coerce empties to null so an unset field doesn't blow up the save.
+        const jersey = parseInt(editableProfile.value.jerseyNumber, 10)
         const profileData = {
           user_id: currentUser.id,
           player_name: editableProfile.value.playerName,
-          position: editableProfile.value.position,
-          preferred_foot: editableProfile.value.preferredFoot,
-          jersey_number: editableProfile.value.jerseyNumber,
+          position: editableProfile.value.position || null,
+          preferred_foot: editableProfile.value.preferredFoot || null,
+          jersey_number: Number.isInteger(jersey) ? jersey : null,
           club_team: editableProfile.value.clubTeam,
           date_of_birth: editableProfile.value.dateOfBirth || null,
           is_public: editableProfile.value.isPublic,
+          enable_heatmap_tracking: editableProfile.value.enableHeatmapTracking,
+          default_match_logger_view: editableProfile.value.defaultMatchLoggerView,
           avatar_url: editableProfile.value.avatarUrl,
           edit_count: profileEditCount.value + 1
         }
 
-        let error
-        if (existingProfile) {
-          const result = await supabase.from('user_profiles').update(profileData).eq('user_id', currentUser.id)
-          error = result.error
-        } else {
-          const result = await supabase.from('user_profiles').insert([profileData])
-          error = result.error
+        const writeProfile = async (payload) => {
+          if (existingProfile) {
+            return supabase.from('user_profiles').update(payload).eq('user_id', currentUser.id)
+          }
+          return supabase.from('user_profiles').insert([payload])
+        }
+
+        let { error } = await writeProfile(profileData)
+
+        // Resilience: if the DB schema is behind on a migration (PGRST204 =
+        // "could not find the 'X' column"), drop the newer optional columns and
+        // retry so the rest of the profile still saves. The dropped preference
+        // persists once the matching migration (0011/0012) is applied.
+        if (error && error.code === 'PGRST204') {
+          const OptionalColumns = ['default_match_logger_view', 'enable_heatmap_tracking']
+          const fallback = { ...profileData }
+          OptionalColumns.forEach((Col) => delete fallback[Col])
+          const retry = await writeProfile(fallback)
+          error = retry.error
+          if (!error) {
+            console.warn('[profile] Saved without newer columns — apply migrations 0011/0012 in Supabase to persist logger view & heatmap preferences.')
+          }
         }
 
         if (error) {
           console.error('Error saving profile:', error)
-          alert('Error saving profile. Please try again.')
+          saveStatus.value = 'error'
           return
         }
 
-        isEditing.value = false
-        originalProfile.value = { ...editableProfile.value }
         profileEditCount.value += 1
-        alert('Profile updated successfully!')
+        saveStatus.value = 'saved'
+        // Fade the "Saved" chip back to the idle hint after a moment.
+        if (statusTimer) clearTimeout(statusTimer)
+        statusTimer = setTimeout(() => { if (saveStatus.value === 'saved') saveStatus.value = 'idle' }, 2200)
       } catch (error) {
         console.error('Error saving profile:', error)
-        alert('Error saving profile. Please try again.')
+        saveStatus.value = 'error'
       }
     }
 
@@ -488,16 +534,13 @@ export default {
 
     return {
       user,
-      isEditing,
+      saveStatus,
       editableProfile,
       isProfileComplete,
       profileAge,
       profileEditCount,
       uploadingAvatar,
       uploadAvatar,
-      startEditing,
-      cancelEditing,
-      saveProfile,
       confirmDeleteAccount,
       signOut,
       formatDate,
@@ -523,32 +566,20 @@ export default {
 }
 
 .profile-page {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 100px 40px 40px;
+  min-height: 100vh;
   color: #fff;
-  padding-bottom: 40px;
+  background: var(--app-page-bg);
 }
 
-.page-header {
-  text-align: center;
-  margin-top: 5rem;
-  margin-bottom: 3rem;
+.profile-page > * {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.page-header h1 {
-  font-size: 2.8rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #fff 30%, #4cda9c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 0.5rem;
-}
-
-.page-header p {
-  color: #89938d;
-  font-size: 1.1rem;
+.profile-hero-wrap {
+  margin: 3rem auto 24px;
 }
 
 .profile-container {
@@ -640,11 +671,73 @@ export default {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.section-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .section-header h3 {
   color: #fff;
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0;
+}
+
+/* Inline auto-save indicator */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #89938d;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.save-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.save-status--saving {
+  color: #ffb74d;
+  border-color: rgba(255, 183, 77, 0.3);
+  background: rgba(255, 183, 77, 0.08);
+}
+
+.save-status--saving .save-status__dot {
+  animation: save-pulse 0.9s ease-in-out infinite;
+}
+
+.save-status--saved {
+  color: #4cda9c;
+  border-color: rgba(76, 218, 156, 0.3);
+  background: rgba(76, 218, 156, 0.1);
+}
+
+.save-status--error {
+  color: #ef5350;
+  border-color: rgba(239, 83, 80, 0.4);
+  background: rgba(239, 83, 80, 0.1);
+}
+
+@keyframes save-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-status--saving .save-status__dot { animation: none; }
 }
 
 .field-grid {
@@ -901,78 +994,49 @@ input:disabled + .slider {
 
 /* --- Actions --- */
 .profile-actions {
-  margin-top: 3rem;
+  margin-top: 2.5rem;
   padding-top: 2rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.edit-actions, .account-actions {
-  display: flex;
   gap: 12px;
 }
 
 .btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 12px;
+  padding: 11px 22px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   font-size: 0.95rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
 }
 
-.btn-primary {
-  background: #4cda9c;
-  color: #003822;
+.btn-ghost {
+  background: transparent;
+  color: #e1e2e6;
+  border-color: rgba(255, 255, 255, 0.14);
 }
-.btn-primary:hover {
-  background: #3cb885;
-  transform: translateY(-2px);
-}
-
-.btn-success {
-  background: #4cda9c;
-  color: #003822;
-}
-.btn-success:hover {
-  background: #3cb885;
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
-.btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
 }
 
 .btn-danger {
-  background: rgba(239, 83, 80, 0.2);
+  background: rgba(239, 83, 80, 0.14);
   color: #ef5350;
+  border-color: rgba(239, 83, 80, 0.4);
 }
 .btn-danger:hover {
-  background: rgba(239, 83, 80, 0.3);
-  transform: translateY(-2px);
-}
-
-.btn-danger-outline {
-  background: transparent;
-  color: #ef5350;
-  border: 1px solid rgba(239, 83, 80, 0.5);
-}
-.btn-danger-outline:hover {
-  background: rgba(239, 83, 80, 0.1);
-  transform: translateY(-2px);
+  background: rgba(239, 83, 80, 0.24);
+  transform: translateY(-1px);
 }
 
 /* --- Achievements --- */
@@ -1030,6 +1094,11 @@ input:disabled + .slider {
 
 /* Responsive */
 @media (max-width: 768px) {
+  /* Match the Dashboard's mobile rhythm exactly (60px top, 16px sides). */
+  .profile-page {
+    padding: 60px 16px 40px;
+  }
+
   .profile-content {
     flex-direction: column;
     align-items: center;
@@ -1046,14 +1115,8 @@ input:disabled + .slider {
     flex-direction: column;
     align-items: stretch;
   }
-  .edit-actions, .account-actions {
-    flex-direction: column;
-  }
   .btn {
     justify-content: center;
-  }
-  .page-header h1 {
-    font-size: 2.2rem;
   }
 }
 </style>

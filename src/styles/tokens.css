@@ -20,6 +20,11 @@
   --color-bg-surface-3:   rgba(255, 255, 255, 0.05);/* One step lighter */
   --color-bg-field:       #1a1d21;                  /* Soccer field grid bg */
 
+  /* Shared page backdrop — a clean, dark surface (subtle neutral depth at the
+     top, no colour glow) used across every page so they feel like one app. */
+  --app-page-bg:
+    radial-gradient(130% 80% at 50% -10%, #0b0e10 0%, #050608 55%);
+
   /* ── Borders ─────────────────────────────────────────────────── */
   --color-border-subtle:  rgba(255, 255, 255, 0.05);
   --color-border-soft:    rgba(255, 255, 255, 0.1);

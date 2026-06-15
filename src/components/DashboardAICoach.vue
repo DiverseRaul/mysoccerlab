@@ -388,12 +388,12 @@ const sendMessage = async () => {
 <style scoped>
 .dashboard-ai-coach {
   width: 100%;
-  height: 700px;
-  background: rgba(15, 18, 20, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  height: clamp(540px, 72vh, 780px);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), rgba(15, 18, 20, 0.9));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-subtle);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -418,7 +418,7 @@ const sendMessage = async () => {
 .chat-toolbar-label {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #555;
+  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -430,7 +430,7 @@ const sendMessage = async () => {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 6px 12px;
@@ -441,7 +441,7 @@ const sendMessage = async () => {
 .new-chat-btn:hover {
   background: rgba(255, 82, 82, 0.1);
   border-color: rgba(255, 82, 82, 0.3);
-  color: #ff5252;
+  color: var(--color-danger);
 }
 
 /* Removed Header and Status CSS */
@@ -465,7 +465,7 @@ const sendMessage = async () => {
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--color-bg-surface-3);
   border-radius: 4px;
 }
 
@@ -527,7 +527,7 @@ const sendMessage = async () => {
 
 .message-time {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-faint);
   margin: 0 4px;
 }
 
@@ -568,7 +568,7 @@ const sendMessage = async () => {
 
 .match-card-date {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--color-text-faint);
 }
 
 .match-card-score {
@@ -602,7 +602,7 @@ const sendMessage = async () => {
   margin: 0 auto;
 }
 .result-win  { background: rgba(76,218,156,0.15); color: #4cda9c; border: 1px solid rgba(76,218,156,0.4); }
-.result-loss { background: rgba(255,82,82,0.15);  color: #ff5252; border: 1px solid rgba(255,82,82,0.4); }
+.result-loss { background: rgba(255,82,82,0.15);  color: var(--color-danger); border: 1px solid rgba(255,82,82,0.4); }
 .result-draw { background: rgba(255,200,0,0.12);  color: #ffc800; border: 1px solid rgba(255,200,0,0.4); }
 
 .match-card-rating {
@@ -615,7 +615,7 @@ const sendMessage = async () => {
 
 .rating-label {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--color-text-muted);
 }
 
 .rating-value {
@@ -685,7 +685,7 @@ const sendMessage = async () => {
 
 .cal-drills li {
   font-size: 0.78rem;
-  color: #aaa;
+  color: var(--color-text-muted);
   line-height: 1.4;
 }
 
@@ -713,7 +713,7 @@ const sendMessage = async () => {
 
 .mc-stat-label {
   font-size: 0.65rem;
-  color: #666;
+  color: var(--color-text-faint);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -782,7 +782,7 @@ const sendMessage = async () => {
 .ai-markdown :deep(blockquote) {
   border-left: 3px solid #4cda9c;
   padding-left: 12px;
-  color: #aaa;
+  color: var(--color-text-muted);
   margin: 8px 0;
   font-style: italic;
 }
@@ -870,7 +870,7 @@ const sendMessage = async () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #1e1e1e;
+  background: var(--color-bg-field);
   padding: 8px 12px;
   border-radius: 8px;
   width: fit-content;
@@ -885,7 +885,7 @@ const sendMessage = async () => {
 
 .file-icon {
   font-size: 0.9rem;
-  color: #aaa;
+  color: var(--color-text-muted);
 }
 
 .clear-attachment {
@@ -898,7 +898,7 @@ const sendMessage = async () => {
 }
 
 .clear-attachment:hover {
-  color: #ff5252;
+  color: var(--color-danger);
 }
 
 .chat-input-area form {
@@ -913,7 +913,7 @@ const sendMessage = async () => {
 }
 
 .attach-btn {
-  color: #888;
+  color: var(--color-text-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -944,7 +944,7 @@ const sendMessage = async () => {
 }
 
 .chat-input-area input::placeholder {
-  color: #666;
+  color: var(--color-text-faint);
 }
 
 .send-btn {
@@ -962,12 +962,44 @@ const sendMessage = async () => {
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #3ab882;
+  background: var(--color-brand-fg);
 }
 
 .send-btn:disabled {
-  background: #333;
-  color: #666;
+  background: var(--color-bg-surface-3);
+  color: var(--color-text-faint);
   cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .dashboard-ai-coach {
+    height: clamp(480px, 78vh, 720px);
+    border-radius: var(--radius-lg);
+  }
+
+  .chat-messages {
+    padding: 18px 16px;
+    gap: 18px;
+  }
+
+  .message {
+    max-width: 92%;
+  }
+
+  .welcome-text {
+    font-size: 1.7rem;
+  }
+
+  .suggestions-container {
+    gap: 18px;
+  }
+
+  .chat-input-area {
+    padding: 14px 16px;
+  }
+
+  .chat-toolbar {
+    padding: 10px 16px;
+  }
 }
 </style>

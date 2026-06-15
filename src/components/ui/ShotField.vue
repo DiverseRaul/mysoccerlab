@@ -68,31 +68,51 @@
       </div>
     </div>
 
-    <!-- ── 9-quadrant goal placement grid ──────────────────────── -->
+    <!-- ── Goal placement ──────────────────────────────────────── -->
     <div
       v-if="mode === 'placement' || mode === 'both'"
       class="shot-field__goal"
     >
-      <div class="shot-field__goal-grid">
-        <button
-          v-for="i in 9"
-          :key="i"
-          type="button"
-          class="shot-field__goal-cell"
-          :class="{
-            'shot-field__goal-cell--highlight': quadrant === i,
-            'shot-field__goal-cell--clickable': interactive
-          }"
-          :disabled="!interactive"
-          @click.stop="onQuadrantClick(i)"
-        >
-          <span v-if="quadrant === i">X</span>
-          <span v-else-if="interactive" class="shot-field__goal-cell-num">{{ i }}</span>
-        </button>
+      <!-- Free placement: tap anywhere in the goal / show the exact spot. -->
+      <div
+        v-if="freePlacement || placementMarker"
+        class="shot-field__goal-free"
+        :class="{ 'shot-field__goal-free--clickable': interactive }"
+        @click.stop="onGoalFreeClick"
+      >
+        <span class="shot-field__goal-net" aria-hidden="true"></span>
+        <div
+          v-if="placementMarker"
+          class="shot-field__placement-marker"
+          :class="markerClass"
+          :style="placementMarkerStyle"
+        ></div>
+        <span v-else-if="interactive" class="shot-field__goal-hint">Tap where it went</span>
       </div>
-      <div v-if="!quadrant && !interactive && showPlaceholder" class="shot-field__placement-empty">
-        No placement recorded
-      </div>
+
+      <!-- Legacy 9-quadrant grid (old data without free placement). -->
+      <template v-else>
+        <div class="shot-field__goal-grid">
+          <button
+            v-for="i in 9"
+            :key="i"
+            type="button"
+            class="shot-field__goal-cell"
+            :class="{
+              'shot-field__goal-cell--highlight': quadrant === i,
+              'shot-field__goal-cell--clickable': interactive
+            }"
+            :disabled="!interactive"
+            @click.stop="onQuadrantClick(i)"
+          >
+            <span v-if="quadrant === i">X</span>
+            <span v-else-if="interactive" class="shot-field__goal-cell-num">{{ i }}</span>
+          </button>
+        </div>
+        <div v-if="!quadrant && !interactive && showPlaceholder" class="shot-field__placement-empty">
+          No placement recorded
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -115,6 +135,17 @@ const props = defineProps({
     type: Number,
     default: 0
   },
+  // Free placement marker for read-only goal display: { xPct, yPct, type? }.
+  placementMarker: {
+    type: Object,
+    default: null
+  },
+  // When true, the goal is a single free-tap area (emits placement-select x/y)
+  // instead of the 9-cell quadrant grid.
+  freePlacement: {
+    type: Boolean,
+    default: false
+  },
   trajectory: {
     type: Boolean,
     default: false
@@ -129,7 +160,23 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['field-click', 'quadrant-select'])
+const emit = defineEmits(['field-click', 'quadrant-select', 'placement-select'])
+
+const placementMarkerStyle = computed(() => {
+  if (!props.placementMarker) return {}
+  return {
+    left: `${props.placementMarker.xPct}%`,
+    top: `${props.placementMarker.yPct}%`
+  }
+})
+
+const onGoalFreeClick = (event) => {
+  if (!props.interactive) return
+  const rect = event.currentTarget.getBoundingClientRect()
+  const xPct = ((event.clientX - rect.left) / rect.width) * 100
+  const yPct = ((event.clientY - rect.top) / rect.height) * 100
+  emit('placement-select', { xPct, yPct })
+}
 
 const markerStyle = computed(() => {
   if (!props.marker) return {}
@@ -140,7 +187,7 @@ const markerStyle = computed(() => {
 })
 
 const markerClass = computed(() => {
-  const t = props.marker?.type
+  const t = props.marker?.type || props.placementMarker?.type
   if (t === 'off-target') return 'shot-field__marker--off-target'
   if (t === 'goal') return 'shot-field__marker--goal'
   return 'shot-field__marker--on-target'
@@ -305,5 +352,62 @@ const onQuadrantClick = (i) => {
   text-align: center;
   font-size: var(--font-size-sm);
   color: var(--color-text-faint);
+}
+
+/* ── Free goal placement ────────────────────────────────────── */
+.shot-field__goal-free {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 4 / 3;
+  margin: 0 auto;
+  border: 4px solid #fff;
+  border-radius: 2px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px) 0 0 / 100% 33.33%,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px) 0 0 / 33.33% 100%,
+    rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-md), inset 0 0 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.shot-field__goal-free--clickable {
+  cursor: crosshair;
+}
+
+.shot-field__goal-net {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shot-field__goal-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+
+.shot-field__placement-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+.shot-field__placement-marker.shot-field__marker--on-target,
+.shot-field__placement-marker.shot-field__marker--goal {
+  background: var(--color-success);
+}
+
+.shot-field__placement-marker.shot-field__marker--off-target {
+  background: var(--color-danger);
 }
 </style>

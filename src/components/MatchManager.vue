@@ -37,37 +37,66 @@
           
           
           
+          <div class="live-rating-bar" data-testid="live-rating-bar">
+            <span class="live-rating-bar__value" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
+            <div class="live-rating-bar__meta">
+              <span class="live-rating-bar__label">Match Rating</span>
+              <span class="live-rating-bar__tier" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ getRatingLabel(calculateMatchRating(activeMatch)) }}</span>
+            </div>
+            <div class="live-rating-bar__xg" title="Total expected goals from logged shots">
+              <span class="live-rating-bar__xg-value">{{ matchXg }}</span>
+              <span class="live-rating-bar__xg-label">xG</span>
+            </div>
+          </div>
+
           <div class="match-view-controls">
             <div class="position-controls">
               <div class="position-display">
-                <label>Position Played:</label>
-                <select v-model="activeMatch.position_played" @change="updatePosition" class="position-select">
-                  <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
-                </select>
+                <label for="position-select" class="position-display__label">Position Played</label>
+                <div class="position-select-wrap">
+                  <select id="position-select" v-model="activeMatch.position_played" @change="updatePosition" class="position-select">
+                    <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
+                  </select>
+                </div>
               </div>
               <div class="goalkeeper-toggle">
-                <label for="gk-mode">Goalkeeper Mode</label>
+                <label for="gk-mode" class="goalkeeper-toggle__label">Goalkeeper Mode</label>
                 <label class="switch">
                   <input type="checkbox" id="gk-mode" v-model="isGoalkeeperMode">
                   <span class="slider round"></span>
                 </label>
               </div>
             </div>
+            <div class="logger-view-row">
+              <span class="logger-view-row__label">Logging view</span>
+              <div class="logger-view-toggle" data-testid="match-logger-toggle" role="tablist" aria-label="Logging mode">
+                <button
+                  type="button"
+                  class="logger-view-toggle__btn"
+                  :class="{ active: LoggerView === 'map' }"
+                  role="tab"
+                  :aria-selected="LoggerView === 'map'"
+                  data-testid="logger-view-map"
+                  @click="LoggerView = 'map'"
+                >Map</button>
+                <button
+                  type="button"
+                  class="logger-view-toggle__btn"
+                  :class="{ active: LoggerView === 'counters' }"
+                  role="tab"
+                  :aria-selected="LoggerView === 'counters'"
+                  data-testid="logger-view-counters"
+                  @click="LoggerView = 'counters'"
+                >Counters</button>
+              </div>
+            </div>
           </div>
 
-          <div class="live-view-content single-column">
+          <div v-if="LoggerView === 'counters'" class="live-view-content single-column">
             <!-- Combined Performance + Goals & Shots panel -->
             <div class="live-stats-panel">
               <div class="perf-and-events">
-                <!-- Rating sub-section -->
-                <div class="rating-display">
-                  <span :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
-                  <label>Match Rating</label>
-                  <div class="rating-tier-label" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">
-                    {{ getRatingLabel(calculateMatchRating(activeMatch)) }}
-                  </div>
-                </div>
-                <!-- Event log sub-section -->
+                <!-- Event log sub-section (rating now lives in the shared header bar) -->
                 <div class="event-log-sub">
                   <div class="event-log-title">Goals &amp; Shots</div>
                   <div class="event-list">
@@ -150,14 +179,12 @@
 
                       <div v-if="vizView === 'goal'" class="viz-section">
                         <div class="goal-grid-container viz-grid">
-                          <div class="goal-grid">
-                            <div v-for="i in 9" :key="i" class="goal-quadrant" :class="{ 'highlight': selectedEvent.quadrant === i }">
-                              <span v-if="selectedEvent.quadrant === i">X</span>
-                            </div>
-                          </div>
-                          <div v-if="!selectedEvent.quadrant" class="viz-placeholder-text">
-                            No placement recorded
-                          </div>
+                          <ShotField
+                            mode="placement"
+                            :placement-marker="selectedEventPlacementMarker"
+                            :quadrant="selectedEvent.quadrant || 0"
+                            :show-placeholder="true"
+                          />
                         </div>
                       </div>
                     </div>
@@ -229,7 +256,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
-                    <button @click="incrementStat('successful_passes', 1)" class="btn">+</button>
+                    <button @click="LogEvent('successful_passes', 'Pass')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -237,7 +264,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
-                    <button @click="incrementStat('unsuccessful_passes', 1)" class="btn">+</button>
+                    <button @click="LogEvent('unsuccessful_passes', 'Bad Pass')" class="btn">+</button>
                   </div>
                 </div>
               </div>
@@ -269,7 +296,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('tackles', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.tackles || 0 }}</span>
-                    <button @click="incrementStat('tackles', 1)" class="btn">+</button>
+                    <button @click="LogEvent('tackles', 'Tackle')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -277,7 +304,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('interceptions', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.interceptions || 0 }}</span>
-                    <button @click="incrementStat('interceptions', 1)" class="btn">+</button>
+                    <button @click="LogEvent('interceptions', 'Interception')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -285,7 +312,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('clearances', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.clearances || 0 }}</span>
-                    <button @click="incrementStat('clearances', 1)" class="btn">+</button>
+                    <button @click="LogEvent('clearances', 'Clearance')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -293,7 +320,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('dribbles', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.dribbles || 0 }}</span>
-                    <button @click="incrementStat('dribbles', 1)" class="btn">+</button>
+                    <button @click="LogEvent('dribbles', 'Dribble')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -301,7 +328,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('created_chances', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.created_chances || 0 }}</span>
-                    <button @click="incrementStat('created_chances', 1)" class="btn">+</button>
+                    <button @click="LogEvent('created_chances', 'Chance')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -317,7 +344,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
-                    <button @click="incrementStat('successful_passes', 1)" class="btn">+</button>
+                    <button @click="LogEvent('successful_passes', 'Pass')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -325,7 +352,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
-                    <button @click="incrementStat('unsuccessful_passes', 1)" class="btn">+</button>
+                    <button @click="LogEvent('unsuccessful_passes', 'Bad Pass')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -333,7 +360,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.fouls || 0 }}</span>
-                    <button @click="incrementStat('fouls', 1)" class="btn">+</button>
+                    <button @click="LogEvent('fouls', 'Foul')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group error-stat">
@@ -390,9 +417,55 @@
                     <button @click="incrementStat('own_goals', 1)" class="btn btn-danger">+</button>
                   </div>
                 </div>
+                <div class="stat-control-group">
+                  <span class="stat-label">Penalty Conceded</span>
+                  <div class="button-group">
+                    <button @click="incrementStat('penalties_conceded', -1)" class="btn btn-danger">-</button>
+                    <span class="stat-value-display">{{ activeMatch.penalties_conceded || 0 }}</span>
+                    <button @click="incrementStat('penalties_conceded', 1)" class="btn btn-danger">+</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          <div v-if="LoggerView === 'map'" class="map-logger-view">
+            <MatchMapLogger
+              :Coordinates="LoggedEventCoordinates"
+              :HeatmapPoints="EditorHeatmapPoints"
+              :TimelineEvents="timelineEvents"
+              @LogEvent="OnMapLogEvent"
+              @DeletePin="DeleteLoggedEvent"
+              @delete-event="onTimelineDelete"
+            />
+            <EventSummaryPanel
+              :ActiveMatch="activeMatch"
+              :GoalCount="matchGoals.length"
+              :ShotCount="matchShots.length"
+              :IsGoalkeeperMode="isGoalkeeperMode"
+              :GoalkeeperStats="goalkeeperStats"
+            />
+            <QuickLogControls
+              :ActiveMatch="activeMatch"
+              :IsGoalkeeperMode="isGoalkeeperMode"
+              :GoalkeeperStats="goalkeeperStats"
+              @Increment="OnQuickIncrement"
+              @IncrementGk="OnQuickIncrementGk"
+            />
+          </div>
+
+          <div
+            v-if="LoggerView === 'counters' && activeMatch.track_heatmap_for_match && EnableHeatmapTracking && EditorHeatmapPoints.length"
+            class="heatmap-view"
+          >
+            <h4 class="heatmap-view__title">Match Heatmap</h4>
+            <HeatmapCanvas :points="EditorHeatmapPoints" />
+          </div>
+
+          <div v-if="LoggerView === 'counters'" class="timeline-wrap">
+            <MatchTimeline :Events="timelineEvents" @delete="onTimelineDelete" />
+          </div>
+
           <div class="match-actions">
             <button @click="openShareModal" class="action-btn share-btn">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -422,9 +495,16 @@
       ref="eventCaptureFlow"
       @shot-captured="onShotCaptured"
       @goal-captured="onGoalCaptured"
+      @event-captured="onEventCaptured"
     />
 
-    <AddMatchModal v-model="showAddMatch" @submit="addMatch" />
+    <Teleport to="body">
+      <transition name="msl-toast">
+        <div v-if="Toast" class="msl-toast" :class="`msl-toast--${Toast.Tone}`" data-testid="match-toast">{{ Toast.Message }}</div>
+      </transition>
+    </Teleport>
+
+    <AddMatchModal v-model="showAddMatch" :EnableHeatmapTracking="EnableHeatmapTracking" @submit="addMatch" />
 
     <!-- Edit Match Modal -->
     <div v-if="showEditMatch" class="modal-overlay" @click.self="showEditMatch = false">
@@ -485,7 +565,15 @@ import { calculateMatchRating as calculateMatchRatingFn, getRatingColor, getRati
 import EventCaptureFlow from './dashboard/matches/EventCaptureFlow.vue'
 import MatchList from './dashboard/matches/MatchList.vue'
 import AddMatchModal from './dashboard/matches/AddMatchModal.vue'
+import HeatmapCanvas from './ui/HeatmapCanvas.vue'
+import ShotField from './ui/ShotField.vue'
+import MatchTimeline from './dashboard/matches/MatchTimeline.vue'
+import MatchMapLogger from './dashboard/matches/MatchMapLogger.vue'
+import QuickLogControls from './dashboard/matches/QuickLogControls.vue'
+import EventSummaryPanel from './dashboard/overview/EventSummaryPanel.vue'
 import ShareMatchModal from './dashboard/matches/ShareMatchModal.vue'
+import { EventActions, BuildLoggedEventCoordinates, ParseFieldPosition, IsInOwnBox, LabelForEvent, CategoryForEvent } from '../lib/matchEvents'
+import { expectedGoal, sumExpectedGoals } from '../lib/xg'
 
 const props = defineProps({
   matches: { type: Array, required: true },
@@ -516,6 +604,16 @@ const activeMatch = ref(null)
     const shotMapView = ref('goal') // 'goal' or 'field'
     const vizView = ref('field') // 'field' or 'goal' for sidebar visualization
     const selectedEvent = ref(null)
+
+    // Free goal placement marker for the Placement view (null → fall back to quadrant grid).
+    const selectedEventPlacementMarker = computed(() => {
+      const e = selectedEvent.value
+      if (!e || !e.placement) return null
+      const parts = String(e.placement).split(',').map(Number)
+      if (parts.length !== 2 || !parts.every(Number.isFinite)) return null
+      const type = e.type === 'Goal' ? 'goal' : (e.on_target ? 'on-target' : 'off-target')
+      return { xPct: parts[0], yPct: parts[1], type }
+    })
     const showEditMatch = ref(false)
     const showDeleteConfirm = ref(false)
     const showShareModal = ref(false)
@@ -530,13 +628,84 @@ const activeMatch = ref(null)
       'Central Midfielder',
       'Attacking Midfielder',
       'Winger',
-      'Striker',
-      'Center-Forward'
+      'Striker'
     ]);
     const isGoalkeeperMode = ref(false);
     const goalkeeperStats = ref(null);
     const allShotsData = ref([]);
     const allGoalsData = ref([]);
+    const EnableHeatmapTracking = ref(true);
+    const MatchHeatmapPoints = ref([]);
+    const LoggerView = ref('map');
+
+    // Lightweight transient feedback (e.g. penalty conceded).
+    const Toast = ref(null);
+    let ToastTimer = null;
+    const flashToast = (Message, Tone = 'info') => {
+      Toast.value = { Message, Tone };
+      clearTimeout(ToastTimer);
+      ToastTimer = setTimeout(() => { Toast.value = null }, 2600);
+    };
+
+    const LoggedEventCoordinates = computed(() =>
+      BuildLoggedEventCoordinates(matchGoals.value, matchShots.value, MatchHeatmapPoints.value)
+    );
+
+    // Every mapped action (tracked events + shot/goal origins) for the heatmap.
+    const EditorHeatmapPoints = computed(() => {
+      const Out = MatchHeatmapPoints.value
+        .map(p => ({ x_pct: Number(p.x_pct), y_pct: Number(p.y_pct) }))
+        .filter(p => Number.isFinite(p.x_pct) && Number.isFinite(p.y_pct))
+      for (const g of matchGoals.value) {
+        const Pos = ParseFieldPosition(g.field_position)
+        if (Pos) Out.push({ x_pct: Pos.XPct, y_pct: Pos.YPct })
+      }
+      for (const s of matchShots.value) {
+        const Pos = ParseFieldPosition(s.field_position)
+        if (Pos) Out.push({ x_pct: Pos.XPct, y_pct: Pos.YPct })
+      }
+      return Out
+    });
+
+    const ToggleLoggerView = () => {
+      LoggerView.value = LoggerView.value === 'map' ? 'counters' : 'map';
+    };
+
+    // Match xG total (goals + shots that recorded where they were taken).
+    const matchXg = computed(() =>
+      sumExpectedGoals([...matchGoals.value, ...matchShots.value])
+    );
+
+    // Unified, newest-first event log feeding the timeline + undo.
+    const timelineEvents = computed(() => {
+      const items = []
+      for (const g of matchGoals.value) {
+        items.push({ kind: 'goal', id: g.id, label: 'Goal', category: 'positive', xg: expectedGoal(g.field_position), at: g.created_at })
+      }
+      for (const s of matchShots.value) {
+        items.push({
+          kind: 'shot', id: s.id,
+          label: s.on_target ? 'Shot on target' : 'Shot off target',
+          category: s.on_target ? 'neutral' : 'negative',
+          xg: expectedGoal(s.field_position), at: s.created_at
+        })
+      }
+      for (const p of MatchHeatmapPoints.value) {
+        items.push({
+          kind: 'heatmap', id: p.id, eventType: p.event_type,
+          label: LabelForEvent(p.event_type),
+          category: CategoryForEvent(p.event_type),
+          xg: null, at: p.created_at
+        })
+      }
+      return items.sort((a, b) => new Date(b.at) - new Date(a.at))
+    });
+
+    const onTimelineDelete = (event) => {
+      if (event.kind === 'goal') return removeEvent({ type: 'Goal', id: event.id })
+      if (event.kind === 'shot') return removeEvent({ type: 'Shot', id: event.id })
+      return DeleteLoggedEvent({ Source: 'heatmap', Id: event.id, EventKey: event.eventType })
+    };
 
     const goalSummary = computed(() => {
       return matchGoals.value.reduce((acc, goal) => {
@@ -851,8 +1020,8 @@ const activeMatch = ref(null)
         return;
       }
       
-      // Allow selecting any event that has field position or quadrant data
-      if (event.field_position || event.quadrant) {
+      // Allow selecting any event that has origin, placement, or quadrant data
+      if (event.field_position || event.placement || event.quadrant) {
         selectedEvent.value = event;
       } else {
         // Fallback or ignore events without data
@@ -1077,6 +1246,16 @@ const activeMatch = ref(null)
       const { data: shots, error: shotsError } = await supabase.from('shots').select('*').eq('match_id', match.id);
       if (shotsError) console.error('Error fetching shots:', shotsError); else matchShots.value = shots;
 
+      MatchHeatmapPoints.value = []
+      if (activeMatch.value?.track_heatmap_for_match) {
+        const { data: heatmapPoints } = await supabase
+          .from('match_heatmap_points')
+          .select('*')
+          .eq('match_id', match.id)
+          .order('created_at', { ascending: true })
+        MatchHeatmapPoints.value = heatmapPoints || []
+      }
+
       // Check if the player was a goalkeeper in this match
       if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
         isGoalkeeperMode.value = true;
@@ -1114,18 +1293,30 @@ const activeMatch = ref(null)
       eventCaptureFlow.value?.triggerShot()
     }
 
-    const onShotCaptured = async ({ onTarget, quadrant, fieldPosition }) => {
+    // Insert with the free-placement column, retrying without it if the DB is
+    // behind on migration 0014 (PGRST204 = unknown column), so logging never breaks.
+    const insertWithPlacementFallback = async (table, payload) => {
+      let result = await supabase.from(table).insert(payload).select()
+      if (result.error?.code === 'PGRST204' && 'placement' in payload) {
+        const { placement, ...rest } = payload
+        result = await supabase.from(table).insert(rest).select()
+      }
+      return result
+    }
+
+    const onShotCaptured = async ({ onTarget, quadrant, placement, fieldPosition }) => {
       if (!activeMatch.value) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase.from('shots').insert({
+      const { data, error } = await insertWithPlacementFallback('shots', {
         match_id: activeMatch.value.id,
         user_id: user.id,
         on_target: onTarget,
         quadrant,
+        placement: placement ?? null,
         field_position: fieldPosition,
-      }).select()
+      })
 
       if (error) {
         console.error('Error saving shot:', error)
@@ -1134,7 +1325,7 @@ const activeMatch = ref(null)
       matchShots.value.push(data[0])
     }
 
-    const onGoalCaptured = async ({ goalType, quadrant, fieldPosition }) => {
+    const onGoalCaptured = async ({ goalType, quadrant, placement, fieldPosition }) => {
       if (!activeMatch.value) return
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -1142,13 +1333,14 @@ const activeMatch = ref(null)
       // Increment team score (single source of truth — fixes prior double-increment bug).
       await incrementStat('score_for', 1)
 
-      const { data, error } = await supabase.from('goals').insert({
+      const { data, error } = await insertWithPlacementFallback('goals', {
         user_id: user.id,
         match_id: activeMatch.value.id,
         goal_type: goalType,
         quadrant,
+        placement: placement ?? null,
         field_position: fieldPosition,
-      }).select()
+      })
 
       if (error) {
         console.error('Error adding goal:', error)
@@ -1210,7 +1402,21 @@ const activeMatch = ref(null)
       await removeEvent(eventToRemove);
     };
 
-    const incrementStat = async (stat, value) => {
+    // Remove the most recently logged heatmap pin of a given event type, keeping
+    // the counter and the map in sync when a stat is decremented in counters mode.
+    const removeLatestHeatmapPoint = async (eventType) => {
+      const matching = MatchHeatmapPoints.value.filter(p => p.event_type === eventType)
+      if (!matching.length) return
+      const latest = matching.reduce((a, b) =>
+        new Date(b.created_at) > new Date(a.created_at) ? b : a
+      )
+      const { error } = await supabase.from('match_heatmap_points').delete().eq('id', latest.id)
+      if (!error) {
+        MatchHeatmapPoints.value = MatchHeatmapPoints.value.filter(p => p.id !== latest.id)
+      }
+    }
+
+    const incrementStat = async (stat, value, { syncHeatmap = true } = {}) => {
       if (!activeMatch.value) return;
 
       const currentValue = activeMatch.value[stat] || 0;
@@ -1225,10 +1431,22 @@ const activeMatch = ref(null)
         .eq('id', activeMatch.value.id);
 
       if (error) {
-        console.error(`Error updating ${stat}:`, error);
-        // Revert optimistic update on error
+        // A missing column (DB behind on a migration) shouldn't break logging —
+        // revert quietly and keep going.
+        if (error.code === 'PGRST204') {
+          console.warn(`[match] column "${stat}" not in schema yet — apply the latest migration to persist it.`)
+        } else {
+          console.error(`Error updating ${stat}:`, error);
+        }
         activeMatch.value[stat] -= value;
         return;
+      }
+
+      // Decrementing a tracked event removes its most recent map pin so the
+      // pitch never shows ghost actions the counter no longer reflects. (No-op
+      // for stats with no heatmap points, e.g. score_for / cards.)
+      if (value < 0 && syncHeatmap) {
+        await removeLatestHeatmapPoint(stat)
       }
 
       // If this is a goalkeeper match and we're changing score_against, also update goals_conceded
@@ -1367,8 +1585,117 @@ const activeMatch = ref(null)
       showShareModal.value = true;
     }
 
+    const LoadHeatmapPreference = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser()
+        const user = authData?.user
+        if (!user) return
+        const { data: profileData, error } = await supabase
+          .from('user_profiles')
+          .select('enable_heatmap_tracking, default_match_logger_view')
+          .eq('user_id', user.id)
+          .single()
+        if (error) return
+        EnableHeatmapTracking.value = profileData?.enable_heatmap_tracking ?? true
+        LoggerView.value = profileData?.default_match_logger_view === 'counters' ? 'counters' : 'map'
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    const SaveHeatmapPoint = async ({ XPct, YPct, EventType, EndX = null, EndY = null }) => {
+      if (!activeMatch.value) return
+      try {
+        const { data: authData } = await supabase.auth.getUser()
+        const user = authData?.user
+        if (!user) return
+        const base = { match_id: activeMatch.value.id, user_id: user.id, x_pct: XPct, y_pct: YPct, event_type: EventType || null }
+        const payload = (EndX !== null && EndY !== null) ? { ...base, x2_pct: EndX, y2_pct: EndY } : base
+        let { data, error } = await supabase.from('match_heatmap_points').insert(payload).select().single()
+        // Retry without direction columns if the DB is behind on migration 0016.
+        if (error?.code === 'PGRST204' && payload !== base) {
+          ({ data, error } = await supabase.from('match_heatmap_points').insert(base).select().single())
+        }
+        if (error) throw error
+        MatchHeatmapPoints.value = [...MatchHeatmapPoints.value, data]
+      } catch (e) {
+        console.error('Error saving heatmap point:', e)
+      }
+    }
+
+    const LogEvent = (stat, label) => {
+      if (!activeMatch.value) return
+      if (EnableHeatmapTracking.value && activeMatch.value.track_heatmap_for_match && eventCaptureFlow.value) {
+        eventCaptureFlow.value.triggerEvent(stat, label)
+      } else {
+        incrementStat(stat, 1)
+      }
+    }
+
+    const onEventCaptured = async ({ eventType, fieldPosition, destination }) => {
+      if (!eventType) return
+      let type = eventType
+      let x = null, y = null
+      if (fieldPosition) {
+        const Parts = fieldPosition.split(',').map(Number)
+        if (Number.isFinite(Parts[0]) && Number.isFinite(Parts[1])) { x = Parts[0]; y = Parts[1] }
+      }
+      let endX = null, endY = null
+      if (destination) {
+        const Parts = destination.split(',').map(Number)
+        if (Number.isFinite(Parts[0]) && Number.isFinite(Parts[1])) { endX = Parts[0]; endY = Parts[1] }
+      }
+      // Smart reclassification: a foul committed in your own box is a penalty given away.
+      if (eventType === 'fouls' && x !== null && IsInOwnBox(x, y)) {
+        type = 'penalties_conceded'
+        flashToast('Penalty conceded — foul in your own box', 'danger')
+      }
+      await incrementStat(type, 1)
+      if (x !== null) {
+        await SaveHeatmapPoint({ XPct: x, YPct: y, EventType: type, EndX: endX, EndY: endY })
+      }
+    }
+
+    const OnMapLogEvent = ({ ActionKey, Coordinate }) => {
+      if (!activeMatch.value || !Coordinate) return
+      const Action = EventActions.find((Item) => Item.Key === ActionKey)
+      if (!Action) return
+      const FieldPosition = `${Math.round(Coordinate.XPct)},${Math.round(Coordinate.YPct)}`
+      if (Action.FollowUp) {
+        eventCaptureFlow.value?.triggerFromMap({ context: Action.FollowUp, fieldPosition: FieldPosition })
+        return
+      }
+      onEventCaptured({ eventType: Action.Key, fieldPosition: FieldPosition })
+    }
+
+    const DeleteLoggedEvent = async (Coordinate) => {
+      if (!activeMatch.value || !Coordinate) return
+      if (Coordinate.Source === 'goal') {
+        const { error } = await supabase.from('goals').delete().eq('id', Coordinate.Id)
+        if (error) { console.error('Error removing goal:', error); return }
+        await incrementStat('score_for', -1)
+        matchGoals.value = matchGoals.value.filter((Goal) => Goal.id !== Coordinate.Id)
+      } else if (Coordinate.Source === 'shot') {
+        const { error } = await supabase.from('shots').delete().eq('id', Coordinate.Id)
+        if (error) { console.error('Error removing shot:', error); return }
+        matchShots.value = matchShots.value.filter((Shot) => Shot.id !== Coordinate.Id)
+      } else if (Coordinate.Source === 'heatmap') {
+        const { error } = await supabase.from('match_heatmap_points').delete().eq('id', Coordinate.Id)
+        if (error) { console.error('Error removing heatmap point:', error); return }
+        MatchHeatmapPoints.value = MatchHeatmapPoints.value.filter((Point) => Point.id !== Coordinate.Id)
+        // This exact pin is already gone — decrement the counter only (syncHeatmap
+        // off so we don't also remove a second, unrelated pin of the same type).
+        if (Coordinate.EventKey) await incrementStat(Coordinate.EventKey, -1, { syncHeatmap: false })
+      }
+      if (selectedEvent.value && selectedEvent.value.id === Coordinate.Id) selectedEvent.value = null
+    }
+
+    const OnQuickIncrement = ({ Stat, Delta }) => incrementStat(Stat, Delta)
+    const OnQuickIncrementGk = ({ Stat, Delta }) => incrementGkStat(Stat, Delta)
+
     onMounted(() => {
       loadMyClubTeamName()
+      LoadHeatmapPreference()
     })
 
     // Share helpers (preview, native share, copy summary, layout variants,
@@ -1435,6 +1762,69 @@ const activeMatch = ref(null)
 
 /* Error Led to Goal row — same neutral row as other stats, just label tinted */
 .error-stat { }
+
+/* Logger view toggle (Counters / Map) */
+.logger-view-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.logger-view-row__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #89938d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.logger-view-toggle {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.logger-view-toggle__btn {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: #b3ccbf;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.logger-view-toggle__btn.active {
+  background: #005233;
+  color: #89f8c1;
+}
+@media (max-width: 480px) {
+  .logger-view-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .logger-view-row__label {
+    text-align: center;
+  }
+}
+
+/* Map-first logging layout */
+.map-logger-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
 
 /* Combined Performance + Events panel layout */
 .perf-and-events {
@@ -1797,29 +2187,99 @@ const activeMatch = ref(null)
 .position-controls {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .position-display {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.position-display__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #89938d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.position-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.position-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-60%) rotate(45deg);
+  border-right: 2px solid #89f8c1;
+  border-bottom: 2px solid #89f8c1;
+  pointer-events: none;
 }
 
 .position-select {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 38px 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   color: #fff;
-  padding: 6px 12px;
-  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.position-select:hover {
+  border-color: rgba(137, 248, 193, 0.4);
+}
+
+.position-select:focus {
+  outline: none;
+  border-color: #4cda9c;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.position-display__label,
+.goalkeeper-toggle__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #89938d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .goalkeeper-toggle {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .position-controls {
+    align-items: stretch;
+  }
+  .goalkeeper-toggle {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
 }
 
 /* Toggle Switch */
@@ -1925,6 +2385,120 @@ h4 {
   padding: 3px 10px;
   border-radius: 20px;
   background: rgba(255,255,255,0.05);
+}
+
+/* Always-visible match rating bar — shows in both Map and Counters logging modes. */
+.live-rating-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 12px;
+  padding: 12px 18px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.live-rating-bar__value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.live-rating-bar__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.live-rating-bar__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+}
+
+.live-rating-bar__tier {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.live-rating-bar__xg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-left: 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.live-rating-bar__xg-value {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.live-rating-bar__xg-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+}
+
+.timeline-wrap {
+  margin-top: 24px;
+}
+
+/* Transient feedback toast (teleported to body) */
+.msl-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 1300;
+  max-width: 90vw;
+  padding: 12px 20px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  background: var(--color-bg-surface-3, rgba(30, 34, 38, 0.96));
+  border: 1px solid var(--color-border-soft);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+
+.msl-toast--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+
+.msl-toast--success {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #04130c;
+}
+
+.msl-toast-enter-active,
+.msl-toast-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.msl-toast-enter-from,
+.msl-toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msl-toast-enter-active,
+  .msl-toast-leave-active { transition: none; }
 }
 
 /* Controls — responsive auto-fill grid on desktop, single column on mobile */
@@ -2196,6 +2770,22 @@ h4 {
 .goal-quadrant.highlight { background: rgba(76, 218, 156, 0.5); }
 
 /* Actions */
+.heatmap-view {
+  margin-top: 32px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.heatmap-view__title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .match-actions {
   display: flex;
   justify-content: flex-end;

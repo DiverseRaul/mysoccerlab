@@ -38,6 +38,12 @@ export default async function globalSetup() {
   await page.locator('input[type="password"], input[name="password"]').first().fill(password)
   await page.getByRole('button', { name: /sign in|log ?in/i }).first().click()
   await page.waitForURL(/\/dashboard/, { timeout: 15000 })
+  // A test user with no matches gets the new-player intro; dismiss it here so
+  // the stored state has it marked seen and it can't intercept clicks in specs
+  // (onboarding.spec.js clears the flag itself to test the intro directly).
+  await page.waitForLoadState('networkidle')
+  const introSkip = page.getByTestId('intro-skip')
+  if (await introSkip.isVisible().catch(() => false)) await introSkip.click()
   await context.storageState({ path: path.join(authDir, 'user.json') })
   await browser.close()
 }

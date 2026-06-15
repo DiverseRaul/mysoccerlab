@@ -15,9 +15,16 @@
       </div>
       <div class="stat-divider"></div>
       <div class="stat-group">
-        <span class="big-number">{{ totalGoals + totalAssists }}</span>
-        <span class="label">G+A</span>
+        <span class="big-number">{{ xgDisplay }}</span>
+        <span class="label">xG</span>
       </div>
+    </div>
+
+    <div class="xg-line" :title="`${totalGoals} goals from ${xgDisplay} expected`">
+      <span class="xg-line__label">vs expected</span>
+      <span class="xg-line__delta" :class="xgDelta >= 0 ? 'trend-up' : 'trend-down'">
+        {{ xgDelta >= 0 ? '+' : '' }}{{ xgDelta.toFixed(2) }} {{ xgDelta >= 0 ? 'over' : 'under' }}
+      </span>
     </div>
 
     <div class="chart-content shooting-stats">
@@ -63,8 +70,17 @@ import { computed } from 'vue'
 import BentoItem from './BentoItem.vue'
 
 const props = defineProps({
-  matches: { type: Array, required: true }
+  matches: { type: Array, required: true },
+  xg: { type: [String, Number], default: '0.00' }
 })
+
+const xgDisplay = computed(() => {
+  const n = parseFloat(props.xg)
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00'
+})
+
+// Goals minus expected goals: positive = clinical (over-performing), negative = wasteful.
+const xgDelta = computed(() => totalGoals.value - (parseFloat(props.xg) || 0))
 
 const totalGoals = computed(() =>
   props.matches.reduce((sum, m) => sum + (m.my_goals || 0), 0)
@@ -255,4 +271,21 @@ const showTrendFooter = computed(() =>
 .trend-up      { color: var(--color-success); }
 .trend-down    { color: var(--color-danger); }
 .trend-neutral { color: var(--color-text-muted); }
+
+.xg-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: var(--font-size-xs);
+}
+
+.xg-line__label {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.xg-line__delta { font-weight: var(--font-weight-bold); }
 </style>

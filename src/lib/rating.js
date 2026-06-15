@@ -1,7 +1,15 @@
 /**
- * MySoccerLab — Dynamic Match Rating Engine v3 (Advanced Fairness)
+ * MySoccerLab — Dynamic Match Rating Engine v4 (Rebalanced Scoring)
  *
  * Scale: 1.0 – 10.0  (displayed as X.XX)
+ *
+ * v4 rebalance: goal/assist/chance values were roughly halved from v3 so a
+ * single goal no longer carries a whole match. Target outcomes for an
+ * otherwise-average striker:
+ *   1 goal  → low-to-mid 7s ("Good")
+ *   2 goals → mid 8s       ("Excellent")
+ *   3 goals → high 8s/9s   ("Outstanding")
+ * A 9.5+ "World Class" rating now requires goals AND strong all-round play.
  */
 
 const POSITION_FLAGS = (posStr = '') => {
@@ -121,12 +129,14 @@ function _outfieldRating(match, pos, goals, shotsOn, shotsOff) {
   if (lost) r -= 0.15
 
   // ── 2. Goal Contributions (Diminishing Returns applied) ───────────────────
+  // Values are deliberately modest: a single goal should lift an otherwise
+  // average game into the 7s, not the 8s. Goal > assist > chance is preserved.
   const assists = match.assists || 0
   const chances = match.created_chances || 0
 
-  const goalVal = isStriker ? 1.8 : isWinger ? 1.6 : isAM ? 1.5 : 1.4
-  const assistVal = isAM || isWinger ? 1.15 : 1.0
-  const chanceVal = isAM ? 0.40 : isWinger ? 0.35 : 0.25
+  const goalVal = isStriker ? 1.0 : isWinger ? 0.92 : isAM ? 0.85 : 0.8
+  const assistVal = isAM || isWinger ? 0.80 : 0.70
+  const chanceVal = isAM ? 0.22 : isWinger ? 0.22 : 0.1
 
   r += _goalBonus(goals, goalVal);
   r += assists * assistVal

@@ -43,6 +43,13 @@
           <span class="big-stat">{{ totalDribbles }}</span>
           <span class="label">Dribbles</span>
         </div>
+        <template v-if="progressivePasses > 0">
+          <div class="stat-divider"></div>
+          <div class="stat-group">
+            <span class="big-stat">{{ progressivePasses }}</span>
+            <span class="label">Progressive</span>
+          </div>
+        </template>
       </div>
 
       <div v-if="showTrendFooter" class="trend-footer">
@@ -67,7 +74,8 @@ import { computed } from 'vue'
 import BentoItem from './BentoItem.vue'
 
 const props = defineProps({
-  matches: { type: Array, required: true }
+  matches: { type: Array, required: true },
+  progressivePasses: { type: Number, default: 0 }
 })
 
 const totalSuccessfulPasses = computed(() =>

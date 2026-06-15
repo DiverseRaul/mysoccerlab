@@ -3,12 +3,20 @@
   <div v-if="showFieldModal" class="modal-overlay" @click.self="cancel">
     <div class="modal modal--field" @click.stop>
       <div class="modal-header">
-        <h3>{{ fieldContext === 'goal' ? 'Where was the goal scored from?' : 'Where was the shot taken from?' }}</h3>
+        <h3>{{ fieldTitle }}</h3>
         <button @click="cancel" class="close-btn" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instruction">Tap a spot on the field</p>
+        <p class="modal-instruction">Tap a spot on the {{ fieldContext === 'event' ? 'pitch' : 'field' }}</p>
+        <TacticalHeatmapField
+          v-if="fieldContext === 'event'"
+          :Interactive="true"
+          :ShowControls="false"
+          :Points="[]"
+          @AddPoint="onEventFieldTap"
+        />
         <ShotField
+          v-else
           mode="origin"
           interactive
           :show-placeholder="false"
@@ -39,11 +47,14 @@
             <span>Off Target</span>
           </button>
         </div>
+        <div class="modal-footer">
+          <button @click="skipOutcome" class="btn btn-ghost">Skip</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Step 3: Quadrant placement (on-target shots and goals) -->
+  <!-- Step 3: Free placement (on-target shots and goals) -->
   <div v-if="showQuadrantModal" class="modal-overlay" @click.self="cancel">
     <div class="modal modal--placement" @click.stop>
       <div class="modal-header">
@@ -51,13 +62,17 @@
         <button @click="cancel" class="close-btn" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <p class="modal-instruction">Tap the spot in the goal</p>
+        <p class="modal-instruction">Tap the exact spot the ball crossed the line</p>
         <ShotField
           mode="placement"
           interactive
+          free-placement
           :show-placeholder="false"
-          @quadrant-select="onQuadrantSelect"
+          @placement-select="onPlacementSelect"
         />
+        <div class="modal-footer">
+          <button @click="skipQuadrant" class="btn btn-ghost">Skip</button>
+        </div>
       </div>
     </div>
   </div>
@@ -80,16 +95,68 @@
             <span>{{ type }}</span>
           </button>
         </div>
+        <div class="modal-footer">
+          <button @click="skipGoalType" class="btn btn-ghost">Skip</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pass / chance: destination (draw the ball) -->
+  <div v-if="showPassDestModal" class="modal-overlay" @click.self="cancel">
+    <div class="modal modal--field" @click.stop>
+      <div class="modal-header">
+        <h3>{{ fieldContext === 'chance' ? 'Where did the chance go?' : 'Where did the pass go?' }}</h3>
+        <button @click="cancel" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction">Tap the target — or skip to log it without a direction</p>
+        <TacticalHeatmapField
+          :Interactive="true"
+          :ShowControls="false"
+          :Points="passOriginPoints"
+          @AddPoint="onPassDest"
+        />
+        <div class="modal-footer">
+          <button @click="skipPassDest" class="btn btn-ghost">Skip</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step (pass only): Pass quality -->
+  <div v-if="showPassQualityModal" class="modal-overlay" @click.self="cancel">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>Pass Outcome</h3>
+        <button @click="cancel" class="close-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="option-grid">
+          <button @click="choosePassQuality('good')" class="option-btn option-btn--success">
+            <span class="option-icon">✅</span>
+            <span>Good Pass</span>
+          </button>
+          <button @click="choosePassQuality('bad')" class="option-btn option-btn--danger">
+            <span class="option-icon">❌</span>
+            <span>Bad Pass</span>
+          </button>
+        </div>
+        <div class="modal-footer">
+          <button @click="choosePassQuality('good')" class="btn btn-ghost">Skip</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { ParseFieldPosition } from '../../../lib/matchEvents'
 import ShotField from '../../ui/ShotField.vue'
+import TacticalHeatmapField from './TacticalHeatmapField.vue'
 
-const emit = defineEmits(['shot-captured', 'goal-captured'])
+const emit = defineEmits(['shot-captured', 'goal-captured', 'event-captured'])
 
 const goalTypes = ['Normal', 'Freekick', 'Penalty', 'Long Shot', 'Header', 'Tap-in']
 
@@ -97,10 +164,36 @@ const showFieldModal = ref(false)
 const showOutcomeModal = ref(false)
 const showQuadrantModal = ref(false)
 const showGoalTypeModal = ref(false)
+const showPassDestModal = ref(false)
+const showPassQualityModal = ref(false)
 
-const fieldContext = ref('shot') // 'shot' | 'goal'
+const fieldContext = ref('shot') // 'shot' | 'goal' | 'event' | 'pass'
 const pendingFieldPosition = ref(null)
 const pendingQuadrant = ref(null)
+const pendingPlacement = ref(null)
+const pendingDestination = ref(null)
+const pendingEventType = ref(null)
+const pendingEventLabel = ref('')
+
+// Origin marker shown on the destination field so the player can "draw" the pass.
+const passOriginPoints = computed(() => {
+  const Pos = ParseFieldPosition(pendingFieldPosition.value)
+  if (!Pos) return []
+  return [{ x_pct: Pos.XPct, y_pct: Pos.YPct, event_type: 'successful_passes' }]
+})
+
+// Derive a 1–9 quadrant from a free placement tap so quadrant-based views keep working.
+const quadrantFromPlacement = (xPct, yPct) => {
+  const col = Math.min(2, Math.max(0, Math.floor(xPct / (100 / 3))))
+  const row = Math.min(2, Math.max(0, Math.floor(yPct / (100 / 3))))
+  return row * 3 + col + 1
+}
+
+const fieldTitle = computed(() => {
+  if (fieldContext.value === 'goal') return 'Where was the goal scored from?'
+  if (fieldContext.value === 'event') return `Where did the ${pendingEventLabel.value.toLowerCase()} happen?`
+  return 'Where was the shot taken from?'
+})
 
 // ── Public API (called by parent via template ref) ──────────
 const triggerShot = () => {
@@ -115,7 +208,26 @@ const triggerGoal = () => {
   showFieldModal.value = true
 }
 
-defineExpose({ triggerShot, triggerGoal })
+const triggerEvent = (eventType, label) => {
+  reset()
+  fieldContext.value = 'event'
+  pendingEventType.value = eventType
+  pendingEventLabel.value = label || 'event'
+  showFieldModal.value = true
+}
+
+const triggerFromMap = ({ context, eventType, label, fieldPosition }) => {
+  reset()
+  fieldContext.value = context
+  pendingFieldPosition.value = fieldPosition || null
+  pendingEventType.value = eventType || null
+  pendingEventLabel.value = label || 'event'
+  if (context === 'shot') showOutcomeModal.value = true
+  else if (context === 'goal') showQuadrantModal.value = true
+  else if (context === 'pass' || context === 'chance') showPassDestModal.value = true
+}
+
+defineExpose({ triggerShot, triggerGoal, triggerEvent, triggerFromMap })
 
 // ── Internal flow control ───────────────────────────────────
 const reset = () => {
@@ -123,21 +235,43 @@ const reset = () => {
   showOutcomeModal.value = false
   showQuadrantModal.value = false
   showGoalTypeModal.value = false
+  showPassDestModal.value = false
+  showPassQualityModal.value = false
   pendingFieldPosition.value = null
   pendingQuadrant.value = null
+  pendingPlacement.value = null
+  pendingDestination.value = null
+  pendingEventType.value = null
+  pendingEventLabel.value = ''
 }
 
 const cancel = () => reset()
 
 const onFieldClick = ({ xPct, yPct }) => {
   pendingFieldPosition.value = `${Math.round(xPct)},${Math.round(yPct)}`
+  if (fieldContext.value === 'event') {
+    emit('event-captured', { eventType: pendingEventType.value, fieldPosition: pendingFieldPosition.value })
+    reset()
+    return
+  }
   showFieldModal.value = false
   if (fieldContext.value === 'shot') showOutcomeModal.value = true
   else showQuadrantModal.value = true
 }
 
+const onEventFieldTap = ({ XPct, YPct }) => {
+  const fieldPosition = `${Math.round(XPct)},${Math.round(YPct)}`
+  emit('event-captured', { eventType: pendingEventType.value, fieldPosition })
+  reset()
+}
+
 const skipField = () => {
   pendingFieldPosition.value = null
+  if (fieldContext.value === 'event') {
+    emit('event-captured', { eventType: pendingEventType.value, fieldPosition: null })
+    reset()
+    return
+  }
   showFieldModal.value = false
   if (fieldContext.value === 'shot') showOutcomeModal.value = true
   else showQuadrantModal.value = true
@@ -157,13 +291,17 @@ const onShotOffTarget = () => {
   reset()
 }
 
-const onQuadrantSelect = (q) => {
-  pendingQuadrant.value = q
+const onPlacementSelect = ({ xPct, yPct }) => {
+  const x = Math.round(xPct)
+  const y = Math.round(yPct)
+  pendingPlacement.value = `${x},${y}`
+  pendingQuadrant.value = quadrantFromPlacement(x, y)
   showQuadrantModal.value = false
   if (fieldContext.value === 'shot') {
     emit('shot-captured', {
       onTarget: true,
-      quadrant: q,
+      quadrant: pendingQuadrant.value,
+      placement: pendingPlacement.value,
       fieldPosition: pendingFieldPosition.value
     })
     reset()
@@ -176,7 +314,75 @@ const onGoalType = (type) => {
   emit('goal-captured', {
     goalType: type,
     quadrant: pendingQuadrant.value,
+    placement: pendingPlacement.value,
     fieldPosition: pendingFieldPosition.value
+  })
+  reset()
+}
+
+const skipOutcome = () => {
+  emit('shot-captured', {
+    onTarget: null,
+    quadrant: null,
+    fieldPosition: pendingFieldPosition.value
+  })
+  reset()
+}
+
+const skipQuadrant = () => {
+  if (fieldContext.value === 'shot') {
+    emit('shot-captured', {
+      onTarget: true,
+      quadrant: null,
+      fieldPosition: pendingFieldPosition.value
+    })
+    reset()
+  } else {
+    pendingQuadrant.value = null
+    showQuadrantModal.value = false
+    showGoalTypeModal.value = true
+  }
+}
+
+const skipGoalType = () => {
+  emit('goal-captured', {
+    goalType: null,
+    quadrant: pendingQuadrant.value,
+    placement: pendingPlacement.value,
+    fieldPosition: pendingFieldPosition.value
+  })
+  reset()
+}
+
+const emitChance = () => {
+  emit('event-captured', {
+    eventType: 'created_chances',
+    fieldPosition: pendingFieldPosition.value,
+    destination: pendingDestination.value
+  })
+  reset()
+}
+
+const onPassDest = ({ XPct, YPct }) => {
+  pendingDestination.value = `${Math.round(XPct)},${Math.round(YPct)}`
+  showPassDestModal.value = false
+  // A chance is just a pass that created a shot — no good/bad step.
+  if (fieldContext.value === 'chance') emitChance()
+  else showPassQualityModal.value = true
+}
+
+const skipPassDest = () => {
+  pendingDestination.value = null
+  showPassDestModal.value = false
+  if (fieldContext.value === 'chance') emitChance()
+  else showPassQualityModal.value = true
+}
+
+const choosePassQuality = (quality) => {
+  emit('event-captured', {
+    eventType: quality === 'bad' ? 'unsuccessful_passes' : 'successful_passes',
+    fieldPosition: pendingFieldPosition.value,
+    destination: pendingDestination.value
   })
   reset()
 }

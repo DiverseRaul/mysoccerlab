@@ -1,19 +1,21 @@
 <template>
   <div class="dashboard-page">
-    <div class="dashboard-header">
-      <h1>Dashboard</h1>
-      <p>Welcome back, {{ userName }}!</p>
+    <div class="dashboard-hero-wrap">
+      <PageHero
+        title="Dashboard"
+        :subtitle="userName ? `Welcome back, ${userName}` : 'Your season at a glance'"
+        :chip="activeSeason ? activeSeason.name : 'All time'"
+      />
     </div>
 
     <div class="dashboard-container">
       <div class="dashboard-container-inner">
         <div class="tabs-row">
-          <div class="tabs">
-            <button class="tab-btn" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
-            <button class="tab-btn" :class="{ active: activeTab === 'matches' }" @click="activeTab = 'matches'">Matches</button>
-            <button class="tab-btn" :class="{ active: activeTab === 'practice' }" @click="activeTab = 'practice'">Practice</button>
-            <button class="tab-btn" :class="{ active: activeTab === 'ai-coach' }" @click="activeTab = 'ai-coach'">AI Coach</button>
-          </div>
+          <ScrollableTabs
+            :TabItems="DashboardTabItems"
+            :ActiveKey="activeTab"
+            @Select="activeTab = $event"
+          />
           <SeasonSelector
             :seasons="seasons"
             :activeSeason="activeSeason"
@@ -30,6 +32,7 @@
           :userName="userName"
           :allShotsData="filteredShotsData"
           :allGoalsData="filteredGoalsData"
+          :allHeatmapData="filteredHeatmapData"
         />
 
         <MatchManager
@@ -55,6 +58,26 @@
         />
       </div>
     </div>
+
+    <button
+      type="button"
+      class="ai-fab"
+      :class="{ 'is-active': activeTab === 'ai-coach' }"
+      :aria-label="activeTab === 'ai-coach' ? 'Close AI Coach' : 'Open AI Coach'"
+      data-testid="ai-fab"
+      @click="ToggleAiCoach"
+    >
+      <svg v-if="activeTab !== 'ai-coach'" class="ai-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
+        <path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
+      </svg>
+      <svg v-else class="ai-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="6" y1="6" x2="18" y2="18" />
+        <line x1="18" y1="6" x2="6" y2="18" />
+      </svg>
+    </button>
+
+    <WelcomeIntro v-if="ShowIntro" @Done="DismissIntro" />
   </div>
 </template>
 
@@ -62,23 +85,44 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import { ResolveSession } from '../lib/authSession'
+import WelcomeIntro from './onboarding/WelcomeIntro.vue'
 import DashboardOverview from './DashboardOverview.vue'
 import MatchManager from './MatchManager.vue'
 import DashboardAICoach from './DashboardAICoach.vue'
 import SeasonSelector from './SeasonSelector.vue'
 import PracticeTracker from './dashboard/practice/PracticeTracker.vue'
+import ScrollableTabs from './ui/ScrollableTabs.vue'
+import PageHero from './ui/PageHero.vue'
+
+const DashboardTabItems = [
+  { Key: 'overview', Label: 'Overview' },
+  { Key: 'matches', Label: 'Matches' },
+  { Key: 'practice', Label: 'Practice' }
+]
 
 const router = useRouter()
 const matches = ref([])
 const allShotsData = ref([])
 const allGoalsData = ref([])
+const allHeatmapData = ref([])
 const userName = ref('')
 const userPosition = ref('')
 const userPreferredFoot = ref('')
 const userClubTeam = ref('')
 const activeTab = ref('overview')
+const PreviousTab = ref('overview')
 const seasons = ref([])
 const activeSeason = ref(null)
+
+const ToggleAiCoach = () => {
+  if (activeTab.value === 'ai-coach') {
+    activeTab.value = PreviousTab.value || 'overview'
+  } else {
+    PreviousTab.value = activeTab.value
+    activeTab.value = 'ai-coach'
+  }
+}
 
 // --- Computed filtered data ---
 const filteredMatches = computed(() => {
@@ -98,11 +142,37 @@ const filteredShotsData = computed(() => {
   return allShotsData.value.filter(s => ids.has(s.match_id))
 })
 
+const filteredHeatmapData = computed(() => {
+  if (!activeSeason.value) return allHeatmapData.value
+  const ids = new Set(filteredMatches.value.map(m => m.id))
+  return allHeatmapData.value.filter(h => ids.has(h.match_id))
+})
+
+// Intro shown to brand-new players (no matches yet, never dismissed).
+const ShowIntro = ref(false)
+const IntroStorageKey = ref('')
+
+const MaybeShowIntro = (userId) => {
+  IntroStorageKey.value = `msl-intro-seen:${userId}`
+  try {
+    if (localStorage.getItem(IntroStorageKey.value)) return
+  } catch { /* storage unavailable — show nothing rather than nag forever */ return }
+  if (matches.value.length === 0) ShowIntro.value = true
+}
+
+const DismissIntro = () => {
+  ShowIntro.value = false
+  try { localStorage.setItem(IntroStorageKey.value, '1') } catch { /* ignore */ }
+}
+
 onMounted(async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) { router.push('/login'); return }
+  // ResolveSession waits out the Google OAuth redirect (tokens still in the
+  // URL while this mounts) instead of bouncing fresh sign-ins to /login.
+  const session = await ResolveSession()
+  if (!session) { router.push('/login'); return }
   await loadSeasons()
   await loadData()
+  MaybeShowIntro(session.user.id)
 })
 
 const loadSeasons = async () => {
@@ -192,6 +262,20 @@ const loadData = async () => {
     allShotsData.value = shotsData || []
     allGoalsData.value = goalsData || []
 
+    // Season heatmap + pass-direction data (own-user RLS covers this). Retry
+    // without x2_pct/y2_pct if the DB is behind on migration 0016.
+    let heatmapRes = await supabase
+      .from('match_heatmap_points')
+      .select('match_id, x_pct, y_pct, event_type, x2_pct, y2_pct')
+      .in('match_id', matchIds)
+    if (heatmapRes.error) {
+      heatmapRes = await supabase
+        .from('match_heatmap_points')
+        .select('match_id, x_pct, y_pct, event_type')
+        .in('match_id', matchIds)
+    }
+    allHeatmapData.value = heatmapRes.data || []
+
     if (shotsError) { console.error('Error fetching shots:', shotsError); matches.value = matchesData; return }
 
     const goalkeeperMatchIds = matchesData
@@ -238,36 +322,19 @@ const loadData = async () => {
 <style scoped>
 .dashboard-page {
   min-height: 100vh;
-  background-color: #050608;
+  background: var(--app-page-bg);
   padding: 30px 40px;
   padding-top: 100px;
 }
 
 .dashboard-container-inner {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
 }
 
-.dashboard-header {
-  max-width: 1200px;
+.dashboard-hero-wrap {
+  max-width: 1280px;
   margin: 3rem auto 24px;
-}
-
-.dashboard-header h1 {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin: 0;
-  background: linear-gradient(135deg, #fff 30%, #4cda9c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
-}
-
-.dashboard-header p {
-  font-size: 1.1rem;
-  color: #89938d;
-  margin: 4px 0 0;
 }
 
 .tabs-row {
@@ -278,36 +345,53 @@ const loadData = async () => {
   flex-wrap: wrap;
 }
 
-.tabs {
+.tabs-row > :first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.ai-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 28px;
+  z-index: 200;
   display: flex;
-  gap: 12px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 16px;
-  width: fit-content;
-}
-
-.tab-btn {
-  background: transparent;
-  border: none;
-  color: #89938d;
-  padding: 10px 24px;
-  font-size: 1rem;
-  font-weight: 600;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  padding: 0;
+  border: 1px solid rgba(137, 248, 193, 0.45);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, #5ee3ad 0%, var(--color-accent) 45%, var(--color-brand) 100%);
+  color: #04130c;
   cursor: pointer;
-  border-radius: 12px;
-  transition: all 0.3s ease;
+  box-shadow: 0 12px 32px rgba(0, 82, 51, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
-.tab-btn:hover {
-  color: #e1e2e6;
-  background: rgba(255, 255, 255, 0.05);
+.ai-fab:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 16px 40px rgba(0, 82, 51, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.tab-btn.active {
-  background: #005233;
-  color: #89f8c1;
-  box-shadow: 0 2px 12px rgba(0, 82, 51, 0.3);
+.ai-fab:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.ai-fab.is-active {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-soft);
+  color: var(--color-text-primary);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.ai-fab__icon {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
 }
 
 @media (max-width: 768px) {
@@ -320,14 +404,17 @@ const loadData = async () => {
     font-size: 2rem;
   }
 
-  .tabs {
-    width: 100%;
-    justify-content: space-between;
+  .tabs-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
 
-  .tab-btn {
-    flex: 1;
-    text-align: center;
+  .ai-fab {
+    right: 18px;
+    bottom: 20px;
+    width: 56px;
+    height: 56px;
   }
 }
 </style>

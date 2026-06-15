@@ -73,36 +73,57 @@
 
     <!-- Goal Placement view -->
     <div v-if="shotMapView === 'goal'" class="view-wrapper">
-      <div class="goal-frame">
-        <div class="goal-net">
+      <div class="goal-frame goal-3d">
+        <svg class="goal-3d__depth" viewBox="0 0 100 62" preserveAspectRatio="none" aria-hidden="true">
+          <polygon class="net-floor" points="0,62 100,62 91,52 9,52" />
+          <rect class="net-back" x="9" y="8" width="82" height="44" />
+          <line class="net-edge" x1="0" y1="0" x2="9" y2="8" />
+          <line class="net-edge" x1="100" y1="0" x2="91" y2="8" />
+          <line class="net-edge" x1="0" y1="62" x2="9" y2="52" />
+          <line class="net-edge" x1="100" y1="62" x2="91" y2="52" />
+          <g class="net-mesh">
+            <line x1="22" y1="8" x2="22" y2="52" />
+            <line x1="35" y1="8" x2="35" y2="52" />
+            <line x1="48" y1="8" x2="48" y2="52" />
+            <line x1="61" y1="8" x2="61" y2="52" />
+            <line x1="74" y1="8" x2="74" y2="52" />
+            <line x1="9" y1="19" x2="91" y2="19" />
+            <line x1="9" y1="30" x2="91" y2="30" />
+            <line x1="9" y1="41" x2="91" y2="41" />
+          </g>
+        </svg>
+        <div v-if="hasPlacementData" class="markers">
           <div
-            v-for="i in 9"
-            :key="i"
-            class="goal-cell"
-            :class="{ 'goal-cell--has-data': getQuadrantShots(i) + getQuadrantGoals(i) > 0 }"
-          >
-            <div class="goal-cell__data">
-              <span v-if="getQuadrantGoals(i) > 0" class="cell-pill cell-pill--goal">
-                {{ getQuadrantGoals(i) }}
-              </span>
-              <span v-if="getQuadrantShots(i) > 0" class="cell-pill cell-pill--shot">
-                {{ getQuadrantShots(i) }}
-              </span>
-            </div>
-          </div>
+            v-for="(s, i) in shotPlacements"
+            :key="'sp-' + i"
+            class="marker marker--shot"
+            :style="{ left: s.pos.x + '%', top: s.pos.y + '%' }"
+            @mouseenter="showTooltip(s.item, 'shot', $event)"
+            @mouseleave="hideTooltip"
+            @click.stop="clickMarker(s.item, 'shot', $event)"
+          ></div>
+          <div
+            v-for="(g, i) in goalPlacements"
+            :key="'gp-' + i"
+            class="marker marker--goal"
+            :style="{ left: g.pos.x + '%', top: g.pos.y + '%' }"
+            @mouseenter="showTooltip(g.item, 'goal', $event)"
+            @mouseleave="hideTooltip"
+            @click.stop="clickMarker(g.item, 'goal', $event)"
+          ></div>
         </div>
-        <div v-if="!hasQuadrantData" class="empty-overlay">
+        <div v-else class="empty-overlay">
           <span class="empty-overlay__icon">🥅</span>
-          <p>No shot placements logged yet</p>
-          <p class="empty-overlay__hint">Pick a quadrant when logging on-target shots</p>
+          <p>No goal placements logged yet</p>
+          <p class="empty-overlay__hint">Tap where the ball crossed the goal when logging</p>
         </div>
       </div>
       <div class="legend">
         <span class="legend-item">
-          <span class="legend-dot legend-dot--goal"></span>Goals
+          <span class="legend-dot legend-dot--goal"></span>Goals ({{ goalPlacements.length }})
         </span>
         <span class="legend-item">
-          <span class="legend-dot legend-dot--shot"></span>Shots on Target
+          <span class="legend-dot legend-dot--shot"></span>On Target ({{ shotPlacements.length }})
         </span>
       </div>
     </div>
@@ -280,13 +301,34 @@ const shotAccuracy   = computed(() => {
   return Math.round((totalOnTarget.value / totalShots.value) * 100)
 })
 
-// ── Quadrant counts (Goal Placement view) ──────────────────
-const getQuadrantShots = (q) =>
-  filteredShots.value.filter(s => s.quadrant === q && s.on_target).length
-const getQuadrantGoals = (q) => filteredGoals.value.filter(g => g.quadrant === q).length
-const hasQuadrantData  = computed(() =>
-  filteredShots.value.some(s => s.quadrant) || filteredGoals.value.some(g => g.quadrant)
+// ── Goal placement (where the ball crossed the goal) ───────
+// Prefer the precise `placement` ("x,y" %); fall back to the centre of the
+// legacy quadrant so older matches still show something.
+const getPlacementCoords = (item) => {
+  if (typeof item.placement === 'string' && item.placement.includes(',')) {
+    const [x, y] = item.placement.split(',').map(Number)
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y }
+  }
+  if (item.quadrant) {
+    const col = (item.quadrant - 1) % 3
+    const row = Math.floor((item.quadrant - 1) / 3)
+    return { x: (col + 0.5) / 3 * 100, y: (row + 0.5) / 3 * 100 }
+  }
+  return null
+}
+
+const goalPlacements = computed(() =>
+  filteredGoals.value
+    .map((g) => ({ item: g, pos: getPlacementCoords(g) }))
+    .filter((o) => o.pos)
 )
+const shotPlacements = computed(() =>
+  filteredShots.value
+    .filter((s) => s.on_target)
+    .map((s) => ({ item: s, pos: getPlacementCoords(s) }))
+    .filter((o) => o.pos)
+)
+const hasPlacementData = computed(() => goalPlacements.value.length + shotPlacements.value.length > 0)
 
 // ── Origin data (Shot Origins view) ────────────────────────
 const hasFieldPosition = (item) =>
@@ -578,71 +620,67 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 }
 
 /* ── Goal Placement view ──────────────────────────────────── */
-.goal-frame {
+/* ── 3D goal ──────────────────────────────────────────────── */
+.goal-3d {
   position: relative;
   width: 100%;
-  max-width: 360px;
-  aspect-ratio: 4 / 3;
-  background: var(--color-bg-field);
-  border: 6px solid var(--color-border-strong);
+  max-width: 380px;
+  aspect-ratio: 16 / 9;
+  /* Recessed net interior — gently darker toward the back for depth. */
+  background: radial-gradient(110% 120% at 50% 6%, rgba(34, 40, 46, 0.95), rgba(16, 19, 22, 0.97));
+  /* White tubular posts + crossbar (no ground bar). */
+  border: 7px solid #e9eef1;
   border-bottom: none;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  box-shadow: var(--shadow-md), inset 0 0 50px rgba(0, 0, 0, 0.5);
+  border-radius: 6px 6px 0 0;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.45),
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 28px rgba(0, 0, 0, 0.4);
 }
 
-.goal-frame::after {
+/* Tubular sheen down the posts/crossbar. */
+.goal-3d::before {
   content: '';
   position: absolute;
-  bottom: -4px;
-  left: -6px;
-  right: -6px;
-  height: 4px;
-  background: var(--color-border-strong);
-  border-radius: 0 0 2px 2px;
+  inset: -7px -7px 0 -7px;
+  border: 7px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background:
+    linear-gradient(#fff, transparent) top / 100% 7px no-repeat;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
-.goal-net {
+/* The perspective net (back panel + edges + mesh), behind the markers. */
+.goal-3d__depth {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  width: 100%;
+  height: 100%;
+  z-index: 0;
 }
 
-.goal-cell {
-  border: 1px dashed var(--color-border-subtle);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: background 0.25s ease;
+.goal-3d__depth .net-edge,
+.goal-3d__depth .net-mesh line {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
 }
 
-.goal-cell--has-data {
-  background: var(--color-accent-soft);
+.goal-3d__depth .net-back {
+  fill: rgba(0, 0, 0, 0.25);
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
 }
 
-.goal-cell__data {
-  display: flex;
-  gap: 4px;
-  z-index: 2;
+.goal-3d__depth .net-floor {
+  fill: rgba(255, 255, 255, 0.03);
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
 }
-
-.cell-pill {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 6px;
-  border-radius: var(--radius-pill);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-heavy);
-  box-shadow: var(--shadow-sm);
-}
-
-.cell-pill--goal { background: var(--color-success); color: var(--color-bg-page); }
-.cell-pill--shot { background: var(--color-info);    color: #fff; }
 
 /* ── Shot Origins view ────────────────────────────────────── */
 .origin-field-wrapper {

@@ -23,6 +23,10 @@
             </option>
           </select>
         </div>
+        <label v-if="EnableHeatmapTracking" class="heatmap-opt">
+          <input type="checkbox" v-model="form.track_heatmap_for_match" />
+          <span>Track tactical heatmap for this match</span>
+        </label>
         <div class="modal-buttons">
           <button type="button" @click="close" class="btn btn-secondary">Cancel</button>
           <button type="submit" class="btn btn-primary">Add Match</button>
@@ -44,12 +48,12 @@ const POSITIONS = [
   'Central Midfielder',
   'Attacking Midfielder',
   'Winger',
-  'Striker',
-  'Center-Forward'
+  'Striker'
 ]
 
 const props = defineProps({
-  modelValue: { type: Boolean, default: false }
+  modelValue: { type: Boolean, default: false },
+  EnableHeatmapTracking: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'submit'])
@@ -59,7 +63,8 @@ const positions = POSITIONS
 const blankForm = () => ({
   opponent: '',
   match_date: new Date().toISOString().split('T')[0],
-  position_played: ''
+  position_played: '',
+  track_heatmap_for_match: true
 })
 
 const form = ref(blankForm())
@@ -155,6 +160,27 @@ const submit = () => {
 .form-group select:focus {
   outline: none;
   border-color: var(--color-accent-border);
+}
+
+.heatmap-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.heatmap-opt input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
 }
 
 .modal-buttons {

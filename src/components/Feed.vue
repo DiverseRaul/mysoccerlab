@@ -1,34 +1,22 @@
 <template>
   <div class="feed-page">
     <div class="feed-container">
-      <div class="feed-header">
-        <div class="header-left">
-          <h1>Activity Feed</h1>
-          <p>See how the community is performing</p>
-        </div>
-        <div class="header-actions">
-          <button class="btn-icon" @click="showFindPlayers = true" title="Search Players">
-            🔍
-          </button>
-        </div>
+      <div class="feed-hero">
+        <PageHero title="The Pitch" subtitle="Live from players around you">
+          <template #action>
+            <button class="btn-icon" @click="showFindPlayers = true" title="Search Players" aria-label="Find players">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </button>
+          </template>
+        </PageHero>
       </div>
 
-      <!-- Feed Tabs -->
       <div class="feed-tabs">
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'following' }" 
-          @click="switchTab('following')"
-        >
-          Following
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'explore' }" 
-          @click="switchTab('explore')"
-        >
-          Explore
-        </button>
+        <ScrollableTabs
+          :TabItems="FeedTabItems"
+          :ActiveKey="activeTab"
+          @Select="switchTab"
+        />
       </div>
 
       <div v-if="loading" class="loading-state">
@@ -45,55 +33,27 @@
       </div>
 
       <div v-else class="feed-list">
-        <div v-for="match in matches" :key="match.id" class="feed-card">
-          <div class="card-header">
-            <div class="user-info">
-              <div class="avatar-circle">
-                {{ getInitials(match.profile?.player_name || match.profile?.email) }}
-              </div>
-              <div class="user-details">
-                <span class="player-name">{{ match.profile?.player_name || formatEmail(match.profile?.email) }}</span>
-                <span class="match-meta">{{ match.profile?.position || 'Player' }} • {{ formatDate(match.match_date) }}</span>
-              </div>
-            </div>
-            <div class="match-result-badge" :class="getMatchResultClass(match)">
-              {{ getMatchResult(match) }}
-            </div>
-          </div>
-
-          <div class="card-content">
-            <div class="score-row">
-              <div class="score-block">
-                <span class="score-val">{{ match.score_for }}</span>
-                <span class="score-lbl">US</span>
-              </div>
-              <div class="vs-divider">
-                <span>VS</span>
-              </div>
-              <div class="score-block">
-                <span class="score-val">{{ match.score_against }}</span>
-                <span class="score-lbl">{{ match.opponent.substring(0, 3).toUpperCase() }}</span>
-              </div>
-            </div>
-            
-            <div class="stats-mini-grid">
-              <div class="mini-stat">
-                <span class="ms-val">{{ match.my_goals || 0 }}</span>
-                <span class="ms-lbl">Gols</span>
-              </div>
-              <div class="mini-stat">
-                <span class="ms-val">{{ match.assists || 0 }}</span>
-                <span class="ms-lbl">Ast</span>
-              </div>
-              <div class="mini-stat rating-stat">
-                <span class="ms-val">{{ calculateMatchRating(match) }}</span>
-                <span class="ms-lbl">Rat</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <FeedCard
+          v-for="(match, index) in matches"
+          :key="match.id"
+          :Match="match"
+          :Index="index"
+          :ShotData="shotDataByMatch[match.id] ?? null"
+          @load-shotmap="loadShotData"
+          @view-profile="openProfile"
+        />
       </div>
     </div>
+
+    <UserProfileModal
+      v-if="profileModal.userId"
+      :userId="profileModal.userId"
+      :seedName="profileModal.name"
+      :seedPosition="profileModal.position"
+      :isFollowing="followingIds.has(profileModal.userId)"
+      @close="profileModal.userId = null"
+      @toggle-follow="toggleFollowById"
+    />
 
     <!-- Find Players Modal -->
     <div v-if="showFindPlayers" class="modal-overlay" @click.self="showFindPlayers = false">
@@ -150,9 +110,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'vue-router'
+import ScrollableTabs from './ui/ScrollableTabs.vue'
+import FeedCard from './ui/FeedCard.vue'
+import UserProfileModal from './ui/UserProfileModal.vue'
+import PageHero from './ui/PageHero.vue'
+
+const FeedTabItems = [
+  { Key: 'following', Label: 'Following' },
+  { Key: 'explore', Label: 'Explore' }
+]
 
 const router = useRouter()
 const loading = ref(true)
@@ -164,6 +133,43 @@ const searching = ref(false)
 const currentUser = ref(null)
 const followingIds = ref(new Set())
 const activeTab = ref('following')
+// Per-match spatial shot data, fetched lazily when a card's shot map is opened.
+const shotDataByMatch = reactive({})
+// Profile popup state (opened from a feed card's author).
+const profileModal = reactive({ userId: null, name: '', position: '' })
+
+const openProfile = (userId) => {
+  if (!userId) return
+  const Match = matches.value.find((m) => m.user_id === userId)
+  profileModal.name = Match?.profile?.player_name || ''
+  profileModal.position = Match?.profile?.position || ''
+  profileModal.userId = userId
+}
+
+// Follow/unfollow by id (used by the profile popup); keeps followingIds in sync.
+const toggleFollowById = async (userId) => {
+  const isFollowing = followingIds.value.has(userId)
+  try {
+    if (isFollowing) {
+      const { error } = await supabase
+        .from('user_relationships')
+        .delete()
+        .eq('follower_id', currentUser.value.id)
+        .eq('following_id', userId)
+      if (!error) {
+        followingIds.value.delete(userId)
+        if (activeTab.value === 'following') await loadFeed()
+      }
+    } else {
+      const { error } = await supabase
+        .from('user_relationships')
+        .insert({ follower_id: currentUser.value.id, following_id: userId })
+      if (!error) followingIds.value.add(userId)
+    }
+  } catch (e) {
+    console.error('Toggle follow error:', e)
+  }
+}
 
 onMounted(async () => {
   const { data: { user } } = await supabase.auth.getUser()
@@ -252,10 +258,69 @@ const loadFeed = async () => {
       profile: profileMap[match.user_id] || { player_name: 'Unknown Player' }
     }))
 
+    // Eagerly batch-load every card's spatial data (3 queries total) so each
+    // card shows its shot map + heatmap immediately, like the home demo.
+    await loadAllShotData(matchesData.map(m => m.id))
+
   } catch (error) {
     console.error('Error loading feed:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// Batch-fetch goals, shots, and heatmap points for every loaded match in one
+// round-trip each, then group by match_id. RLS gates cross-user reads; denied
+// rows just come back empty.
+const loadAllShotData = async (matchIds) => {
+  if (!matchIds || matchIds.length === 0) return
+  try {
+    const [goalsRes, shotsRes, heatmapRes] = await Promise.all([
+      supabase.from('goals').select('match_id, quadrant, field_position').in('match_id', matchIds),
+      supabase.from('shots').select('match_id, on_target, quadrant, field_position').in('match_id', matchIds),
+      supabase.from('match_heatmap_points').select('match_id, x_pct, y_pct, event_type').in('match_id', matchIds)
+    ])
+    const groupByMatch = (rows) => {
+      const map = {}
+      for (const row of rows || []) {
+        if (!map[row.match_id]) map[row.match_id] = []
+        map[row.match_id].push(row)
+      }
+      return map
+    }
+    const goalsByMatch = groupByMatch(goalsRes.data)
+    const shotsByMatch = groupByMatch(shotsRes.data)
+    const heatmapByMatch = groupByMatch(heatmapRes.data)
+    for (const id of matchIds) {
+      shotDataByMatch[id] = {
+        goals: goalsByMatch[id] || [],
+        shots: shotsByMatch[id] || [],
+        heatmap: heatmapByMatch[id] || []
+      }
+    }
+  } catch (error) {
+    console.error('Error batch-loading feed shot data:', error)
+  }
+}
+
+// Lazily fetch a single match's goals + shots when its shot map is first opened.
+// RLS (migration 0013) gates cross-user reads; denied rows return [] silently.
+const loadShotData = async (matchId) => {
+  if (matchId == null || shotDataByMatch[matchId]) return
+  try {
+    const [goalsRes, shotsRes, heatmapRes] = await Promise.all([
+      supabase.from('goals').select('match_id, quadrant, field_position').eq('match_id', matchId),
+      supabase.from('shots').select('match_id, on_target, quadrant, field_position').eq('match_id', matchId),
+      supabase.from('match_heatmap_points').select('x_pct, y_pct, event_type').eq('match_id', matchId)
+    ])
+    shotDataByMatch[matchId] = {
+      goals: goalsRes.data || [],
+      shots: shotsRes.data || [],
+      heatmap: heatmapRes.data || []
+    }
+  } catch (error) {
+    console.error('Error loading shot map data:', error)
+    shotDataByMatch[matchId] = { goals: [], shots: [], heatmap: [] }
   }
 }
 
@@ -345,299 +410,132 @@ const formatEmail = (email) => {
   return email.split('@')[0]
 }
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffTime = Math.abs(now - date)
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) 
-  
-  if (diffDays <= 1) return 'Today'
-  if (diffDays <= 2) return 'Yesterday'
-  if (diffDays <= 7) return `${diffDays}d ago`
-  
-  return date.toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric'
-  })
-}
-
-const getMatchResult = (match) => {
-  if (match.score_for > match.score_against) return 'W'
-  if (match.score_for < match.score_against) return 'L'
-  return 'D'
-}
-
-const getMatchResultClass = (match) => {
-  const result = getMatchResult(match)
-  if (result === 'W') return 'badge-win'
-  if (result === 'L') return 'badge-loss'
-  return 'badge-draw'
-}
-
-const calculateMatchRating = (match) => {
-  let rating = 6.0
-  rating += (match.my_goals || 0) * 1.7
-  rating += (match.assists || 0) * 1.0
-  rating += (match.shots_on_target || 0) * 0.2
-  rating += (match.tackles || 0) * 0.1
-  rating += (match.interceptions || 0) * 0.2
-  rating += (match.successful_passes || 0) * 0.05
-  return Math.min(10, Math.max(0, rating)).toFixed(1)
-}
 </script>
 
 <style scoped>
 .feed-page {
+  position: relative;
   min-height: 100vh;
-  background-color: #050608;
-  color: #e1e2e6;
-  padding: 80px 20px 20px;
+  background: var(--app-page-bg);
+  color: var(--color-text-secondary);
+  padding: 128px 20px 64px;
+  overflow-x: clip;
+}
+
+/* Faint pitch-stripe texture for depth (stadium-at-night feel). */
+.feed-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.014) 0px,
+    rgba(255, 255, 255, 0.014) 2px,
+    transparent 2px,
+    transparent 64px
+  );
+  mask-image: linear-gradient(180deg, #000 0%, transparent 60%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 60%);
 }
 
 .feed-container {
-  max-width: 500px;
+  position: relative;
+  max-width: 520px;
   margin: 0 auto;
 }
 
-.feed-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  margin-top: 5rem;
-}
-
-.header-left h1 {
-  margin: 0;
-  font-size: 1.8rem;
-  background: linear-gradient(135deg, #fff 30%, #4cda9c 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.header-left p {
-  margin: 4px 0 0;
-  color: #89938d;
-  font-size: 0.9rem;
+.feed-hero {
+  margin-bottom: var(--space-5);
 }
 
 .btn-icon {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  width: 40px;
-  height: 40px;
+  background: var(--color-bg-surface-2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border-subtle);
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
-  transition: all 0.2s;
+  flex: 0 0 auto;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-icon svg {
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-secondary);
 }
 
 .btn-icon:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-bg-surface-3);
+  border-color: var(--color-accent-border);
 }
 
-/* Tabs */
+.btn-icon:hover svg {
+  color: var(--color-accent);
+}
+
 .feed-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 24px;
-  padding: 4px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-}
-
-.tab-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  padding: 10px;
-  color: #888;
-  font-weight: 600;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  background: #1a1a1a;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  margin-bottom: var(--space-6);
 }
 
 .feed-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-5);
 }
 
-.feed-card {
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 16px;
-  transition: transform 0.2s;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.avatar-circle {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4CAF50, #2E7D32);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: white;
-  font-size: 0.85rem;
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.player-name {
-  font-weight: 600;
-  color: #fff;
-  font-size: 0.95rem;
-}
-
-.match-meta {
-  font-size: 0.75rem;
-  color: #666;
-}
-
-.match-result-badge {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.badge-win { background: rgba(76, 175, 80, 0.2); color: #4CAF50; }
-.badge-loss { background: rgba(244, 67, 54, 0.2); color: #f44336; }
-.badge-draw { background: rgba(255, 193, 7, 0.2); color: #FFC107; }
-
-.card-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 12px;
-  border-radius: 12px;
-}
-
-.score-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.score-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.score-val {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #fff;
-  line-height: 1;
-}
-
-.score-lbl {
-  font-size: 0.65rem;
-  color: #666;
-  margin-top: 2px;
-  text-transform: uppercase;
-}
-
-.vs-divider {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #444;
-}
-
-.stats-mini-grid {
-  display: flex;
-  gap: 16px;
-}
-
-.mini-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.ms-val {
-  font-weight: 700;
-  color: #ccc;
-  font-size: 1rem;
-}
-
-.ms-lbl {
-  font-size: 0.65rem;
-  color: #666;
-}
-
-.rating-stat .ms-val {
-  color: #4cda9c;
-}
-
-/* Empty State */
 .empty-state {
   text-align: center;
-  padding: 60px 0;
-  color: #888;
+  padding: 72px 24px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.empty-state h3 {
+  color: var(--color-text-primary);
+  margin: 0 0 8px;
 }
 
 .empty-icon {
   font-size: 3rem;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
 }
 
 .btn-secondary {
-  background: transparent;
-  border: 1px solid #4CAF50;
-  color: #4CAF50;
-  padding: 8px 16px;
-  border-radius: 20px;
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-accent);
+  padding: 12px 22px;
+  min-height: 44px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-weight: 600;
-  margin-top: 20px;
-  font-size: 0.9rem;
+  font-weight: var(--font-weight-semibold);
+  margin-top: 24px;
+  font-size: var(--font-size-sm);
+  transition: background 0.2s ease;
 }
 
-/* Modal */
+.btn-secondary:hover {
+  background: var(--color-accent-border);
+}
+
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -647,141 +545,183 @@ const calculateMatchRating = (match) => {
 }
 
 .modal-content {
-  background: #1a1a1a;
-  border-radius: 16px;
+  background: var(--color-bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-xl);
   width: 100%;
   max-width: 500px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.modal-header h2 { margin: 0; font-size: 1.2rem; }
+.modal-header h2 { margin: 0; font-size: var(--font-size-md); }
 
 .close-btn {
   background: transparent;
   border: none;
-  color: #888;
-  font-size: 1.5rem;
+  color: var(--color-text-muted);
+  font-size: 1.6rem;
   cursor: pointer;
   line-height: 1;
   padding: 0 8px;
-  transition: color 0.2s;
+  transition: color 0.2s ease;
 }
 
 .close-btn:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .search-box {
-  padding: 20px;
+  padding: 20px 24px;
 }
 
 .search-box input {
   width: 100%;
-  background: #000;
-  border: 1px solid #333;
-  padding: 12px 16px;
-  border-radius: 8px;
-  color: white;
-  font-size: 1rem;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--color-accent-border);
 }
 
 .users-list {
-  max-height: 400px;
+  max-height: 420px;
   overflow-y: auto;
-  padding: 0 20px 20px;
+  padding: 0 24px 24px;
 }
 
 .no-results {
   text-align: center;
-  color: #666;
-  padding: 20px 0;
-  font-size: 0.9rem;
+  color: var(--color-text-faint);
+  padding: 24px 0;
+  font-size: var(--font-size-sm);
 }
 
 .user-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  gap: var(--space-3);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .user-info-mini {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .avatar-mini {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  background: #333;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: #ccc;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: #ffffff;
+  flex: 0 0 auto;
 }
 
 .avatar-mini-img {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   object-fit: cover;
-  background: #333;
+  background: var(--color-bg-surface-3);
+  flex: 0 0 auto;
 }
 
 .user-details-mini {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.user-details-mini .name { font-weight: 500; font-size: 1rem; color: #eee; }
-.user-details-mini .position { font-size: 0.8rem; color: #888; margin-left: 2px; }
+.user-details-mini .name {
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+}
+
+.user-details-mini .position {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
 
 .btn-follow {
-  padding: 4px 12px;
-  border-radius: 14px;
-  border: none;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 10px 18px;
+  min-height: 40px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  background: #fff;
-  color: #000;
-  transition: all 0.2s;
+  background: var(--color-accent);
+  color: #04130c;
+  flex: 0 0 auto;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-follow.following {
+  background: transparent;
+  border-color: var(--color-border-soft);
+  color: var(--color-text-secondary);
+}
+
+.btn-follow:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 40px 0;
-  color: #666;
+  padding: 48px 0;
+  color: var(--color-text-muted);
 }
 
 .spinner, .mini-spinner {
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top: 2px solid #4CAF50;
+  border: 2px solid var(--color-border-soft);
+  border-top: 2px solid var(--color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-.spinner { width: 24px; height: 24px; margin-bottom: 10px; }
-.mini-spinner { width: 16px; height: 16px; margin: 0 auto; }
+.spinner { width: 28px; height: 28px; margin-bottom: 12px; }
+.mini-spinner { width: 18px; height: 18px; margin: 0 auto; }
 
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+@media (max-width: 480px) {
+  .feed-page {
+    padding: 108px 16px 40px;
+  }
+}
 </style>
