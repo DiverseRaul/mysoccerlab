@@ -1,5 +1,43 @@
 <template>
   <div class="dashboard-overview">
+    <!-- Loading skeleton — shown until the first matches query resolves, so the
+         empty state never flashes while data is still on its way. -->
+    <div v-if="loading" class="bento-grid" aria-hidden="true">
+      <div v-for="n in 4" :key="'h' + n" class="skel-tile skel-tile--stat">
+        <Skeleton width="40%" height="0.7rem" />
+        <Skeleton width="60%" height="1.6rem" />
+      </div>
+      <div class="skel-tile skel-tile--wide skel-tile--tall">
+        <Skeleton width="35%" height="0.9rem" />
+        <Skeleton width="100%" height="220px" radius="var(--radius-md)" />
+      </div>
+      <div class="skel-tile">
+        <Skeleton width="50%" height="0.9rem" />
+        <Skeleton width="100%" height="120px" radius="var(--radius-md)" />
+      </div>
+    </div>
+
+    <!-- Matches exist overall but none in the active season → guide back to All time. -->
+    <EmptyState
+      v-else-if="matches.length === 0 && totalMatches > 0"
+      icon="🗓️"
+      title="No matches in this season"
+      message="You've logged matches in other seasons. Switch to All time to see everything."
+    >
+      <button type="button" class="btn btn-primary" @click="emit('clear-season')">Show all matches</button>
+    </EmptyState>
+
+    <!-- Truly no matches yet. -->
+    <EmptyState
+      v-else-if="matches.length === 0"
+      icon="⚽"
+      title="No matches yet"
+      message="Log your first match to unlock your ratings, shot maps and season trends."
+    >
+      <button type="button" class="btn btn-primary" @click="emit('go-to-matches')">Log your first match</button>
+    </EmptyState>
+
+    <template v-else>
     <div class="overview-toolbar">
       <div class="overview-mode" role="tablist" aria-label="Dashboard detail level">
         <button type="button" class="overview-mode__btn" :class="{ 'is-active': !Advanced }" :aria-selected="!Advanced" @click="Advanced = false">Simple</button>
@@ -48,6 +86,7 @@
         </template>
       </div>
     </section>
+    </template>
 
     <Teleport to="body">
       <Transition name="fab-anim">
@@ -78,6 +117,8 @@ import PitchInsightsTile from './dashboard/overview/PitchInsightsTile.vue'
 import SeasonTotalsTile from './dashboard/overview/SeasonTotalsTile.vue'
 import SeasonGoalsTile from './dashboard/overview/SeasonGoalsTile.vue'
 import TrendAlertsTile from './dashboard/overview/TrendAlertsTile.vue'
+import EmptyState from './ui/EmptyState.vue'
+import Skeleton from './ui/Skeleton.vue'
 import { computed, ref, onMounted } from 'vue'
 import { sumExpectedGoals } from '../lib/xg'
 import { buildSeasonHeatmapPoints, buildPassArrows } from '../lib/playerSummary'
@@ -89,8 +130,15 @@ const Props = defineProps({
   allShotsData:  { type: Array, required: true },
   allGoalsData:  { type: Array, required: true },
   allHeatmapData: { type: Array, default: () => [] },
-  season: { type: Object, default: null }
+  season: { type: Object, default: null },
+  // Unfiltered match count, so the empty state can tell "no matches at all"
+  // apart from "none in the selected season".
+  totalMatches: { type: Number, default: 0 },
+  // True until the dashboard's first data load resolves (drives the skeleton).
+  loading: { type: Boolean, default: false }
 })
+
+const emit = defineEmits(['go-to-matches', 'clear-season'])
 
 const SeasonXg = computed(() => sumExpectedGoals([...Props.allGoalsData, ...Props.allShotsData]))
 const SeasonHeatmapPoints = computed(() => buildSeasonHeatmapPoints(Props.allGoalsData, Props.allShotsData, Props.allHeatmapData))
@@ -189,6 +237,28 @@ onMounted(async () => {
   height: 15px;
   border-radius: 2px;
   background: var(--color-accent);
+}
+
+/* Loading skeleton tiles (mirror the bento tile chrome). */
+.skel-tile {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--space-5);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  min-height: 120px;
+}
+.skel-tile--stat { grid-column: span 1; min-height: 92px; }
+.skel-tile--wide { grid-column: span 2; }
+@media (min-width: 768px) {
+  .skel-tile { grid-column: span 1; }
+  .skel-tile--wide { grid-column: span 4; }
+}
+@media (min-width: 1200px) {
+  .skel-tile--wide { grid-column: span 2; }
 }
 
 .bento-grid > :deep(.bento-item) {

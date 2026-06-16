@@ -15,34 +15,50 @@
         <ScrollableTabs
           :TabItems="FeedTabItems"
           :ActiveKey="activeTab"
-          @Select="switchTab"
+          @select="switchTab"
         />
       </div>
 
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading updates...</p>
+      <div v-if="loading" class="feed-list" aria-hidden="true">
+        <div v-for="n in 3" :key="'sk' + n" class="feed-skel">
+          <div class="feed-skel__head">
+            <Skeleton width="44px" height="44px" radius="50%" />
+            <div class="feed-skel__id">
+              <Skeleton width="120px" height="0.9rem" />
+              <Skeleton width="80px" height="0.7rem" />
+            </div>
+          </div>
+          <Skeleton width="100%" height="90px" radius="var(--radius-md)" />
+          <Skeleton width="100%" height="44px" radius="var(--radius-pill)" />
+        </div>
       </div>
 
-      <div v-else-if="matches.length === 0" class="empty-state">
+      <div v-else-if="feedItems.length === 0" class="empty-state">
         <div class="empty-icon">{{ activeTab === 'following' ? '👥' : '🌍' }}</div>
-        <h3>{{ activeTab === 'following' ? 'No updates yet' : 'No public matches found' }}</h3>
-        <p v-if="activeTab === 'following'">Follow other players to see their match stats here.</p>
-        <p v-else>Check back later for community updates.</p>
+        <h3>{{ activeTab === 'following' ? 'No updates yet' : 'Nothing public yet' }}</h3>
+        <p v-if="activeTab === 'following'">Follow other players to see their matches and training here.</p>
+        <p v-else>Check back later for community matches and training.</p>
         <button v-if="activeTab === 'following'" class="btn-secondary" @click="showFindPlayers = true">Discover Players</button>
       </div>
 
       <div v-else class="feed-list">
-        <FeedCard
-          v-for="(match, index) in matches"
-          :key="match.id"
-          :Match="match"
-          :Index="index"
-          :ShotData="shotDataByMatch[match.id] ?? null"
-          @load-shotmap="loadShotData"
-          @view-profile="openProfile"
-          @expand="onCardExpand(match.user_id, match.id)"
-        />
+        <template v-for="(item, index) in feedItems" :key="item.id">
+          <FeedCard
+            v-if="item.type === 'match'"
+            :Match="item.match"
+            :Index="index"
+            :ShotData="shotDataByMatch[item.match.id] ?? null"
+            @load-shotmap="loadShotData"
+            @view-profile="openProfile"
+            @expand="onCardExpand(item.match.user_id, item.match.id)"
+          />
+          <PracticeFeedCard
+            v-else
+            :Item="item"
+            :Index="index"
+            @view-profile="openProfile"
+          />
+        </template>
       </div>
     </div>
 
@@ -114,11 +130,15 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
 import { logProfileView, logCardExpand } from '../lib/profileEvents'
+import { ResolveSession } from '../lib/authSession'
 import { useRouter } from 'vue-router'
 import ScrollableTabs from './ui/ScrollableTabs.vue'
+import Skeleton from './ui/Skeleton.vue'
 import FeedCard from './ui/FeedCard.vue'
+import PracticeFeedCard from './ui/PracticeFeedCard.vue'
 import UserProfileModal from './ui/UserProfileModal.vue'
 import PageHero from './ui/PageHero.vue'
+import { latestSession, personalBest, formatValue } from '../lib/practiceFormat'
 
 const FeedTabItems = [
   { Key: 'following', Label: 'Following' },
@@ -135,6 +155,8 @@ const searching = ref(false)
 const currentUser = ref(null)
 const followingIds = ref(new Set())
 const activeTab = ref('following')
+// Unified, date-sorted timeline of match + practice items rendered in the feed.
+const feedItems = ref([])
 // Per-match spatial shot data, fetched lazily when a card's shot map is opened.
 const shotDataByMatch = reactive({})
 // Profile popup state (opened from a feed card's author).
@@ -142,9 +164,11 @@ const profileModal = reactive({ userId: null, name: '', position: '' })
 
 const openProfile = (userId) => {
   if (!userId) return
-  const Match = matches.value.find((m) => m.user_id === userId)
-  profileModal.name = Match?.profile?.player_name || ''
-  profileModal.position = Match?.profile?.position || ''
+  // Profile metadata can come from either a match card or a practice card.
+  const item = feedItems.value.find((i) => (i.match?.user_id || i.user_id) === userId)
+  const profile = item?.match?.profile || item?.profile || {}
+  profileModal.name = profile.player_name || ''
+  profileModal.position = profile.position || ''
   profileModal.userId = userId
   logProfileView(userId) // Pro: profile analytics (anonymous, skips self)
 }
@@ -178,12 +202,14 @@ const toggleFollowById = async (userId) => {
 }
 
 onMounted(async () => {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // ResolveSession retries the cold-start race so the feed doesn't bounce to
+  // /login or load empty before the session has rehydrated.
+  const session = await ResolveSession()
+  if (!session) {
     router.push('/login')
     return
   }
-  currentUser.value = user
+  currentUser.value = session.user
   await loadFollowing()
   await loadFeed()
 })
@@ -207,71 +233,139 @@ const loadFollowing = async () => {
 const loadFeed = async () => {
   try {
     loading.value = true
-    matches.value = [] // Clear current matches
-    
+    matches.value = []
+    feedItems.value = []
+
+    // Guard against a tab click before the session resolved (avoids reading
+    // currentUser.id when it's still null).
+    if (!currentUser.value) {
+      const session = await ResolveSession()
+      if (!session) { loading.value = false; return }
+      currentUser.value = session.user
+    }
+
+    const following = activeTab.value === 'following'
+    const followedIds = Array.from(followingIds.value)
+    // Following tab with nobody followed → nothing to show (matches or practice).
+    if (following && followedIds.length === 0) {
+      feedItems.value = []
+      loading.value = false
+      return
+    }
+
     let query = supabase
       .from('matches')
       .select('*')
       .order('match_date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(50)
+    query = following ? query.in('user_id', followedIds) : query.neq('user_id', currentUser.value.id)
 
-    if (activeTab.value === 'following') {
-      const followedIds = Array.from(followingIds.value)
-      if (followedIds.length === 0) {
-        matches.value = []
-        loading.value = false
-        return
-      }
-      query = query.in('user_id', followedIds)
-    } else {
-      // Explore mode: fetch matches from public profiles (excluding own)
-      // This requires a join or subquery logic which implies we rely on the RLS policy "Users can view matches of public profiles"
-      // However, we still need to filter by user_id != current_user
-      query = query.neq('user_id', currentUser.value.id)
-    }
-
-    const { data: matchesData, error: matchesError } = await query
-
+    // Matches + practice activity load in parallel; RLS gates cross-user reads.
+    const [{ data: matchesData, error: matchesError }, practiceItems] = await Promise.all([
+      query,
+      loadPracticeActivity(following, followedIds)
+    ])
     if (matchesError) throw matchesError
 
-    if (!matchesData || matchesData.length === 0) {
-      matches.value = []
-      return
-    }
+    const safeMatches = matchesData || []
 
-    // Fetch profiles for these users
-    const userIds = [...new Set(matchesData.map(m => m.user_id))]
-    const { data: profiles, error: profilesError } = await supabase
-      .from('user_profiles')
-      .select('user_id, player_name, position, is_public, subscription_tier')
-      .in('user_id', userIds)
-
+    // Profiles for everyone appearing in the feed (match or practice authors).
+    const userIds = [...new Set([
+      ...safeMatches.map(m => m.user_id),
+      ...practiceItems.map(p => p.user_id)
+    ])]
     const profileMap = {}
-    if (profiles) {
-      profiles.forEach(p => {
-        profileMap[p.user_id] = p
-      })
+    if (userIds.length) {
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('user_id, player_name, position, is_public, subscription_tier')
+        .in('user_id', userIds)
+      for (const p of profiles || []) profileMap[p.user_id] = p
     }
 
-    // Filter out matches where we don't have profile access or strictly rely on what returned
-    // Since RLS handles visibility, matchesData should only contain allowed matches.
-    // But we might want to filter 'explore' tab to ONLY show public profiles if RLS is broader?
-    // The RLS policy I wrote allows viewing matches if profile is public. So we are good.
-
-    matches.value = matchesData.map(match => ({
+    matches.value = safeMatches.map(match => ({
       ...match,
       profile: profileMap[match.user_id] || { player_name: 'Unknown Player' }
     }))
 
-    // Eagerly batch-load every card's spatial data (3 queries total) so each
-    // card shows its shot map + heatmap immediately, like the home demo.
-    await loadAllShotData(matchesData.map(m => m.id))
+    // Build the unified, date-sorted timeline.
+    const matchFeedItems = matches.value.map(match => ({
+      type: 'match',
+      id: `m-${match.id}`,
+      date: match.match_date || match.created_at,
+      match
+    }))
+    const practiceFeedItems = practiceItems.map(item => ({
+      ...item,
+      profile: profileMap[item.user_id] || { player_name: 'Player' }
+    }))
+    feedItems.value = [...matchFeedItems, ...practiceFeedItems].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    )
+
+    // Eagerly batch-load every match card's spatial data so each card shows its
+    // shot map + heatmap immediately, like the home demo.
+    await loadAllShotData(safeMatches.map(m => m.id))
 
   } catch (error) {
     console.error('Error loading feed:', error)
   } finally {
     loading.value = false
+  }
+}
+
+// Practice milestones for the same follow-graph / public set as matches. One
+// item per drill (its most recent session, badged when that session is the
+// drill's personal best). RLS (migration 0025) gates cross-user reads — denied
+// rows return empty, so the feed simply falls back to matches-only.
+const loadPracticeActivity = async (following, followedIds) => {
+  try {
+    let drillQuery = supabase
+      .from('practice_drills')
+      .select('id, user_id, name, metric_type, unit, lower_is_better, target_value')
+    drillQuery = following
+      ? drillQuery.in('user_id', followedIds)
+      : drillQuery.neq('user_id', currentUser.value.id)
+    const { data: drills } = await drillQuery
+    if (!drills || drills.length === 0) return []
+
+    const drillIds = drills.map(d => d.id)
+    const { data: sessions } = await supabase
+      .from('practice_sessions')
+      .select('id, drill_id, user_id, session_date, primary_value, secondary_value')
+      .in('drill_id', drillIds)
+      .order('session_date', { ascending: false })
+      .limit(200)
+
+    const byDrill = {}
+    for (const s of sessions || []) {
+      if (!byDrill[s.drill_id]) byDrill[s.drill_id] = []
+      byDrill[s.drill_id].push(s)
+    }
+
+    const items = []
+    for (const drill of drills) {
+      const ds = byDrill[drill.id] || []
+      if (!ds.length) continue
+      const latest = latestSession(ds)
+      const best = personalBest(ds, drill)
+      if (!latest) continue
+      items.push({
+        type: 'practice',
+        id: `p-${drill.id}-${latest.id}`,
+        user_id: drill.user_id,
+        date: latest.session_date,
+        drill,
+        session: latest,
+        isPB: !!(best && best.id === latest.id && ds.length > 1),
+        valueText: formatValue(latest, drill)
+      })
+    }
+    return items
+  } catch (error) {
+    console.error('Error loading practice activity:', error)
+    return []
   }
 }
 
@@ -282,8 +376,8 @@ const loadAllShotData = async (matchIds) => {
   if (!matchIds || matchIds.length === 0) return
   try {
     const [goalsRes, shotsRes, heatmapRes] = await Promise.all([
-      supabase.from('goals').select('match_id, quadrant, field_position').in('match_id', matchIds),
-      supabase.from('shots').select('match_id, on_target, quadrant, field_position').in('match_id', matchIds),
+      supabase.from('goals').select('match_id, quadrant, placement, field_position').in('match_id', matchIds),
+      supabase.from('shots').select('match_id, on_target, quadrant, placement, field_position').in('match_id', matchIds),
       supabase.from('match_heatmap_points').select('match_id, x_pct, y_pct, event_type').in('match_id', matchIds)
     ])
     const groupByMatch = (rows) => {
@@ -315,8 +409,8 @@ const loadShotData = async (matchId) => {
   if (matchId == null || shotDataByMatch[matchId]) return
   try {
     const [goalsRes, shotsRes, heatmapRes] = await Promise.all([
-      supabase.from('goals').select('match_id, quadrant, field_position').eq('match_id', matchId),
-      supabase.from('shots').select('match_id, on_target, quadrant, field_position').eq('match_id', matchId),
+      supabase.from('goals').select('match_id, quadrant, placement, field_position').eq('match_id', matchId),
+      supabase.from('shots').select('match_id, on_target, quadrant, placement, field_position').eq('match_id', matchId),
       supabase.from('match_heatmap_points').select('x_pct, y_pct, event_type').eq('match_id', matchId)
     ])
     shotDataByMatch[matchId] = {
@@ -496,6 +590,19 @@ const formatEmail = (email) => {
   flex-direction: column;
   gap: var(--space-5);
 }
+
+/* Skeleton feed cards (mirror the pitch-card chrome). */
+.feed-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5);
+}
+.feed-skel__head { display: flex; align-items: center; gap: 12px; }
+.feed-skel__id { display: flex; flex-direction: column; gap: 6px; }
 
 .empty-state {
   text-align: center;

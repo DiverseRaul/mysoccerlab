@@ -8,7 +8,10 @@ import {
   latestSession,
   metricTypeLabel,
   metricTypeDescription,
-  targetLabel
+  targetLabel,
+  practiceStreak,
+  practiceTotals,
+  recentSessions
 } from '../../src/lib/practiceFormat.js'
 
 const drill = (overrides = {}) => ({
@@ -241,6 +244,113 @@ describe('targetLabel', () => {
     expect(targetLabel('time')).toMatch(/time/i)
     expect(targetLabel('distance')).toMatch(/distance/i)
     expect(targetLabel('speed')).toMatch(/speed/i)
+  })
+})
+
+describe('practiceStreak', () => {
+  const today = new Date('2026-06-12T12:00:00')
+
+  it('returns 0 with no sessions', () => {
+    expect(practiceStreak([], today)).toBe(0)
+  })
+
+  it('counts consecutive days ending today', () => {
+    const s = [
+      session({ session_date: '2026-06-12' }),
+      session({ session_date: '2026-06-11' }),
+      session({ session_date: '2026-06-10' })
+    ]
+    expect(practiceStreak(s, today)).toBe(3)
+  })
+
+  it('still counts when the latest session was yesterday (not yet trained today)', () => {
+    const s = [
+      session({ session_date: '2026-06-11' }),
+      session({ session_date: '2026-06-10' })
+    ]
+    expect(practiceStreak(s, today)).toBe(2)
+  })
+
+  it('returns 0 when the last session is older than yesterday (lapsed)', () => {
+    const s = [session({ session_date: '2026-06-09' })]
+    expect(practiceStreak(s, today)).toBe(0)
+  })
+
+  it('ignores gaps before the current run', () => {
+    const s = [
+      session({ session_date: '2026-06-12' }),
+      session({ session_date: '2026-06-11' }),
+      // gap on the 10th
+      session({ session_date: '2026-06-08' })
+    ]
+    expect(practiceStreak(s, today)).toBe(2)
+  })
+
+  it('treats multiple sessions on the same day as one', () => {
+    const s = [
+      session({ session_date: '2026-06-12' }),
+      session({ session_date: '2026-06-12' }),
+      session({ session_date: '2026-06-11' })
+    ]
+    expect(practiceStreak(s, today)).toBe(2)
+  })
+})
+
+describe('practiceTotals', () => {
+  it('returns zeros for empty input', () => {
+    expect(practiceTotals([], [])).toEqual({ activeDrills: 0, totalSessions: 0, pbDrills: 0 })
+  })
+
+  it('counts active drills and total sessions', () => {
+    const drills = [drill({ id: 1 }), drill({ id: 2 })]
+    const sessions = [
+      session({ id: 'a', drill_id: 1, primary_value: 10 }),
+      session({ id: 'b', drill_id: 2, primary_value: 20 })
+    ]
+    const t = practiceTotals(drills, sessions)
+    expect(t.activeDrills).toBe(2)
+    expect(t.totalSessions).toBe(2)
+  })
+
+  it('counts a drill as a PB only when its most recent session is its best', () => {
+    const drills = [drill({ id: 1 }), drill({ id: 2 })]
+    const sessions = [
+      // drill 1: improving, latest IS the PB
+      session({ id: 'a', drill_id: 1, primary_value: 20, session_date: '2026-05-01' }),
+      session({ id: 'b', drill_id: 1, primary_value: 60, session_date: '2026-06-01' }),
+      // drill 2: declining, latest is NOT the PB
+      session({ id: 'c', drill_id: 2, primary_value: 80, session_date: '2026-05-01' }),
+      session({ id: 'd', drill_id: 2, primary_value: 40, session_date: '2026-06-01' })
+    ]
+    expect(practiceTotals(drills, sessions).pbDrills).toBe(1)
+  })
+
+  it('does not count a single-session drill as a PB (needs ≥2)', () => {
+    const drills = [drill({ id: 1 })]
+    const sessions = [session({ id: 'a', drill_id: 1, primary_value: 50 })]
+    expect(practiceTotals(drills, sessions).pbDrills).toBe(0)
+  })
+})
+
+describe('recentSessions', () => {
+  it('returns the n newest sessions, newest first', () => {
+    const s = [
+      session({ id: 'old', session_date: '2026-01-01' }),
+      session({ id: 'new', session_date: '2026-09-01' }),
+      session({ id: 'mid', session_date: '2026-05-01' })
+    ]
+    const r = recentSessions(s, 2)
+    expect(r.map(x => x.id)).toEqual(['new', 'mid'])
+  })
+
+  it('defaults to 5 and tolerates short lists', () => {
+    const s = [session({ id: 'a' }), session({ id: 'b' })]
+    expect(recentSessions(s).length).toBe(2)
+  })
+
+  it('returns [] for empty/nullish input', () => {
+    expect(recentSessions(null)).toEqual([])
+    expect(recentSessions([])).toEqual([])
   })
 })
 

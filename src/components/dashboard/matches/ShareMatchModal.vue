@@ -183,6 +183,7 @@
 import { ref, computed } from 'vue'
 import html2canvas from 'html2canvas'
 import { calculateMatchRating, getRatingColor } from '../../../lib/rating'
+import { toast } from '../../../lib/toast'
 
 const SHARE_LINK = 'https://mysoccerlab.inove.studio'
 
@@ -348,7 +349,7 @@ const shareNative = async () => {
           text: summaryText.value
         })
       } else {
-        alert('Image sharing is not supported on this device.')
+        toast.error('Image sharing is not supported on this device.')
       }
     }, 'image/png')
   } catch (error) {

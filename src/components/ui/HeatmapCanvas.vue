@@ -1,23 +1,15 @@
 <template>
   <div class="heatmap-canvas" data-testid="heatmap-canvas">
-    <div class="heatmap-canvas__pitch">
-      <svg class="heatmap-canvas__markings" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true">
-        <rect x="1" y="1" width="98" height="148" rx="2" />
-        <line x1="1" y1="75" x2="99" y2="75" />
-        <circle cx="50" cy="75" r="12" fill="none" />
-        <rect x="25" y="1" width="50" height="22" fill="none" />
-        <rect x="40" y="1" width="20" height="8" fill="none" />
-        <rect x="25" y="127" width="50" height="22" fill="none" />
-        <rect x="40" y="141" width="20" height="8" fill="none" />
-      </svg>
+    <PitchSurface>
       <canvas ref="CanvasEl" class="heatmap-canvas__layer" :width="Width" :height="Height"></canvas>
       <p v-if="!points.length" class="heatmap-canvas__empty">No actions mapped</p>
-    </div>
+    </PitchSurface>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
+import PitchSurface from './PitchSurface.vue'
 
 const Props = defineProps({
   // [{ x_pct: 0-100, y_pct: 0-100 }] — any logged spatial action.
@@ -108,32 +100,6 @@ watch(() => Props.points, () => nextTick(Draw), { deep: true })
   width: 100%;
   max-width: 440px;
   margin: 0 auto;
-}
-
-.heatmap-canvas__pitch {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(34, 80, 50, 0.35), rgba(20, 24, 22, 0.95)),
-    var(--color-bg-field);
-}
-
-.heatmap-canvas__markings {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.heatmap-canvas__markings rect,
-.heatmap-canvas__markings line,
-.heatmap-canvas__markings circle {
-  stroke: rgba(255, 255, 255, 0.18);
-  stroke-width: 0.5;
-  fill: none;
 }
 
 .heatmap-canvas__layer {

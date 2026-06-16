@@ -49,21 +49,17 @@
       <!-- Actions: each individual action plotted + a per-type breakdown. -->
       <div v-else-if="View === 'actions'" class="mini-shotmap__actions" data-testid="mini-shotmap-actions">
         <div class="mini-shotmap__pitch">
-          <svg class="mini-shotmap__lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-            <rect x="1" y="1" width="98" height="98" class="pitch-line" rx="1.5" />
-            <rect x="28" y="1" width="44" height="20" class="pitch-line" />
-            <rect x="41" y="1" width="18" height="8" class="pitch-line" />
-            <line x1="1" y1="62" x2="99" y2="62" class="pitch-line" />
-          </svg>
-          <span
-            v-for="(m, i) in ActionMarkers"
-            :key="'a-' + i"
-            class="mini-shotmap__amarker"
-            :class="`is-${m.category}`"
-            :style="{ left: m.x + '%', top: m.y + '%' }"
-            :title="m.label"
-          ></span>
-          <p v-if="!ActionMarkers.length" class="mini-shotmap__sub-empty">No mapped actions</p>
+          <PitchSurface>
+            <span
+              v-for="(m, i) in ActionMarkers"
+              :key="'a-' + i"
+              class="mini-shotmap__amarker"
+              :class="`is-${m.category}`"
+              :style="{ left: m.x + '%', top: m.y + '%' }"
+              :title="m.label"
+            ></span>
+            <p v-if="!ActionMarkers.length" class="mini-shotmap__sub-empty">No mapped actions</p>
+          </PitchSurface>
         </div>
         <ul class="mini-shotmap__breakdown">
           <li v-for="a in ActionBreakdown" :key="a.type" class="mini-shotmap__breakdown-row">
@@ -81,50 +77,37 @@
           <figure class="mini-shotmap__panel">
             <figcaption class="mini-shotmap__cap">Shot origins</figcaption>
             <div class="mini-shotmap__pitch">
-              <svg class="mini-shotmap__lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                <rect x="1" y="1" width="98" height="98" class="pitch-line" rx="1.5" />
-                <rect x="28" y="1" width="44" height="20" class="pitch-line" />
-                <rect x="41" y="1" width="18" height="8" class="pitch-line" />
-                <line x1="1" y1="62" x2="99" y2="62" class="pitch-line" />
-                <line
-                  v-for="(s, i) in OnTargetTrajectories"
-                  :key="'t-shot-' + i"
-                  :x1="s.x" :y1="s.y" :x2="s.targetX" y2="1"
-                  class="traj traj--shot"
-                />
-                <line
-                  v-for="(g, i) in GoalTrajectories"
-                  :key="'t-goal-' + i"
-                  :x1="g.x" :y1="g.y" :x2="g.targetX" y2="1"
-                  class="traj traj--goal"
-                />
-              </svg>
-              <span
-                v-for="(m, i) in OriginMarkers"
-                :key="'m-' + i"
-                class="mini-shotmap__marker"
-                :class="`mini-shotmap__marker--${m.kind}`"
-                :style="{ left: m.x + '%', top: m.y + '%' }"
-              ></span>
-              <p v-if="!OriginMarkers.length" class="mini-shotmap__sub-empty">No mapped origins</p>
+              <PitchSurface>
+                <svg class="mini-shotmap__traj" viewBox="0 0 100 150" preserveAspectRatio="none" aria-hidden="true">
+                  <line
+                    v-for="(s, i) in OnTargetTrajectories"
+                    :key="'t-shot-' + i"
+                    :x1="s.x" :y1="s.y * 1.5" :x2="s.targetX" y2="1"
+                    class="traj traj--shot"
+                  />
+                  <line
+                    v-for="(g, i) in GoalTrajectories"
+                    :key="'t-goal-' + i"
+                    :x1="g.x" :y1="g.y * 1.5" :x2="g.targetX" y2="1"
+                    class="traj traj--goal"
+                  />
+                </svg>
+                <span
+                  v-for="(m, i) in OriginMarkers"
+                  :key="'m-' + i"
+                  class="mini-shotmap__marker"
+                  :class="`mini-shotmap__marker--${m.kind}`"
+                  :style="{ left: m.x + '%', top: m.y + '%' }"
+                ></span>
+                <p v-if="!OriginMarkers.length" class="mini-shotmap__sub-empty">No mapped origins</p>
+              </PitchSurface>
             </div>
           </figure>
 
-          <!-- Goal: 3x3 placement quadrants -->
+          <!-- Goal: free x,y placement (shared GoalNet) -->
           <figure class="mini-shotmap__panel">
             <figcaption class="mini-shotmap__cap">Placement</figcaption>
-            <div class="mini-shotmap__goal">
-              <div
-                v-for="q in 9"
-                :key="'q-' + q"
-                class="mini-shotmap__cell"
-                :class="{ 'is-hit': QuadrantGoals(q) + QuadrantShots(q) > 0 }"
-              >
-                <span v-if="QuadrantGoals(q)" class="mini-shotmap__pill mini-shotmap__pill--goal">{{ QuadrantGoals(q) }}</span>
-                <span v-if="QuadrantShots(q)" class="mini-shotmap__pill mini-shotmap__pill--shot">{{ QuadrantShots(q) }}</span>
-              </div>
-              <p v-if="!HasQuadrantData" class="mini-shotmap__sub-empty">No placements</p>
-            </div>
+            <GoalNet :markers="PlacementMarkers" :show-empty="true" />
           </figure>
         </div>
 
@@ -142,6 +125,8 @@
 import { computed, ref } from 'vue'
 import { ParseFieldPosition, GoalTargetXForQuadrant, CategoryForEvent, LabelForEvent } from '../../lib/matchEvents'
 import HeatmapCanvas from './HeatmapCanvas.vue'
+import GoalNet from './GoalNet.vue'
+import PitchSurface from './PitchSurface.vue'
 
 const Props = defineProps({
   goals: { type: Array, default: () => [] },
@@ -229,12 +214,29 @@ const OnTargetTrajectories = computed(() =>
     .map((s) => ({ x: s.pos.XPct, y: s.pos.YPct, targetX: GoalTargetXForQuadrant(s.quadrant) }))
 )
 
-// Quadrant placement counts (1–9)
-const QuadrantGoals = (q) => Props.goals.filter((g) => g.quadrant === q).length
-const QuadrantShots = (q) => Props.shots.filter((s) => s.quadrant === q && s.on_target !== false).length
-const HasQuadrantData = computed(() =>
-  Props.goals.some((g) => g.quadrant) || Props.shots.some((s) => s.quadrant && s.on_target !== false)
-)
+// Free x,y placement markers in the goal mouth (where the ball crossed the
+// line). Falls back from the legacy quadrant to a cell centre for old data.
+const QUADRANT_XY = { 1: [17, 25], 2: [50, 25], 3: [83, 25], 4: [17, 50], 5: [50, 50], 6: [83, 50], 7: [17, 78], 8: [50, 78], 9: [83, 78] }
+const placementXY = (row) => {
+  if (typeof row.placement === 'string' && row.placement.includes(',')) {
+    const [x, y] = row.placement.split(',').map(Number)
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x, y }
+  }
+  if (row.quadrant && QUADRANT_XY[row.quadrant]) {
+    const [x, y] = QUADRANT_XY[row.quadrant]
+    return { x, y }
+  }
+  return null
+}
+const PlacementMarkers = computed(() => {
+  const Out = []
+  for (const g of Props.goals) { const p = placementXY(g); if (p) Out.push({ ...p, kind: 'goal' }) }
+  for (const s of Props.shots) {
+    if (s.on_target === false) continue
+    const p = placementXY(s); if (p) Out.push({ ...p, kind: 'shot' })
+  }
+  return Out
+})
 </script>
 
 <style scoped>
@@ -401,27 +403,17 @@ const HasQuadrantData = computed(() =>
 }
 
 .mini-shotmap__pitch {
-  position: relative;
   width: 100%;
   max-width: 220px;
   margin: 0 auto;
-  aspect-ratio: 3 / 4;
-  background: var(--color-bg-field);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 
-.mini-shotmap__lines {
+.mini-shotmap__traj {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-}
-
-.pitch-line {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.18);
-  stroke-width: 0.6;
+  pointer-events: none;
 }
 
 .traj {
@@ -447,48 +439,33 @@ const HasQuadrantData = computed(() =>
 .mini-shotmap__marker--shot { background: var(--color-info); }
 .mini-shotmap__marker--off  { background: var(--color-danger); }
 
+/* Goal mouth with free x,y placement dots + a subtle net. */
 .mini-shotmap__goal {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 2px;
   width: 100%;
   max-width: 220px;
   margin: 0 auto;
   aspect-ratio: 3 / 2;
-  padding: 4px;
-  background: var(--color-bg-field);
-  border-radius: var(--radius-sm);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 2px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 100% 25%,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px) 0 0 / 12.5% 100%,
+    rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
 
-.mini-shotmap__cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-  transition: background 0.2s ease;
+.mini-shotmap__placement {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
-
-.mini-shotmap__cell.is-hit {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.14);
-}
-
-.mini-shotmap__pill {
-  min-width: 16px;
-  padding: 1px 5px;
-  border-radius: var(--radius-pill);
-  font-size: 0.62rem;
-  font-weight: var(--font-weight-bold);
-  line-height: 1.4;
-  text-align: center;
-}
-
-.mini-shotmap__pill--goal { background: var(--color-success); color: var(--color-on-accent); }
-.mini-shotmap__pill--shot { background: var(--color-info-bg, rgba(59,130,246,0.18)); color: var(--color-info); }
+.mini-shotmap__placement.is-goal { background: var(--color-success); }
+.mini-shotmap__placement.is-shot { background: var(--color-info); }
 
 .mini-shotmap__sub-empty {
   position: absolute;

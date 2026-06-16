@@ -171,9 +171,12 @@ import { useRouter } from 'vue-router'
 import { isPro } from '../../lib/premium'
 import { content, loadKey } from '../../lib/siteContent'
 import { getUsage, incrementUsage, MONTHLY_LIMIT } from '../../lib/proVision'
+import { ResolveSession } from '../../lib/authSession'
 import { marked } from 'marked'
 import { supabase } from '../../lib/supabase'
 import { generateCoachResponse, fileToGenerativePart } from '../../lib/gemini'
+import { practiceCoachSummary } from '../../lib/practiceFormat'
+import { parseCalendar } from '../../lib/trainingPlan'
 import {
   fetchConversations, createConversation, renameConversation, touchConversation,
   deleteConversation, fetchMessages, insertMessage, deleteMessage, setMessageFeedback, deriveTitle
@@ -196,6 +199,7 @@ const userId = ref(null)
 const userName = ref('')
 const userProfile = ref({ position: '', preferredFoot: '', clubTeam: '' })
 const matches = ref([])
+const practice = ref([])
 
 const conversations = ref([])
 const activeId = ref(null)
@@ -376,25 +380,8 @@ const sendSuggestion = (text) => {
   sendMessage()
 }
 
-// ── Training-plan parsing (kept from the old coach so plans render as cards) ──
-const parseCalendar = (text) => {
-  const pattern = /^((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Day\s*\d+|Session\s*\d+)\b.*?)(?=\n(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Day\s*\d+|Session\s*\d+)\b|$)/gims
-  const out = []
-  const clean = text.replace(/\r\n/g, '\n')
-  let m
-  pattern.lastIndex = 0
-  while ((m = pattern.exec(clean)) !== null) {
-    const lines = m[1].trim().split('\n').map((l) => l.trim()).filter(Boolean)
-    if (!lines.length) continue
-    const header = lines[0]
-    const sep = header.match(/^(.*?)(?:\s*[:–—-]\s*)(.+)$/)
-    const DayTitle = (sep ? sep[1] : header).replace(/^[#*]+\s*/, '').trim()
-    const FocusTheme = (sep ? sep[2].replace(/\*\*/g, '') : 'Training').trim()
-    const Drills = lines.slice(1).map((l) => l.replace(/^[-*•\d.]+\s*/, '').replace(/\*\*/g, '').trim()).filter(Boolean)
-    out.push({ DayTitle, FocusTheme, Drills })
-  }
-  return out
-}
+// Training-plan parsing lives in src/lib/trainingPlan.js (shared with the
+// Weekly Plan tab); see `import { parseCalendar }` above.
 
 // ── Send / receive ─────────────────────────────────────────────────
 // Shared assistant call. `parts` is the new turn; `promptText` is used only to
@@ -412,7 +399,7 @@ const runAssistant = async (parts, promptText) => {
 
     const sendParts = [...parts, { text: advancedMode.value && isPro.value ? DEPTH_HINT : BREVITY_HINT }]
     const responseText = await generateCoachResponse(
-      sendParts, matches.value, userName.value, userProfile.value, history, abortCtrl.signal
+      sendParts, matches.value, userName.value, userProfile.value, history, abortCtrl.signal, practice.value
     )
 
     const lower = (promptText || '').toLowerCase()
@@ -527,6 +514,19 @@ const loadMatches = async (uid) => {
   }))
 }
 
+// Practice drills + sessions, summarised so the coach can advise on training
+// even for a player with zero matches.
+const loadPractice = async (uid) => {
+  const { data: drills } = await supabase
+    .from('practice_drills').select('*').eq('user_id', uid).eq('archived', false)
+  if (!drills || !drills.length) { practice.value = []; return }
+  const drillIds = drills.map((d) => d.id)
+  const { data: sessions } = await supabase
+    .from('practice_sessions').select('*').in('drill_id', drillIds)
+    .order('session_date', { ascending: true })
+  practice.value = practiceCoachSummary(drills, sessions || [])
+}
+
 // Mock data for the preview harness (no auth / no Supabase).
 const previewMessages = {
   p1: [
@@ -550,8 +550,9 @@ onMounted(async () => {
     return
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) { router.push('/login'); return }
+  const session = await ResolveSession()
+  if (!session) { router.push('/login'); return }
+  const user = session.user
   userId.value = user.id
 
   const { data: profile } = await supabase
@@ -572,7 +573,7 @@ onMounted(async () => {
   if (!conversations.value.length) await newConversation()
   else await selectChat(conversations.value[0].id)
 
-  await loadMatches(user.id)
+  await Promise.all([loadMatches(user.id), loadPractice(user.id)])
   if (isPro.value) mediaUsed.value = await getUsage(user.id)
   scrollToBottom()
 })

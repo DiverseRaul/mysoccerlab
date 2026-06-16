@@ -574,6 +574,7 @@ import EventSummaryPanel from './dashboard/overview/EventSummaryPanel.vue'
 import ShareMatchModal from './dashboard/matches/ShareMatchModal.vue'
 import { EventActions, BuildLoggedEventCoordinates, ParseFieldPosition, IsInOwnBox, LabelForEvent, CategoryForEvent } from '../lib/matchEvents'
 import { expectedGoal, sumExpectedGoals } from '../lib/xg'
+import { toast } from '../lib/toast'
 
 const props = defineProps({
   matches: { type: Array, required: true },
@@ -1218,7 +1219,7 @@ const activeMatch = ref(null)
         emit('match-updated')
       } catch (error) {
         console.error('Error adding match:', error)
-        alert('Error adding match. Make sure your Supabase tables are set up correctly.')
+        toast.error('Error adding match. Make sure your Supabase tables are set up correctly.')
       }
     }
 
@@ -1672,22 +1673,23 @@ const activeMatch = ref(null)
       if (!activeMatch.value || !Coordinate) return
       if (Coordinate.Source === 'goal') {
         const { error } = await supabase.from('goals').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing goal:', error); return }
+        if (error) { console.error('Error removing goal:', error); flashToast('Couldn’t remove that event', 'danger'); return }
         await incrementStat('score_for', -1)
         matchGoals.value = matchGoals.value.filter((Goal) => Goal.id !== Coordinate.Id)
       } else if (Coordinate.Source === 'shot') {
         const { error } = await supabase.from('shots').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing shot:', error); return }
+        if (error) { console.error('Error removing shot:', error); flashToast('Couldn’t remove that event', 'danger'); return }
         matchShots.value = matchShots.value.filter((Shot) => Shot.id !== Coordinate.Id)
       } else if (Coordinate.Source === 'heatmap') {
         const { error } = await supabase.from('match_heatmap_points').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing heatmap point:', error); return }
+        if (error) { console.error('Error removing heatmap point:', error); flashToast('Couldn’t remove that event', 'danger'); return }
         MatchHeatmapPoints.value = MatchHeatmapPoints.value.filter((Point) => Point.id !== Coordinate.Id)
         // This exact pin is already gone — decrement the counter only (syncHeatmap
         // off so we don't also remove a second, unrelated pin of the same type).
         if (Coordinate.EventKey) await incrementStat(Coordinate.EventKey, -1, { syncHeatmap: false })
       }
       if (selectedEvent.value && selectedEvent.value.id === Coordinate.Id) selectedEvent.value = null
+      flashToast(`${Coordinate.Label || 'Event'} removed`)
     }
 
     const OnQuickIncrement = ({ Stat, Delta }) => incrementStat(Stat, Delta)

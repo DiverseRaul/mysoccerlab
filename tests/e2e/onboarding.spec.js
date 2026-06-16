@@ -24,39 +24,53 @@ async function gotoDashboardFresh(page) {
   return 'authenticated'
 }
 
-test('intro walks a new player through all steps and stays dismissed', async ({ page }) => {
+test('intro asks for a path, walks the Training tour, and opens Training mode', async ({ page }) => {
   const state = await gotoDashboardFresh(page)
   test.skip(state === 'unauthenticated', 'requires authenticated test user')
 
   const intro = page.getByTestId('welcome-intro')
   const introVisible = await intro.isVisible().catch(() => false)
-  test.skip(!introVisible, 'test user already has matches — intro is for new players only')
+  test.skip(!introVisible, 'intro already dismissed for this user')
 
-  // Walk forward through every step.
+  // Phase 1: choose a path.
+  await expect(page.getByTestId('intro-choose')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /what brings you here/i })).toBeVisible()
+  await page.getByTestId('intro-choice-training').click()
+
+  // Phase 2: the Training tour starts on the welcome step.
   await expect(page.getByRole('heading', { name: /welcome to the lab/i })).toBeVisible()
   await page.getByTestId('intro-next').click()
-  await expect(page.getByRole('heading', { name: /log your matches/i })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /pick a drill/i })).toBeVisible()
 
-  // Back works.
+  // Back to welcome, then walk forward to the end (step count varies by path).
   await page.getByTestId('intro-back').click()
   await expect(page.getByRole('heading', { name: /welcome to the lab/i })).toBeVisible()
-  await page.getByTestId('intro-next').click()
 
-  await page.getByTestId('intro-next').click()
-  await expect(page.getByRole('heading', { name: /map every shot/i })).toBeVisible()
-  await page.getByTestId('intro-next').click()
-  await expect(page.getByRole('heading', { name: /your rating, computed/i })).toBeVisible()
-  await page.getByTestId('intro-next').click()
-  await expect(page.getByRole('heading', { name: /ai coach/i })).toBeVisible()
-
-  // Final button closes it.
-  await page.getByTestId('intro-next').click()
+  for (let i = 0; i < 8 && await intro.isVisible().catch(() => false); i++) {
+    await page.getByTestId('intro-next').click()
+  }
   await expect(intro).not.toBeVisible()
 
-  // Dismissal persists across reloads.
+  // The chosen path put the dashboard into Training mode...
+  await expect(page.getByTestId('mode-training')).toHaveClass(/is-active/)
+  // ...and the dismissal persists across reloads.
   await page.reload()
   await page.waitForLoadState('networkidle')
   await expect(intro).not.toBeVisible()
+})
+
+test('back from the first tour step returns to the path chooser', async ({ page }) => {
+  const state = await gotoDashboardFresh(page)
+  test.skip(state === 'unauthenticated', 'requires authenticated test user')
+
+  const intro = page.getByTestId('welcome-intro')
+  const introVisible = await intro.isVisible().catch(() => false)
+  test.skip(!introVisible, 'intro already dismissed for this user')
+
+  await page.getByTestId('intro-choice-matches').click()
+  await expect(page.getByRole('heading', { name: /welcome to the lab/i })).toBeVisible()
+  await page.getByTestId('intro-back').click()
+  await expect(page.getByTestId('intro-choose')).toBeVisible()
 })
 
 test('skip dismisses the intro immediately', async ({ page }) => {
@@ -65,7 +79,7 @@ test('skip dismisses the intro immediately', async ({ page }) => {
 
   const intro = page.getByTestId('welcome-intro')
   const introVisible = await intro.isVisible().catch(() => false)
-  test.skip(!introVisible, 'test user already has matches — intro is for new players only')
+  test.skip(!introVisible, 'intro already dismissed for this user')
 
   await page.getByTestId('intro-skip').click()
   await expect(intro).not.toBeVisible()

@@ -1,88 +1,178 @@
 <template>
   <div class="intro-overlay" data-testid="welcome-intro" @click.self="Skip" @keydown.esc="Skip">
-    <div class="intro-card" role="dialog" aria-modal="true" :aria-label="`Intro step ${StepIndex + 1} of ${Steps.length}: ${CurrentStep.Title}`">
+    <div class="intro-card" role="dialog" aria-modal="true" :aria-label="ariaLabel">
       <button type="button" class="intro-skip" data-testid="intro-skip" @click="Skip">Skip intro</button>
 
-      <div class="intro-art" :key="StepIndex" v-html="CurrentStep.Icon"></div>
+      <!-- Phase 1: choose a path -->
+      <div v-if="phase === 'choose'" data-testid="intro-choose">
+        <div class="intro-art" v-html="ICON_BALL"></div>
+        <h2 class="intro-title">What brings you here?</h2>
+        <p class="intro-body">Pick what you want to start with — you can switch anytime.</p>
 
-      <p class="intro-count">{{ StepIndex + 1 }} / {{ Steps.length }}</p>
-      <h2 class="intro-title">{{ CurrentStep.Title }}</h2>
-      <p class="intro-body">{{ CurrentStep.Body }}</p>
-
-      <div class="intro-dots" aria-hidden="true">
-        <span
-          v-for="(Step, Index) in Steps"
-          :key="Step.Title"
-          class="intro-dot"
-          :class="{ 'is-active': Index === StepIndex }"
-        ></span>
+        <div class="intro-choices">
+          <button
+            v-for="c in Choices"
+            :key="c.key"
+            type="button"
+            class="intro-choice"
+            :data-testid="`intro-choice-${c.key}`"
+            @click="choose(c.key)"
+          >
+            <span class="intro-choice__icon" aria-hidden="true">{{ c.icon }}</span>
+            <span class="intro-choice__text">
+              <span class="intro-choice__title">{{ c.title }}</span>
+              <span class="intro-choice__desc">{{ c.desc }}</span>
+            </span>
+            <span class="intro-choice__chev" aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
 
-      <div class="intro-nav">
-        <button
-          v-if="StepIndex > 0"
-          type="button"
-          class="intro-btn intro-btn--ghost"
-          data-testid="intro-back"
-          @click="StepIndex--"
-        >Back</button>
-        <button
-          type="button"
-          class="intro-btn intro-btn--primary"
-          data-testid="intro-next"
-          @click="Next"
-        >{{ IsLastStep ? "Let's go" : 'Next' }}</button>
-      </div>
+      <!-- Phase 2: guided tour for the chosen path -->
+      <template v-else>
+        <div class="intro-art" :key="StepIndex" v-html="CurrentStep.Icon"></div>
+
+        <p class="intro-count">{{ StepIndex + 1 }} / {{ Steps.length }}</p>
+        <h2 class="intro-title">{{ CurrentStep.Title }}</h2>
+        <p class="intro-body">{{ CurrentStep.Body }}</p>
+
+        <div class="intro-dots" aria-hidden="true">
+          <span
+            v-for="(Step, Index) in Steps"
+            :key="Step.Title"
+            class="intro-dot"
+            :class="{ 'is-active': Index === StepIndex }"
+          ></span>
+        </div>
+
+        <div class="intro-nav">
+          <button
+            type="button"
+            class="intro-btn intro-btn--ghost"
+            data-testid="intro-back"
+            @click="Back"
+          >Back</button>
+          <button
+            type="button"
+            class="intro-btn intro-btn--primary"
+            data-testid="intro-next"
+            @click="Next"
+          >{{ IsLastStep ? "Let's go" : 'Next' }}</button>
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { content } from '../../lib/siteContent'
 
+// Emits 'Done' with the chosen focus ('matches' | 'training' | 'both') so the
+// dashboard can persist it and open in the matching mode. Skipping emits null.
 const Emit = defineEmits(['Done'])
 
-const Steps = [
-  {
-    Title: 'Welcome to the Lab',
-    Body: 'My Soccer Lab is your personal analytics HQ: log your matches, map every shot, and watch your game get measured like a pro’s. First stop — set your position in your Profile, because everything here is rated position-by-position.',
-    Icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7l4.5 3.3-1.7 5.4h-5.6L7.5 10.3z"/></svg>'
-  },
-  {
-    Title: 'Log your matches',
-    Body: 'After every game, open Dashboard → Matches and add it: score, position, minutes, key stats. It takes about thirty seconds while the result is still fresh.',
-    Icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><path d="M9 14.5l2 2 4-4"/></svg>'
-  },
-  {
-    Title: 'Map every shot',
-    Body: 'Drop your goals and shots on the pitch exactly where they happened — same as the demo on the home page. Over a season it builds your personal heatmap: where you score from, where you waste chances.',
-    Icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="1.5"/><line x1="5" y1="12" x2="19" y2="12"/><circle cx="12" cy="12" r="2.4"/><circle cx="14.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>'
-  },
-  {
-    Title: 'Your rating, computed',
-    Body: 'Every match gets a 1.0–10.0 rating from a position-aware engine — goals, passing, defending, mistakes, all of it. No mercy, no favours. Track it match by match and season by season.',
-    Icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>'
-  },
-  {
-    Title: 'AI Coach & The Pitch',
-    Body: 'The sparkle button opens your AI coach — it reads your actual numbers and builds training plans around your position. And on The Pitch, follow other players and see their matches in your feed.',
-    Icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></svg>'
-  }
-]
+// ── Icons ───────────────────────────────────────────────────────────────────
+const ICON_BALL    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7l4.5 3.3-1.7 5.4h-5.6L7.5 10.3z"/></svg>'
+const ICON_LOG     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><path d="M9 14.5l2 2 4-4"/></svg>'
+const ICON_SHOT    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="1.5"/><line x1="5" y1="12" x2="19" y2="12"/><circle cx="12" cy="12" r="2.4"/><circle cx="14.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>'
+const ICON_TREND   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>'
+const ICON_TARGET  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>'
+const ICON_REPEAT  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
+const ICON_SPARKLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></svg>'
 
-const StepIndex = ref(0)
-const CurrentStep = computed(() => Steps[StepIndex.value])
-const IsLastStep = computed(() => StepIndex.value === Steps.length - 1)
-
-const Next = () => {
-  if (IsLastStep.value) {
-    Emit('Done')
-  } else {
-    StepIndex.value++
-  }
+const COACH_STEP = {
+  Title: 'AI Coach & The Pitch',
+  Body: 'The AI Coach reads your actual numbers — matches, training, or both — and builds plans around your game. And on The Pitch you can follow other players and see their progress in your feed.',
+  Icon: ICON_SPARKLE
 }
 
-const Skip = () => Emit('Done')
+// ── Step sets, branched by the path the player picks ──────────────────────────
+const STEP_SETS = {
+  matches: [
+    { Title: 'Welcome to the Lab', Body: 'My Soccer Lab measures your game like a pro’s. First stop — set your position in your Profile, because everything here is rated position-by-position.', Icon: ICON_BALL },
+    { Title: 'Log your matches', Body: 'After every game, open Dashboard → Matches and add it: score, position, minutes, key stats. It takes about thirty seconds while the result is still fresh.', Icon: ICON_LOG },
+    { Title: 'Map every shot', Body: 'Drop your goals and shots on the pitch exactly where they happened. Over a season it builds your personal heatmap: where you score from, where you waste chances.', Icon: ICON_SHOT },
+    { Title: 'Your rating, computed', Body: 'Every match gets a 1.0–10.0 rating from a position-aware engine — goals, passing, defending, mistakes, all of it. No mercy, no favours.', Icon: ICON_TREND },
+    COACH_STEP
+  ],
+  training: [
+    { Title: 'Welcome to the Lab', Body: 'You don’t need a single match to start. The Training pillar lets you track any drill and watch yourself get better, session by session.', Icon: ICON_BALL },
+    { Title: 'Pick a drill', Body: 'Open Dashboard → Training → Drills and choose what you work on — juggles, sprint times, shooting accuracy, passing. Start from a preset or build your own.', Icon: ICON_TARGET },
+    { Title: 'Log a session', Body: 'Each time you practice, log the result — a count, a time, or shots placed on the goal. Thirty seconds and you’re done.', Icon: ICON_LOG },
+    { Title: 'Watch yourself improve', Body: 'Your Training overview tracks streaks, personal bests, and trend lines for every drill — proof you’re getting better, not just busy.', Icon: ICON_REPEAT },
+    COACH_STEP
+  ],
+  both: [
+    { Title: 'Welcome to the Lab', Body: 'Two ways to grow, in one place. Set your position in your Profile first — everything here is rated position-by-position.', Icon: ICON_BALL },
+    { Title: 'Track your matches', Body: 'Log games, map every shot, and get an honest 1.0–10.0 rating from a position-aware engine. Dashboard → Matches.', Icon: ICON_LOG },
+    { Title: 'Train between games', Body: 'Track drills — juggles, sprints, shooting — and watch streaks, personal bests and trends climb. Dashboard → Training.', Icon: ICON_TARGET },
+    COACH_STEP
+  ]
+}
+
+const CHOICES = [
+  { key: 'matches',  icon: '⚽', title: 'Track my matches',       desc: 'Log games, map shots, get rated.' },
+  { key: 'training', icon: '🎯', title: 'Improve through training', desc: 'Track drills and level up over time.' },
+  { key: 'both',     icon: '✨', title: 'Both',                    desc: 'Matches and training together.' }
+]
+
+// Icons stay in-component (admins edit copy, not raw SVG): resolved by path +
+// step index, with a fixed emoji per choice key.
+const ICON_BY_PATH = {
+  matches:  [ICON_BALL, ICON_LOG, ICON_SHOT, ICON_TREND, ICON_SPARKLE],
+  training: [ICON_BALL, ICON_TARGET, ICON_LOG, ICON_REPEAT, ICON_SPARKLE],
+  both:     [ICON_BALL, ICON_LOG, ICON_TARGET, ICON_SPARKLE]
+}
+const CHOICE_ICON = { matches: '⚽', training: '🎯', both: '✨' }
+
+const phase = ref('choose')        // 'choose' → 'tour'
+const focus = ref('both')
+const StepIndex = ref(0)
+
+// Choices + steps come from admin-editable site content, falling back to the
+// hardcoded constants so a missing/blank `intro` row never breaks onboarding.
+const Choices = computed(() => {
+  const fromContent = content.value?.intro?.choices
+  if (Array.isArray(fromContent) && fromContent.length) {
+    return fromContent.map(c => ({ ...c, icon: CHOICE_ICON[c.key] || '✦' }))
+  }
+  return CHOICES
+})
+
+const Steps = computed(() => {
+  const fromContent = content.value?.intro?.steps?.[focus.value]
+  const icons = ICON_BY_PATH[focus.value] || ICON_BY_PATH.both
+  if (Array.isArray(fromContent) && fromContent.length) {
+    return fromContent.map((s, i) => ({ Title: s.title, Body: s.body, Icon: icons[i] || ICON_BALL }))
+  }
+  return STEP_SETS[focus.value] || STEP_SETS.both
+})
+const CurrentStep = computed(() => Steps.value[StepIndex.value])
+const IsLastStep = computed(() => StepIndex.value === Steps.value.length - 1)
+const ariaLabel = computed(() =>
+  phase.value === 'choose'
+    ? 'Choose what to start with'
+    : `Intro step ${StepIndex.value + 1} of ${Steps.value.length}: ${CurrentStep.value.Title}`
+)
+
+const choose = (key) => {
+  focus.value = key
+  StepIndex.value = 0
+  phase.value = 'tour'
+}
+
+const Next = () => {
+  if (IsLastStep.value) Emit('Done', focus.value)
+  else StepIndex.value++
+}
+
+const Back = () => {
+  if (StepIndex.value > 0) StepIndex.value--
+  else phase.value = 'choose'   // back from the first tour step returns to the chooser
+}
+
+const Skip = () => Emit('Done', null)
 </script>
 
 <style scoped>
@@ -175,6 +265,52 @@ const Skip = () => Emit('Done')
   line-height: 1.65;
   color: var(--color-text-muted);
 }
+
+.intro-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 8px;
+  text-align: left;
+}
+
+.intro-choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.intro-choice:hover {
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
+  transform: translateY(-1px);
+}
+
+.intro-choice__icon {
+  font-size: 1.6rem;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-surface-3);
+  border-radius: var(--radius-md);
+}
+
+.intro-choice__text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.intro-choice__title { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); }
+.intro-choice__desc { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.intro-choice__chev { color: var(--color-accent); font-weight: var(--font-weight-bold); }
 
 .intro-dots {
   display: flex;

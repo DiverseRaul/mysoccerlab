@@ -57,6 +57,14 @@
                     <div class="demo-rating__bar"><span :style="{ width: '84%' }"></span></div>
                   </div>
 
+                  <!-- Training -->
+                  <div v-else-if="f.key === 'training'" class="demo-card demo-training">
+                    <div class="demo-training__row"><span>🔥 Current streak</span><strong>6 days</strong></div>
+                    <div class="demo-training__row"><span>🏅 Juggling PB</span><strong class="demo-xg__accent">120</strong></div>
+                    <div class="demo-training__bar"><span :style="{ width: '78%' }"></span></div>
+                    <div class="demo-training__caption">Shooting accuracy · trending ↑</div>
+                  </div>
+
                   <!-- xG -->
                   <div v-else-if="f.key === 'xg'" class="demo-card demo-xg">
                     <div class="demo-xg__row"><span>Goals</span><strong>3</strong></div>
@@ -503,6 +511,12 @@ onBeforeUnmount(() => {
 .demo-xg__row strong { font-size: var(--font-size-lg); font-weight: var(--font-weight-heavy); }
 .demo-xg__accent { color: var(--color-accent); }
 .demo-xg__verdict { margin-top: 14px; text-align: center; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-success); }
+
+.demo-training__row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--color-border-subtle); font-size: var(--font-size-base); color: var(--color-text-secondary); }
+.demo-training__row strong { font-size: var(--font-size-lg); font-weight: var(--font-weight-heavy); }
+.demo-training__bar { height: 8px; border-radius: 999px; background: var(--color-bg-surface-3); overflow: hidden; margin-top: 14px; }
+.demo-training__bar span { display: block; height: 100%; background: var(--color-accent); }
+.demo-training__caption { margin-top: 10px; text-align: center; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--color-success); }
 
 .demo-ai__bubble { display: flex; gap: 12px; text-align: left; }
 .demo-ai__spark { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--color-accent-soft); color: var(--color-accent); font-size: 1.1rem; }

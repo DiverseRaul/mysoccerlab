@@ -20,6 +20,7 @@ import AdminHome from './components/admin/sections/AdminHome.vue'
 import AdminPremium from './components/admin/sections/AdminPremium.vue'
 import AdminCoach from './components/admin/sections/AdminCoach.vue'
 import AdminFaq from './components/admin/sections/AdminFaq.vue'
+import AdminIntro from './components/admin/sections/AdminIntro.vue'
 import AdminUsers from './components/admin/sections/AdminUsers.vue'
 import AdminUserDetail from './components/admin/sections/AdminUserDetail.vue'
 import AdminMatches from './components/admin/sections/AdminMatches.vue'
@@ -51,6 +52,7 @@ const routes = [
       { path: 'premium', component: AdminPremium },
       { path: 'coach', component: AdminCoach },
       { path: 'faq', component: AdminFaq },
+      { path: 'intro', component: AdminIntro },
       { path: 'dashboard', component: AdminDashboard }
     ]
   },

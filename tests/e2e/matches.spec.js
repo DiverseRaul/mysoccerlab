@@ -14,11 +14,14 @@ import { test, expect } from '@playwright/test'
  */
 
 const isAuthConfigured = () => {
-  // global-setup writes tests/.auth/user.json only when VITE_TEST_EMAIL is set.
-  // Skip the authenticated suite when the file is absent so smoke remains green.
+  // global-setup always writes tests/.auth/user.json (so the auth projects can
+  // load a storageState), but only fills it with a real session when
+  // VITE_TEST_EMAIL is set. A signed-in state has at least one origin with
+  // stored localStorage; an empty state means "skip the authenticated suite".
   try {
-    require('node:fs').accessSync('tests/.auth/user.json')
-    return true
+    const raw = require('node:fs').readFileSync('tests/.auth/user.json', 'utf8')
+    const state = JSON.parse(raw)
+    return Array.isArray(state.origins) && state.origins.length > 0
   } catch {
     return false
   }
@@ -70,6 +73,9 @@ test.describe('authenticated', () => {
     await page.goto('/dashboard')
     await page.getByRole('button', { name: 'Matches' }).click()
     await page.locator('.match-card--row').first().click()
+    // The match logger now defaults to the map view (migration 0012); the
+    // stat-controls grid lives in the counters view, so switch to it.
+    await page.getByTestId('logger-view-counters').click()
     const grid = page.locator('.live-match-controls').first()
     await expect(grid).toBeVisible()
     const gridDisplay = await grid.evaluate(el => getComputedStyle(el).display)

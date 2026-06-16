@@ -39,7 +39,8 @@
       :aria-label="`Pitch with ${Coordinates.length} action${Coordinates.length === 1 ? '' : 's'} logged`"
       @click="OnCanvasClick"
     >
-      <svg class="match-map-logger__svg" viewBox="0 0 100 150" preserveAspectRatio="xMidYMid meet">
+      <PitchSurface class="match-map-logger__pitch" />
+      <svg class="match-map-logger__svg" viewBox="0 0 100 150" preserveAspectRatio="none">
         <defs>
           <radialGradient id="map-halo-positive" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.7" />
@@ -75,19 +76,8 @@
         <text x="50" y="41" text-anchor="middle" font-size="5" font-weight="700" letter-spacing="1.4" fill="color-mix(in srgb, var(--color-accent) 40%, transparent)" pointer-events="none">ATTACK</text>
         <text x="50" y="124" text-anchor="middle" font-size="4" font-weight="600" letter-spacing="1.2" fill="rgba(255,255,255,0.18)" pointer-events="none">YOUR HALF</text>
 
-        <rect x="1" y="1" width="98" height="148" fill="rgba(34, 80, 50, 0.22)" stroke="rgba(255,255,255,0.25)" stroke-width="0.6" rx="2" />
-        <line x1="1" y1="75" x2="99" y2="75" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="75" r="12" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="75" r="1" fill="rgba(255,255,255,0.4)" />
-
-        <rect x="25" y="1" width="50" height="22" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <rect x="40" y="1" width="20" height="8" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="15" r="0.8" fill="rgba(255,255,255,0.35)" />
-
-        <rect x="25" y="127" width="50" height="22" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <rect x="40" y="141" width="20" height="8" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="135" r="0.8" fill="rgba(255,255,255,0.35)" />
-
+        <!-- Pitch markings come from the shared PitchSurface beneath; this svg
+             only draws logging guidance + event overlays. -->
         <g class="match-map-logger__halos" style="mix-blend-mode: screen;">
           <circle
             v-for="(Coordinate, Index) in Coordinates"
@@ -145,8 +135,8 @@
         :AnchorX="PendingCoordinate.ClientX"
         :AnchorY="PendingCoordinate.ClientY"
         :HideAttackingActions="IsDefensiveHalf(PendingCoordinate.YPct)"
-        @Select="OnSelectAction"
-        @Cancel="CloseMenu"
+        @select="OnSelectAction"
+        @cancel="CloseMenu"
       />
     </div>
 
@@ -189,6 +179,7 @@
 import { ref, computed } from 'vue'
 import { ToPercentCoordinate, IsDefensiveHalf } from '../../../lib/matchEvents'
 import ShotField from '../../ui/ShotField.vue'
+import PitchSurface from '../../ui/PitchSurface.vue'
 import EventRadialMenu from './EventRadialMenu.vue'
 import HeatmapCanvas from '../../ui/HeatmapCanvas.vue'
 import MatchTimeline from './MatchTimeline.vue'
@@ -402,6 +393,9 @@ const OnDelete = () => {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* Shared pitch fills the canvas; the overlay svg + pins sit on top. */
+.match-map-logger__pitch { position: absolute; inset: 0; }
 
 .match-map-logger__canvas--log { cursor: crosshair; }
 

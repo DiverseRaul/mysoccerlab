@@ -56,6 +56,7 @@ import AddDrillModal from './AddDrillModal.vue'
 import EditDrillModal from './EditDrillModal.vue'
 import LogSessionModal from './LogSessionModal.vue'
 import DeleteDrillModal from './DeleteDrillModal.vue'
+import { toast } from '../../../lib/toast'
 
 defineProps({
   userName: { type: String, default: '' }
@@ -166,7 +167,7 @@ const onCreateDrill = async (form) => {
     }])
     .select()
     .single()
-  if (error) { console.error('Error creating drill:', error); alert('Could not create drill.'); return }
+  if (error) { console.error('Error creating drill:', error); toast.error('Could not create drill.'); return }
   drills.value = [data, ...drills.value]
   showAddDrill.value = false
 }
@@ -188,7 +189,7 @@ const onUpdateDrill = async (form) => {
     .eq('id', id)
     .select()
     .single()
-  if (error) { console.error('Error updating drill:', error); alert('Could not update drill.'); return }
+  if (error) { console.error('Error updating drill:', error); toast.error('Could not update drill.'); return }
   const idx = drills.value.findIndex(d => d.id === id)
   if (idx !== -1) drills.value.splice(idx, 1, data)
   selectedDrill.value = data
@@ -199,7 +200,7 @@ const onDeleteDrill = async () => {
   if (!selectedDrill.value) return
   const id = selectedDrill.value.id
   const { error } = await supabase.from('practice_drills').delete().eq('id', id)
-  if (error) { console.error('Error deleting drill:', error); alert('Could not delete drill.'); return }
+  if (error) { console.error('Error deleting drill:', error); toast.error('Could not delete drill.'); return }
   drills.value = drills.value.filter(d => d.id !== id)
   sessions.value = sessions.value.filter(s => s.drill_id !== id)
   placements.value = placements.value.filter(p => p.drill_id !== id)
@@ -226,7 +227,7 @@ const onLogSession = async (form) => {
     .insert([payload])
     .select()
     .single()
-  if (error) { console.error('Error logging session:', error); alert('Could not log session.'); return }
+  if (error) { console.error('Error logging session:', error); toast.error('Could not log session.'); return }
   sessions.value = [...sessions.value, sessionRow].sort(
     (a, b) => new Date(a.session_date) - new Date(b.session_date)
   )
@@ -247,7 +248,7 @@ const onLogSession = async (form) => {
       .select()
     if (placementError) {
       console.error('Error saving shot placements:', placementError)
-      alert('Session saved but shot placements failed to save.')
+      toast.error('Session saved but shot placements failed to save.')
     } else if (placementRows) {
       placements.value = [...placements.value, ...placementRows]
     }
@@ -258,7 +259,7 @@ const onLogSession = async (form) => {
 
 const deleteSession = async (sessionId) => {
   const { error } = await supabase.from('practice_sessions').delete().eq('id', sessionId)
-  if (error) { console.error('Error deleting session:', error); alert('Could not delete session.'); return }
+  if (error) { console.error('Error deleting session:', error); toast.error('Could not delete session.'); return }
   sessions.value = sessions.value.filter(s => s.id !== sessionId)
   placements.value = placements.value.filter(p => p.session_id !== sessionId)
 }

@@ -33,7 +33,8 @@
       :aria-label="`Pitch with ${Points.length} action${Points.length === 1 ? '' : 's'} logged`"
       @click="OnCanvasClick"
     >
-      <svg class="heatmap-field__svg" viewBox="0 0 100 150" preserveAspectRatio="xMidYMid meet">
+      <PitchSurface class="heatmap-field__pitch" />
+      <svg class="heatmap-field__svg" viewBox="0 0 100 150" preserveAspectRatio="none">
         <defs>
           <radialGradient id="heatmap-halo-positive" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.7" />
@@ -56,19 +57,7 @@
           </radialGradient>
         </defs>
 
-        <rect x="1" y="1" width="98" height="148" fill="rgba(34, 80, 50, 0.22)" stroke="rgba(255,255,255,0.25)" stroke-width="0.6" rx="2" />
-        <line x1="1" y1="75" x2="99" y2="75" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="75" r="12" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="75" r="1" fill="rgba(255,255,255,0.4)" />
-
-        <rect x="25" y="1" width="50" height="22" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <rect x="40" y="1" width="20" height="8" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="15" r="0.8" fill="rgba(255,255,255,0.35)" />
-
-        <rect x="25" y="127" width="50" height="22" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <rect x="40" y="141" width="20" height="8" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.5" />
-        <circle cx="50" cy="135" r="0.8" fill="rgba(255,255,255,0.35)" />
-
+        <!-- Pitch markings come from the shared PitchSurface beneath. -->
         <g style="mix-blend-mode: screen;">
           <circle
             v-for="(Point, Index) in Points"
@@ -101,6 +90,7 @@
 <script setup>
 import { ref } from 'vue'
 import { CategoryForEvent, LabelForEvent } from '../../../lib/matchEvents'
+import PitchSurface from '../../ui/PitchSurface.vue'
 
 const EventTypes = [
   { Key: 'successful_passes', Label: 'Pass', Category: 'positive' },
@@ -253,6 +243,8 @@ const OnCanvasClick = (Event) => {
   overflow: hidden;
   background: var(--color-bg-field);
 }
+
+.heatmap-field__pitch { position: absolute; inset: 0; }
 
 .heatmap-field__canvas--interactive {
   cursor: crosshair;

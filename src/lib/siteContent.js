@@ -10,21 +10,22 @@ export const DEFAULTS = {
   home: {
     hero: {
       eyebrow: 'My Soccer Lab',
-      title: 'Your season,',
+      title: 'Your game,',
       titleAccent: 'measured.',
-      sub: 'Log every match, map every shot, and get an honest rating, xG, heatmaps, and AI coaching built around your position.',
-      ctaPrimary: 'Start your season',
+      sub: 'Track your matches and your training in one place — honest ratings, shot maps and xG on game day, drills, streaks and personal bests in between, with AI coaching across both.',
+      ctaPrimary: 'Start for free',
       scrollHint: 'Scroll to see how it works ↓'
     },
-    showcase: { eyebrow: 'How it works', title: 'Everything, one match at a time.' },
+    showcase: { eyebrow: 'How it works', title: 'Two ways to get better.' },
     features: [
       { key: 'heatmap', tag: 'Heatmap', title: 'Every touch, mapped.', text: 'Tap the pitch to log where it happened. Over a season it builds a heatmap of exactly where you played, scored, and defended.' },
+      { key: 'training', tag: 'Training', title: 'Train, even without a match.', text: 'Track any drill — juggles, sprints, shooting accuracy — and watch streaks, personal bests and trends climb. No match needed to get value.' },
       { key: 'rating', tag: 'Match rating', title: 'An honest 1–10 rating.', text: 'A position-aware engine weighs your goals, passing, defending and mistakes.' },
       { key: 'xg', tag: 'Expected goals', title: 'xG on every shot.', text: 'See how likely each chance was to score, and whether you’re finishing clinically or leaving goals out.' },
-      { key: 'ai', tag: 'AI coach', title: 'Coaching that reads your game.', text: 'The AI coach studies your real numbers and your position, then builds training plans around what you actually need.' },
-      { key: 'feed', tag: 'The Pitch', title: 'Share it on The Pitch.', text: 'Follow other players and see their matches roll into your feed as match-report cards.' }
+      { key: 'ai', tag: 'AI coach', title: 'Coaching that reads your game.', text: 'The AI coach studies your real numbers — matches, training, or both — and your position, then builds plans around what you actually need.' },
+      { key: 'feed', tag: 'The Pitch', title: 'Share it on The Pitch.', text: 'Follow other players and see their matches and training milestones roll into your feed.' }
     ],
-    ctaBand: { title: 'Every match deserves this treatment.', sub: 'Start logging — your rating, heatmap, and AI coach are one match away.' }
+    ctaBand: { title: 'Built for game day and the days between.', sub: 'Log a match or track a drill — your ratings, progress, and AI coach are one tap away.' }
   },
 
   premium: {
@@ -74,6 +75,42 @@ export const DEFAULTS = {
       { q: 'Is my data safe and can I delete it?', a: 'Your data is private by default and protected by row-level security. You can edit or delete matches anytime, and delete your whole account from the Profile page.' },
       { q: 'Does the AI Coach really use my stats?', a: 'Yes — it reads your actual match history and position, so its advice and training plans are about your game, not generic tips.' }
     ]
+  },
+
+  intro: {
+    // New-player welcome intro. `enabled` is the master switch; when
+    // `forceShowForAdmins` is on, admins re-see the intro on every dashboard
+    // load (for testing) while normal users still see it once. Icons live in
+    // WelcomeIntro.vue (keyed by path + index) so only copy is admin-editable.
+    enabled: true,
+    forceShowForAdmins: false,
+    choices: [
+      { key: 'matches',  title: 'Track my matches',        desc: 'Log games, map shots, get rated.' },
+      { key: 'training', title: 'Improve through training', desc: 'Track drills and level up over time.' },
+      { key: 'both',     title: 'Both',                     desc: 'Matches and training together.' }
+    ],
+    steps: {
+      matches: [
+        { title: 'Welcome to the Lab', body: 'My Soccer Lab measures your game like a pro’s. First stop — set your position in your Profile, because everything here is rated position-by-position.' },
+        { title: 'Log your matches', body: 'After every game, open Dashboard → Matches and add it: score, position, minutes, key stats. It takes about thirty seconds while the result is still fresh.' },
+        { title: 'Map every shot', body: 'Drop your goals and shots on the pitch exactly where they happened. Over a season it builds your personal heatmap: where you score from, where you waste chances.' },
+        { title: 'Your rating, computed', body: 'Every match gets a 1.0–10.0 rating from a position-aware engine — goals, passing, defending, mistakes, all of it. No mercy, no favours.' },
+        { title: 'AI Coach & The Pitch', body: 'The AI Coach reads your actual numbers — matches, training, or both — and builds plans around your game. And on The Pitch you can follow other players and see their progress in your feed.' }
+      ],
+      training: [
+        { title: 'Welcome to the Lab', body: 'You don’t need a single match to start. The Training pillar lets you track any drill and watch yourself get better, session by session.' },
+        { title: 'Pick a drill', body: 'Open Dashboard → Training → Drills and choose what you work on — juggles, sprint times, shooting accuracy, passing. Start from a preset or build your own.' },
+        { title: 'Log a session', body: 'Each time you practice, log the result — a count, a time, or shots placed on the goal. Thirty seconds and you’re done.' },
+        { title: 'Watch yourself improve', body: 'Your Training overview tracks streaks, personal bests, and trend lines for every drill — proof you’re getting better, not just busy.' },
+        { title: 'AI Coach & The Pitch', body: 'The AI Coach reads your actual numbers — matches, training, or both — and builds plans around your game. And on The Pitch you can follow other players and see their progress in your feed.' }
+      ],
+      both: [
+        { title: 'Welcome to the Lab', body: 'Two ways to grow, in one place. Set your position in your Profile first — everything here is rated position-by-position.' },
+        { title: 'Track your matches', body: 'Log games, map every shot, and get an honest 1.0–10.0 rating from a position-aware engine. Dashboard → Matches.' },
+        { title: 'Train between games', body: 'Track drills — juggles, sprints, shooting — and watch streaks, personal bests and trends climb. Dashboard → Training.' },
+        { title: 'AI Coach & The Pitch', body: 'The AI Coach reads your actual numbers — matches, training, or both — and builds plans around your game. And on The Pitch you can follow other players and see their progress in your feed.' }
+      ]
+    }
   },
 
   dashboard: {

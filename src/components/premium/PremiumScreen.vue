@@ -115,6 +115,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../../lib/supabase'
 import { content, loadKey } from '../../lib/siteContent'
+import { ResolveSession } from '../../lib/authSession'
 import RevealOnScroll from '../home/RevealOnScroll.vue'
 import ProBadge from '../ui/ProBadge.vue'
 
@@ -167,8 +168,8 @@ const notify = async () => {
 
 onMounted(async () => {
   if (props.previewMode) { loadKey('premium'); return }
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) { router.push('/login'); return }
+  const session = await ResolveSession()
+  if (!session) { router.push('/login'); return }
   loadKey('premium')
 })
 </script>

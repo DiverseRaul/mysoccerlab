@@ -132,3 +132,110 @@ export function personalBest(sessions, drill) {
 export function latestSession(sessions) {
   return sortByDateAsc(sessions).slice(-1)[0] || null
 }
+
+// ── Cross-drill aggregates (Training Overview) ──────────────────────────────
+// All side-effect-free. Dates are the DATE strings ('YYYY-MM-DD') stored on
+// sessions; `today` is injectable so the streak logic is deterministic to test.
+
+// Normalise either a 'YYYY-MM-DD' string or a Date to a local-day key, avoiding
+// the UTC-parse shift that `new Date('YYYY-MM-DD')` introduces.
+function toDayKey(value) {
+  const d = value instanceof Date ? value : new Date(`${value}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function addDays(date, n) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + n)
+  return d
+}
+
+// Current streak = consecutive calendar days (ending today or yesterday) that
+// have at least one logged session. Returns 0 if the last session is older than
+// yesterday (the streak has lapsed). `today` defaults to now but is injectable.
+export function practiceStreak(sessions, today = new Date()) {
+  if (!sessions || sessions.length === 0) return 0
+  const days = new Set(sessions.map(s => toDayKey(s.session_date)).filter(Boolean))
+  if (days.size === 0) return 0
+
+  let cursor
+  if (days.has(toDayKey(today))) cursor = new Date(today)
+  else if (days.has(toDayKey(addDays(today, -1)))) cursor = addDays(today, -1)
+  else return 0
+
+  let streak = 0
+  while (days.has(toDayKey(cursor))) {
+    streak++
+    cursor = addDays(cursor, -1)
+  }
+  return streak
+}
+
+// Headline counters for the Training Overview. `pbDrills` counts drills whose
+// most recent session is also their personal best (i.e. currently peaking) —
+// needs ≥2 sessions to be meaningful.
+export function practiceTotals(drills, sessions) {
+  const list = drills || []
+  const byDrill = {}
+  for (const s of sessions || []) {
+    if (!byDrill[s.drill_id]) byDrill[s.drill_id] = []
+    byDrill[s.drill_id].push(s)
+  }
+  let pbDrills = 0
+  for (const drill of list) {
+    const ds = byDrill[drill.id] || []
+    if (ds.length < 2) continue
+    const pb = personalBest(ds, drill)
+    const latest = latestSession(ds)
+    if (pb && latest && pb.id === latest.id) pbDrills++
+  }
+  return {
+    activeDrills: list.length,
+    totalSessions: (sessions || []).length,
+    pbDrills,
+  }
+}
+
+// Compact, already-formatted practice summary for the AI Coach. Sent to the
+// edge function so it can build a PRACTICE LOG without re-deriving anything.
+// One entry per drill: latest value, personal best, trend, accuracy, volume.
+export function practiceCoachSummary(drills, sessions) {
+  const byDrill = {}
+  for (const s of sessions || []) {
+    if (!byDrill[s.drill_id]) byDrill[s.drill_id] = []
+    byDrill[s.drill_id].push(s)
+  }
+  return (drills || []).map(drill => {
+    const ds = byDrill[drill.id] || []
+    const latest = latestSession(ds)
+    const best = personalBest(ds, drill)
+    const trend = computeTrend(ds, drill)
+    return {
+      name: drill.name,
+      metricType: drill.metric_type,
+      unit: drill.unit || null,
+      target: drill.target_value ?? null,
+      lowerIsBetter: !!drill.lower_is_better,
+      sessions: ds.length,
+      latest: latest ? formatValue(latest, drill) : null,
+      latestDate: latest?.session_date || null,
+      best: best ? formatValue(best, drill) : null,
+      accuracy: latest ? accuracyPct(latest) : null,
+      trend: trend.direction,
+    }
+  })
+}
+
+// The n most recent sessions across all drills, newest first. Ties on the same
+// date fall back to insertion id (later-created first) so order is stable.
+export function recentSessions(sessions, n = 5) {
+  return [...(sessions || [])]
+    .sort((a, b) =>
+      new Date(b.session_date) - new Date(a.session_date) || (b.id || 0) - (a.id || 0)
+    )
+    .slice(0, n)
+}

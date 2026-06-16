@@ -12,18 +12,39 @@ import { test, expect } from '@playwright/test'
  */
 
 const isAuthConfigured = () => {
+  // See matches.spec.js: the file always exists, but only counts as configured
+  // when it holds a real (non-empty) signed-in session.
   try {
-    require('node:fs').accessSync('tests/.auth/user.json')
-    return true
+    const raw = require('node:fs').readFileSync('tests/.auth/user.json', 'utf8')
+    const state = JSON.parse(raw)
+    return Array.isArray(state.origins) && state.origins.length > 0
   } catch {
     return false
   }
+}
+
+// Existing pins render from already-loaded match data after the map mounts,
+// so a plain count() races the render (and the seeded match may already hold
+// pins from earlier runs). Poll until the count stops changing.
+async function settledPinCount(page) {
+  const pins = page.getByTestId('logged-event-pin')
+  let prev = -1
+  let cur = await pins.count()
+  for (let i = 0; i < 12 && cur !== prev; i++) {
+    prev = cur
+    await page.waitForTimeout(150)
+    cur = await pins.count()
+  }
+  return cur
 }
 
 async function openFirstMatch(page) {
   await page.goto('/dashboard')
   await page.waitForLoadState('networkidle')
   if (page.url().includes('/login')) return false
+  // Dismiss the welcome intro if present — its choice buttons also match
+  // "Matches" and would make the tab click ambiguous (strict-mode violation).
+  await page.getByTestId('intro-skip').click({ timeout: 1500 }).catch(() => {})
   await page.getByRole('button', { name: 'Matches' }).click()
   const firstCard = page.locator('.match-card--row').first()
   if (!(await firstCard.count())) return false
@@ -66,7 +87,7 @@ test.describe('authenticated', () => {
 
     const summary = page.getByTestId('event-summary-tackles')
     const before = parseInt((await summary.textContent()).trim(), 10)
-    const pinsBefore = await page.getByTestId('logged-event-pin').count()
+    const pinsBefore = await settledPinCount(page)
 
     const box = await canvas.boundingBox()
     await canvas.click({ position: { x: box.width * 0.35, y: box.height * 0.55 } })
@@ -96,7 +117,8 @@ test.describe('authenticated', () => {
 
     await page.getByTestId('logger-view-map').click()
     const canvas = page.locator('.match-map-logger__canvas')
-    const pinsBefore = await page.getByTestId('logged-event-pin').count()
+    await expect(canvas).toBeVisible()
+    const pinsBefore = await settledPinCount(page)
 
     const box = await canvas.boundingBox()
     await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.4 } })

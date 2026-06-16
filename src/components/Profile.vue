@@ -27,7 +27,15 @@
             <template v-else>Auto-saves as you type</template>
           </span>
         </div>
-        <div v-if="user" class="profile-content">
+        <!-- Skeleton while the session + profile resolve. -->
+        <div v-if="loading" class="profile-skel" aria-hidden="true">
+          <Skeleton width="100px" height="100px" radius="50%" />
+          <div class="profile-skel__fields">
+            <Skeleton v-for="n in 6" :key="'pf' + n" width="100%" height="48px" radius="12px" />
+          </div>
+        </div>
+
+        <div v-else-if="user" class="profile-content">
           <!-- Profile Picture Section -->
           <div class="avatar-section">
             <div class="avatar-wrapper">
@@ -256,7 +264,7 @@
             <span class="info-label">Accent colour</span>
             <span v-if="!showPro" class="pro-tag">PRO</span>
           </div>
-          <p class="pro-hint">Recolour the app’s highlights to match your style.</p>
+          <p class="pro-hint">Pick a theme colour to recolour the app’s highlights.</p>
           <div class="accent-row">
             <button
               v-for="c in accentPresets"
@@ -268,10 +276,6 @@
               :title="c"
               @click="showPro ? selectAccent(c) : goPremium()"
             ></button>
-            <label class="accent-custom" :class="{ 'is-disabled': !showPro }" title="Custom colour">
-              <span class="accent-custom__plus">+</span>
-              <input type="color" :value="accent || '#4cda9c'" :disabled="!showPro" @input="(e) => { accent = e.target.value }" @change="saveAccent" />
-            </label>
             <button v-if="showPro && accent" type="button" class="accent-reset" @click="resetAccent">Reset</button>
           </div>
         </div>
@@ -288,6 +292,23 @@
           <label class="switch" :class="{ 'is-disabled': !showPro }">
             <input type="checkbox" v-model="earlyAccessOn" :disabled="!showPro" @change="toggleEarlyAccess" />
             <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Data export / import -->
+      <div class="profile-section card-glass">
+        <div class="section-header section-header--row">
+          <h3>💾 Your data</h3>
+        </div>
+        <p class="pro-section-desc">Download everything you’ve logged as a file, or bring it into another account. Importing <strong>adds</strong> to your current data — it never overwrites or deletes anything.</p>
+        <div class="data-actions">
+          <button type="button" class="btn btn-secondary" :disabled="dataBusy" @click="doExport">
+            {{ exporting ? 'Preparing…' : 'Export my data' }}
+          </button>
+          <label class="btn btn-ghost data-import" :class="{ 'is-disabled': dataBusy }">
+            Import from file
+            <input type="file" accept="application/json,.json" :disabled="dataBusy" @change="onImportFile" />
           </label>
         </div>
       </div>
@@ -349,17 +370,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Import preview / confirm -->
+    <Teleport to="body">
+      <div v-if="importPreview" class="data-modal" @click.self="cancelImport">
+        <div class="data-modal__box" role="dialog" aria-modal="true">
+          <h3 class="data-modal__title">Import this data?</h3>
+          <p class="data-modal__msg">This file contains:</p>
+          <ul class="data-modal__list">
+            <li><strong>{{ importPreview.summary.matches }}</strong> matches</li>
+            <li><strong>{{ importPreview.summary.goals }}</strong> goals · <strong>{{ importPreview.summary.shots }}</strong> shots</li>
+            <li><strong>{{ importPreview.summary.seasons }}</strong> seasons</li>
+            <li><strong>{{ importPreview.summary.practiceSessions }}</strong> practice sessions across <strong>{{ importPreview.summary.practiceDrills }}</strong> drills</li>
+          </ul>
+          <p class="data-modal__note">It will be added to your account. This can create duplicates if you import the same file twice.</p>
+          <div class="data-modal__actions">
+            <button type="button" class="btn btn-ghost" :disabled="importing" @click="cancelImport">Cancel</button>
+            <button type="button" class="btn btn-primary" :disabled="importing" @click="confirmImport">
+              {{ importing ? (importStep || 'Importing…') : 'Import' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
+import { toast } from '../lib/toast'
+import { exportUserData, downloadJson, readJsonFile, summarize, isValidExport, importUserData } from '../lib/dataTransfer'
+import { ResolveSession } from '../lib/authSession'
 import { useRouter } from 'vue-router'
 import PageHero from './ui/PageHero.vue'
 import ProBadge from './ui/ProBadge.vue'
 import PeerPercentilesTile from './dashboard/overview/PeerPercentilesTile.vue'
 import ProfileAnalyticsTile from './dashboard/overview/ProfileAnalyticsTile.vue'
+import Skeleton from './ui/Skeleton.vue'
 import { isPro, accentColor, earlyAccess, setAccent, setEarlyAccess, loadEntitlements } from '../lib/premium'
 import { getShareState, enableShare, disableShare, regenerateShare, shareUrl } from '../lib/shareLink'
 
@@ -368,13 +416,14 @@ const ACCENT_PRESETS = ['#4cda9c', '#3b82f6', '#a855f7', '#f43f5e', '#f59e0b', '
 
 export default {
   name: 'ProfileView',
-  components: { PageHero, ProBadge, PeerPercentilesTile, ProfileAnalyticsTile },
+  components: { PageHero, ProBadge, PeerPercentilesTile, ProfileAnalyticsTile, Skeleton },
   props: {
     // Harness-only: render the screen without an auth redirect / server loads.
     previewMode: { type: Boolean, default: false }
   },
   setup(props) {
     const user = ref(null)
+    const loading = ref(true) // true until session + profile have resolved
     const router = useRouter()
 
     // Lab Pro: single accent colour + early access.
@@ -421,6 +470,57 @@ export default {
     const syncProState = () => {
       accent.value = accentColor.value || ''
       earlyAccessOn.value = earlyAccess.value
+    }
+
+    // Data export / import.
+    const exporting = ref(false)
+    const importing = ref(false)
+    const importStep = ref('')
+    const importPreview = ref(null)
+    const dataBusy = computed(() => exporting.value || importing.value)
+
+    const doExport = async () => {
+      exporting.value = true
+      try {
+        const payload = await exportUserData()
+        const stamp = new Date().toISOString().slice(0, 10)
+        downloadJson(payload, `mysoccerlab-${stamp}.json`)
+        toast.success('Your data file is downloading.')
+      } catch (e) {
+        toast.error(e.message || 'Export failed.')
+      } finally {
+        exporting.value = false
+      }
+    }
+
+    const onImportFile = async (event) => {
+      const file = event.target.files?.[0]
+      event.target.value = '' // allow re-picking the same file
+      if (!file) return
+      try {
+        const payload = await readJsonFile(file)
+        if (!isValidExport(payload)) { toast.error('That isn’t a My Soccer Lab export file.'); return }
+        importPreview.value = { payload, summary: summarize(payload) }
+      } catch (e) {
+        toast.error(e.message || 'Couldn’t read that file.')
+      }
+    }
+
+    const cancelImport = () => { if (!importing.value) importPreview.value = null }
+
+    const confirmImport = async () => {
+      if (!importPreview.value) return
+      importing.value = true
+      try {
+        const res = await importUserData(importPreview.value.payload, (s) => { importStep.value = s + '…' })
+        importPreview.value = null
+        toast.success(`Imported ${res.matches} matches and ${res.sessions} practice sessions.`)
+      } catch (e) {
+        toast.error(e.message || 'Import failed.')
+      } finally {
+        importing.value = false
+        importStep.value = ''
+      }
     }
     // 'idle' | 'saving' | 'saved' | 'error' — drives the inline auto-save chip.
     const saveStatus = ref('idle')
@@ -491,22 +591,30 @@ export default {
         syncProState()
         shareEnabled.value = true
         shareToken.value = 'demo-share-token-abc123'
+        loading.value = false
         return
       }
-      const { data: { session } } = await supabase.auth.getSession()
+      // ResolveSession retries the cold-start race so we don't render an empty
+      // profile / bounce to /login when the session just hasn't rehydrated yet.
+      const session = await ResolveSession()
       if (session) {
         user.value = session.user
-        await loadProfile()
-        await loadEntitlements(session.user.id)
+        // Independent fetches run together instead of one-after-another.
+        const [, , share] = await Promise.all([
+          loadProfile(session.user.id),
+          loadEntitlements(session.user.id),
+          getShareState()
+        ])
         syncProState()
-        const s = await getShareState()
-        shareToken.value = s.token
-        shareEnabled.value = s.enabled
+        shareToken.value = share?.token ?? null
+        shareEnabled.value = !!share?.enabled
+        loading.value = false
         // Let the load assignment settle before arming the auto-save watcher.
         await nextTick()
         ready = true
         watch(editableProfile, scheduleSave, { deep: true })
       } else {
+        loading.value = false
         router.push('/login')
       }
     })
@@ -516,15 +624,15 @@ export default {
       if (statusTimer) clearTimeout(statusTimer)
     })
 
-    const loadProfile = async () => {
+    const loadProfile = async (userId) => {
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser()
-        if (!currentUser) return
+        const uid = userId || user.value?.id
+        if (!uid) return
 
         const { data: profileData, error } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('user_id', currentUser.id)
+          .eq('user_id', uid)
           .single()
 
         if (error && error.code !== 'PGRST116') {
@@ -577,7 +685,7 @@ export default {
         editableProfile.value.avatarUrl = publicUrl
       } catch (error) {
         console.error('Error uploading avatar:', error)
-        alert('Error uploading avatar!')
+        toast.error('Couldn’t upload that image. Please try again.')
       } finally {
         uploadingAvatar.value = false
       }
@@ -674,11 +782,11 @@ export default {
         const { error } = await supabase.auth.admin.deleteUser(currentUser.id)
         if (error) throw error
 
-        alert('Account deleted successfully.')
+        toast.success('Account deleted.')
         router.push('/')
       } catch (error) {
         console.error('Error deleting account:', error)
-        alert('Error deleting account. Please contact support.')
+        toast.error('Couldn’t delete the account. Please contact support.')
       }
     }
 
@@ -701,6 +809,7 @@ export default {
 
     return {
       user,
+      loading,
       isPro,
       showPro,
       accent,
@@ -719,6 +828,15 @@ export default {
       toggleShare,
       regenerateLink,
       copyShareLink,
+      exporting,
+      importing,
+      importStep,
+      importPreview,
+      dataBusy,
+      doExport,
+      onImportFile,
+      cancelImport,
+      confirmImport,
       saveStatus,
       editableProfile,
       isProfileComplete,
@@ -794,6 +912,22 @@ export default {
   display: flex;
   gap: 2rem;
   align-items: flex-start;
+}
+
+.profile-skel {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+.profile-skel__fields {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .profile-skel { flex-direction: column; align-items: center; }
+  .profile-skel__fields { grid-template-columns: 1fr; width: 100%; }
 }
 
 /* --- Avatar Section --- */
@@ -1028,17 +1162,20 @@ export default {
 .field-graphic {
   width: 300px;
   height: 400px;
-  background-color: #1e3a29;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  /* Match the app-wide PitchSurface look for continuity. */
+  background:
+    radial-gradient(circle at 50% 30%, rgba(34, 80, 50, 0.35), rgba(20, 24, 22, 0.95)),
+    var(--color-bg-field);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   position: relative;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
 }
 
 .field-line {
   position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .center-line {
@@ -1377,7 +1514,7 @@ input:disabled + .slider {
 .pro-hint { margin: 6px 0 0; color: #89938d; font-size: 0.9rem; line-height: 1.5; }
 
 /* Accent swatches */
-.accent-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.accent-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; margin-bottom: 14px; }
 .accent-swatch {
   width: 32px; height: 32px;
   border-radius: 50%;
@@ -1432,6 +1569,34 @@ input:disabled + .slider {
 
 .switch.is-disabled { opacity: 0.4; }
 .switch.is-disabled input { cursor: not-allowed; }
+
+/* --- Data export / import --- */
+.data-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 1.5rem; }
+.data-import { position: relative; overflow: hidden; cursor: pointer; }
+.data-import input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.data-import.is-disabled { opacity: 0.5; pointer-events: none; }
+
+.data-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.data-modal__box {
+  width: 100%; max-width: 420px;
+  padding: var(--space-6);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+.data-modal__title { margin: 0 0 var(--space-3); font-size: var(--font-size-lg); font-weight: var(--font-weight-heavy); color: #fff; }
+.data-modal__msg { margin: 0 0 var(--space-2); color: var(--color-text-muted); font-size: var(--font-size-sm); }
+.data-modal__list { margin: 0 0 var(--space-4); padding-left: 18px; color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.7; }
+.data-modal__list strong { color: var(--color-accent); }
+.data-modal__note { margin: 0 0 var(--space-5); color: var(--color-text-faint); font-size: var(--font-size-xs); line-height: 1.5; }
+.data-modal__actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 
 /* --- Achievements --- */
 .achievements-grid {

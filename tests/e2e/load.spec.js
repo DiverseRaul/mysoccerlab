@@ -10,7 +10,13 @@ import { test, expect } from '@playwright/test'
 async function gotoDashboard(page) {
   await page.goto('/dashboard')
   await page.waitForLoadState('networkidle')
-  return !page.url().includes('/login')
+  if (page.url().includes('/login')) return false
+  // Dismiss the welcome intro if it's showing (it intercepts clicks).
+  await page.getByTestId('intro-skip').click({ timeout: 1500 }).catch(() => {})
+  // The Load Management widget is an advanced-mode tile on the overview, so
+  // switch to Advanced to reveal it.
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click({ timeout: 3000 }).catch(() => {})
+  return true
 }
 
 test('load management widget renders with a zone label', async ({ page }) => {

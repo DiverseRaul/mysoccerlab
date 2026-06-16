@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
     const {
       messageParts,
       matchesData = [],
+      practiceData = [],
       playerName = "Player",
       playerProfile = {},
       conversationHistory = [],
@@ -65,6 +66,22 @@ Deno.serve(async (req) => {
       }).join("\n");
     }
 
+    // --- Practice / Training log (independent of matches) ---
+    let practiceLog = "No practice drills tracked yet.";
+    if (practiceData && practiceData.length > 0) {
+      practiceLog = practiceData.map((d: any) => {
+        const bits = [`${d.name} [${d.metricType}]`];
+        if (d.latest) bits.push(`latest ${d.latest}${d.latestDate ? ` on ${d.latestDate}` : ""}`);
+        if (d.best) bits.push(`PB ${d.best}`);
+        if (d.target != null) bits.push(`target ${d.target}`);
+        if (d.accuracy != null) bits.push(`accuracy ${d.accuracy}%`);
+        bits.push(`${d.sessions} session${d.sessions === 1 ? "" : "s"}`);
+        if (d.trend && d.trend !== "none") bits.push(`trend ${d.trend}`);
+        return `- ${bits.join(" | ")}`;
+      }).join("\n");
+    }
+    const totalDrills = practiceData.length;
+
     const avgPassAcc = totalPasses > 0 ? Math.round((totalSuccessfulPasses / totalPasses) * 100) : 0;
     const totalMatches = matchesData.length;
     const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : "0";
@@ -114,11 +131,20 @@ ${positionContext ? `- Position Note: ${positionContext}` : ""}
 ## Match History (Newest → Oldest, all ${totalMatches} matches)
 ${matchHistoryLog}
 
+## Training / Practice Log (${totalDrills} drill${totalDrills === 1 ? "" : "s"} tracked)
+${practiceLog}
+
+## DATA FOCUS — adapt to what this player actually tracks
+- This player has **${totalMatches} matches** and **${totalDrills} practice drills** logged.
+- If they have matches but no practice: coach from the match data as usual.
+- If they have practice but **no matches** (${totalMatches === 0 ? "THIS IS THE CASE" : "not the case"}): do NOT say "I have no data." Coach entirely from the Training/Practice Log above — talk about their drills, personal bests, accuracy, trends, and how to improve them and structure training. Never tell them to log a match to get value.
+- If they have both: connect training to match performance (e.g. shooting-accuracy drills → finishing in games).
+
 ## CRITICAL RULES — read carefully
 
 ### Math & Numbers
-- NEVER calculate totals or averages yourself. The "PRE-COMPUTED CAREER TOTALS" section above has every aggregate already done. Read from it.
-- For single-match stats, read directly from the match history log. Do not estimate.
+- NEVER calculate totals or averages yourself. The "PRE-COMPUTED CAREER TOTALS" and the Training/Practice Log above have the numbers already. Read from them.
+- For single-match or single-drill stats, read directly from the logs. Do not estimate.
 - If a number isn't in the data, say "I don't have that stat logged" — do not invent.
 
 ### Response Length — BE BRIEF. Default to short.
@@ -155,7 +181,7 @@ Tuesday – [Theme]
         { role: "user", parts: [{ text: systemPrompt }] },
         {
           role: "model",
-          parts: [{ text: `Understood. I have ${playerName}'s profile and ${totalMatches} matches loaded with all aggregates pre-computed. I'll keep responses sized to the question and only include training plans when asked.` }],
+          parts: [{ text: `Understood. I have ${playerName}'s profile, ${totalMatches} matches, and ${totalDrills} practice drills loaded with all aggregates pre-computed. I'll coach from whichever data exists — training, matches, or both — keep responses sized to the question, and only include training plans when asked.` }],
         },
         ...conversationHistory,
       ],

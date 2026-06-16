@@ -16,7 +16,8 @@ export const generateCoachResponse = async (
   PlayerName = 'Player',
   PlayerProfile = {},
   ConversationHistory = [],
-  Signal = undefined
+  Signal = undefined,
+  PracticeData = []
 ) => {
   if (!SUPABASE_URL) {
     return "Error: VITE_SUPABASE_URL is not configured in your .env file.";
@@ -35,6 +36,7 @@ export const generateCoachResponse = async (
       body: JSON.stringify({
         messageParts: MessageParts,
         matchesData: MatchesData,
+        practiceData: PracticeData,
         playerName: PlayerName,
         playerProfile: PlayerProfile,
         conversationHistory: ConversationHistory,

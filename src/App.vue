@@ -97,6 +97,8 @@
 
     <app-footer />
 
+    <ToastHost />
+
   </div>
 </template>
 
@@ -104,13 +106,16 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from './lib/supabase'
+import { ResolveSession } from './lib/authSession'
 import AppFooter from './components/Footer.vue'
+import ToastHost from './components/ui/ToastHost.vue'
 import { isPro, isAdmin, loadEntitlements } from './lib/premium'
 
 export default {
   name: 'App',
   components: {
-    AppFooter
+    AppFooter,
+    ToastHost
   },
   setup() {
     const user = ref(null)
@@ -145,38 +150,46 @@ export default {
     }
 
     onMounted(async () => {
-      // Get initial session
-      const { data: { session } } = await supabase.auth.getSession()
+      // Initial session for the navbar. Use the hardened ResolveSession (same as
+      // Dashboard.vue) instead of a bare getSession(): on cold direct loads the
+      // auth library can resolve null before hydrating from localStorage, which
+      // made the navbar flash the logged-out links (Home/Login/Sign Up) while
+      // the page itself rendered authenticated. ResolveSession retries when a
+      // stored session exists, so the navbar and page agree.
+      const session = await ResolveSession()
       user.value = session?.user || null
       loadEntitlements(user.value?.id || null)
       if (user.value) {
-        await fetchUserProfile(user.value.id)
+        fetchUserProfile(user.value.id)
       }
 
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      // Listen for auth changes. IMPORTANT: this callback must NOT await (or
+      // synchronously call) other supabase methods — doing so deadlocks the
+      // auth library's internal lock, which makes later getSession()/queries
+      // hang for many seconds or run before auth is ready (empty data). We just
+      // set state here and defer any supabase work out of the callback.
+      supabase.auth.onAuthStateChange((event, session) => {
         user.value = session?.user || null
-        loadEntitlements(user.value?.id || null)
-        if (user.value) {
-          await fetchUserProfile(user.value.id)
+        const uid = user.value?.id || null
+        if (uid) {
+          setTimeout(() => { loadEntitlements(uid); fetchUserProfile(uid) }, 0)
         } else {
+          loadEntitlements(null)
           userName.value = ''
           userAvatar.value = ''
         }
       })
-
-      // Outside click listener for desktop profile dropdown
-      const handleOutsideClick = (e) => {
-        if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
-          isProfileDropdownOpen.value = false
-        }
-      }
-      document.addEventListener('click', handleOutsideClick)
-      
-      onBeforeUnmount(() => {
-        document.removeEventListener('click', handleOutsideClick)
-      })
     })
+
+    // Outside-click for the desktop profile dropdown — registered synchronously
+    // (lifecycle hooks must not be set up after an await).
+    const handleOutsideClick = (e) => {
+      if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
+        isProfileDropdownOpen.value = false
+      }
+    }
+    onMounted(() => document.addEventListener('click', handleOutsideClick))
+    onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 
     const isMobileMenuOpen = ref(false)
     const route = useRoute()
@@ -237,7 +250,9 @@ export default {
   top: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  width: 75%;
+  /* 90% (capped at max-width) so the six links fit on mid-size screens; at 75%
+     they overflowed until the window was very wide. */
+  width: 90%;
   max-width: 1200px;
   background: rgba(18, 18, 18, 0.7);
   backdrop-filter: blur(20px);
@@ -266,11 +281,13 @@ export default {
   -webkit-text-fill-color: transparent;
   font-size: 1.8rem;
   font-weight: bold;
+  white-space: nowrap;   /* keep "my soccer lab" on one line so the bar stays short */
+  flex: 0 0 auto;
 }
 
 .nav-links {
   display: flex;
-  gap: 2rem;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -281,10 +298,11 @@ export default {
   text-decoration: none;
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.85rem;
   border-radius: 20px;
   transition: all 0.3s ease;
   position: relative;
+  white-space: nowrap;   /* labels like "The Pitch" / "Lab Pro" never wrap */
 }
 
 .nav-link:hover {
@@ -783,20 +801,25 @@ export default {
   transform: scale(0.95) translateY(-8px);
 }
 
-@media (min-width: 769px) and (max-width: 1100px) {
+@media (min-width: 1025px) and (max-width: 1100px) {
   .navbar {
-    width: 92%;
+    width: 94%;
+  }
+  .logo {
+    font-size: 1.5rem;   /* slight shrink so the single-line bar fits without overflow */
   }
   .nav-links {
-    gap: 0.75rem;
+    gap: 0.6rem;
   }
   .nav-link {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.9rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.88rem;
   }
 }
 
-@media (max-width: 768px) {
+/* Below 1024px the six desktop links cram and overflow, so collapse to the
+   hamburger menu rather than shrinking them into an unreadable single line. */
+@media (max-width: 1024px) {
   .nav-container {
     flex-wrap: wrap;
   }

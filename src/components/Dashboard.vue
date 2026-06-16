@@ -10,13 +10,18 @@
 
     <div class="dashboard-container">
       <div class="dashboard-container-inner">
+        <div class="mode-row">
+          <ModeSwitcher :modelValue="dashboardMode" @update:modelValue="setMode" />
+        </div>
+
         <div class="tabs-row">
           <ScrollableTabs
-            :TabItems="DashboardTabItems"
+            :TabItems="dashboardTabItems"
             :ActiveKey="activeTab"
-            @Select="activeTab = $event"
+            @select="activeTab = $event"
           />
           <SeasonSelector
+            v-if="dashboardMode === 'matches'"
             :seasons="seasons"
             :activeSeason="activeSeason"
             @update:activeSeason="setActiveSeason"
@@ -26,28 +31,49 @@
           />
         </div>
 
-        <DashboardOverview
-          v-if="activeTab === 'overview'"
-          :matches="filteredMatches"
-          :userName="userName"
-          :allShotsData="filteredShotsData"
-          :allGoalsData="filteredGoalsData"
-          :allHeatmapData="filteredHeatmapData"
-          :season="activeSeason"
-        />
+        <!-- Matches mode -->
+        <template v-if="dashboardMode === 'matches'">
+          <DashboardOverview
+            v-if="activeTab === 'overview'"
+            :matches="filteredMatches"
+            :userName="userName"
+            :allShotsData="filteredShotsData"
+            :allGoalsData="filteredGoalsData"
+            :allHeatmapData="filteredHeatmapData"
+            :season="activeSeason"
+            :totalMatches="matches.length"
+            :loading="dataLoading"
+            @go-to-matches="activeTab = 'matches'"
+            @clear-season="activeSeason = null"
+          />
 
-        <MatchManager
-          v-if="activeTab === 'matches'"
-          :matches="filteredMatches"
-          :activeSeason="activeSeason"
-          :seasons="seasons"
-          @match-updated="loadData"
-        />
+          <MatchManager
+            v-if="activeTab === 'matches'"
+            :matches="filteredMatches"
+            :activeSeason="activeSeason"
+            :seasons="seasons"
+            @match-updated="loadData"
+          />
+        </template>
 
-        <PracticeTracker
-          v-if="activeTab === 'practice'"
-          :userName="userName"
-        />
+        <!-- Training mode -->
+        <template v-else>
+          <TrainingOverview
+            v-if="activeTab === 'overview'"
+            :userName="userName"
+            @go-to-drills="activeTab = 'drills'"
+          />
+
+          <PracticeTracker
+            v-if="activeTab === 'drills'"
+            :userName="userName"
+          />
+
+          <WeeklyTrainingPlan
+            v-if="activeTab === 'weekly'"
+            :userName="userName"
+          />
+        </template>
 
       </div>
     </div>
@@ -58,25 +84,40 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../lib/supabase'
+import { toast } from '../lib/toast'
 import { ResolveSession } from '../lib/authSession'
+import { content, loadKey } from '../lib/siteContent'
+import { isAdmin, loadEntitlements } from '../lib/premium'
 import WelcomeIntro from './onboarding/WelcomeIntro.vue'
 import DashboardOverview from './DashboardOverview.vue'
 import MatchManager from './MatchManager.vue'
 import SeasonSelector from './SeasonSelector.vue'
 import PracticeTracker from './dashboard/practice/PracticeTracker.vue'
+import TrainingOverview from './dashboard/practice/TrainingOverview.vue'
+import WeeklyTrainingPlan from './dashboard/practice/WeeklyTrainingPlan.vue'
 import ScrollableTabs from './ui/ScrollableTabs.vue'
+import ModeSwitcher from './ui/ModeSwitcher.vue'
 import PageHero from './ui/PageHero.vue'
 
-const DashboardTabItems = [
-  { Key: 'overview', Label: 'Overview' },
-  { Key: 'matches', Label: 'Matches' },
-  { Key: 'practice', Label: 'Practice' }
-]
+// Tab sets are scoped to the active mode (Part A — two-pillar dashboard).
+const TABS_BY_MODE = {
+  matches: [
+    { Key: 'overview', Label: 'Overview' },
+    { Key: 'matches', Label: 'Matches' }
+  ],
+  training: [
+    { Key: 'overview', Label: 'Overview' },
+    { Key: 'drills', Label: 'Drills' },
+    { Key: 'weekly', Label: 'Weekly Plan' }
+  ]
+}
 
 const router = useRouter()
+const route = useRoute()
 const matches = ref([])
+const dataLoading = ref(true) // true until the first matches query resolves
 const allShotsData = ref([])
 const allGoalsData = ref([])
 const allHeatmapData = ref([])
@@ -87,6 +128,35 @@ const userClubTeam = ref('')
 const activeTab = ref('overview')
 const seasons = ref([])
 const activeSeason = ref(null)
+
+// ── Dashboard mode (Matches | Training) ─────────────────────────────────────
+const dashboardMode = ref('matches')
+const currentUserId = ref(null)
+// How the current mode was decided, so weaker signals don't clobber stronger
+// ones regardless of async resolution order: explicit (query/localStorage/
+// onboarding choice) > heuristic (no matches → training) > none (default).
+let modeSource = 'none'
+
+const dashboardTabItems = computed(() => TABS_BY_MODE[dashboardMode.value])
+
+const seedMode = (mode, source) => {
+  if (mode !== 'matches' && mode !== 'training') return
+  if (source !== 'explicit' && modeSource === 'explicit') return
+  dashboardMode.value = mode
+  modeSource = source
+}
+
+// User-driven switch from the ModeSwitcher — always wins, persists, deep-links.
+const setMode = (mode) => {
+  if (mode !== 'matches' && mode !== 'training') return
+  dashboardMode.value = mode
+  modeSource = 'explicit'
+  activeTab.value = 'overview'
+  if (currentUserId.value) {
+    try { localStorage.setItem(`msl-dash-mode:${currentUserId.value}`, mode) } catch { /* ignore */ }
+  }
+  router.replace({ query: { ...route.query, mode } })
+}
 
 // --- Computed filtered data ---
 const filteredMatches = computed(() => {
@@ -118,15 +188,36 @@ const IntroStorageKey = ref('')
 
 const MaybeShowIntro = (userId) => {
   IntroStorageKey.value = `msl-intro-seen:${userId}`
+  // Master switch: admin can hide the intro for everyone.
+  if (content.value?.intro?.enabled === false) return
+  // Testing mode: admins re-see the intro on every load, ignoring the seen flag.
+  if (isAdmin.value && content.value?.intro?.forceShowForAdmins) { ShowIntro.value = true; return }
   try {
+    // Otherwise gate on the seen flag only — NOT on match count. A Training-only
+    // user never logs a match, so the old `matches.length === 0` gate re-nagged
+    // them forever; once dismissed, the flag keeps it from showing again.
     if (localStorage.getItem(IntroStorageKey.value)) return
   } catch { /* storage unavailable — show nothing rather than nag forever */ return }
-  if (matches.value.length === 0) ShowIntro.value = true
+  ShowIntro.value = true
 }
 
-const DismissIntro = () => {
+const DismissIntro = (focus) => {
   ShowIntro.value = false
   try { localStorage.setItem(IntroStorageKey.value, '1') } catch { /* ignore */ }
+
+  // Persist the chosen path: seed the mode now, remember it for this device,
+  // and store it on the profile for cross-device (best-effort — the column may
+  // not exist until migration 0024 is applied).
+  if (focus === 'matches' || focus === 'training' || focus === 'both') {
+    seedMode(focus === 'training' ? 'training' : 'matches', 'explicit')
+    if (currentUserId.value) {
+      try { localStorage.setItem(`msl-dash-mode:${currentUserId.value}`, dashboardMode.value) } catch { /* ignore */ }
+      supabase.from('user_profiles')
+        .update({ primary_focus: focus })
+        .eq('user_id', currentUserId.value)
+        .then(({ error }) => { if (error) console.warn('Could not save primary_focus:', error.message) })
+    }
+  }
 }
 
 onMounted(async () => {
@@ -134,13 +225,46 @@ onMounted(async () => {
   // URL while this mounts) instead of bouncing fresh sign-ins to /login.
   const session = await ResolveSession()
   if (!session) { router.push('/login'); return }
-  await loadSeasons()
-  await loadData()
+  currentUserId.value = session.user.id
+
+  // Seed the mode: explicit deep-link (?mode=) first, then the last-used mode
+  // saved for this user. Onboarding choice (primary_focus) and the no-matches
+  // heuristic are applied later in loadData via seedMode().
+  const queryMode = route.query.mode
+  if (queryMode === 'matches' || queryMode === 'training') {
+    seedMode(queryMode, 'explicit')
+  } else {
+    try {
+      const saved = localStorage.getItem(`msl-dash-mode:${session.user.id}`)
+      if (saved === 'matches' || saved === 'training') seedMode(saved, 'explicit')
+    } catch { /* storage unavailable */ }
+  }
+
+  // Seasons + dashboard data are independent — load them in parallel, and
+  // reuse the resolved user so we don't fire extra getUser() round-trips.
+  // Intro content + entitlements load alongside so MaybeShowIntro knows the
+  // admin-force setting and whether this user is an admin.
+  await Promise.all([
+    loadSeasons(session.user),
+    loadData(session.user),
+    loadKey('intro').catch(() => {}),
+    loadEntitlements(session.user.id)
+  ])
   MaybeShowIntro(session.user.id)
 })
 
-const loadSeasons = async () => {
-  const { data: { user } } = await supabase.auth.getUser()
+// getUser() hits the auth server on every call; getSession() is local. We only
+// need the id, and callers usually already hold the user.
+const resolveUser = async (passed) => {
+  // Only trust a real auth user object (has id + email); event payloads from
+  // @match-updated have an id but no email, so they fall back to getSession.
+  if (passed?.id && passed?.email) return passed
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.user || null
+}
+
+const loadSeasons = async (passedUser) => {
+  const user = await resolveUser(passedUser)
   if (!user) return
   const { data } = await supabase
     .from('seasons')
@@ -148,10 +272,9 @@ const loadSeasons = async () => {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
   seasons.value = data || []
-  // Auto-select the most recently created season if any
-  if (seasons.value.length > 0 && !activeSeason.value) {
-    activeSeason.value = seasons.value[0]
-  }
+  // Default to "All time" (activeSeason = null) so every match shows. Auto-
+  // selecting a season used to hide any match not tagged to it, which looked
+  // like "No matches yet" even when the player had matches.
 }
 
 const setActiveSeason = (season) => {
@@ -179,96 +302,104 @@ const onSeasonUpdated = (updated) => {
   }
 }
 
-const loadData = async () => {
+const loadData = async (passedUser) => {
+  const user = await resolveUser(passedUser)
+  if (!user) return
+  const nameFallback = (user.email || 'Player').split('@')[0] || 'Player'
+
+  // ── Matches first — the dashboard's core. Show them the moment they arrive,
+  //    independent of the profile/detail queries, so a failure or slow response
+  //    in those can never blank the matches list ("No matches yet"). ──────────
+  let matchesData = []
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('player_name, position, preferred_foot, club_team')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profileData) {
-      userName.value = profileData.player_name || user.email.split('@')[0]
-      userPosition.value = profileData.position || ''
-      userPreferredFoot.value = profileData.preferred_foot || ''
-      userClubTeam.value = profileData.club_team || ''
-    } else {
-      userName.value = user.email.split('@')[0]
-    }
-
-    const { data: matchesData, error: matchesError } = await supabase
+    const { data, error } = await supabase
       .from('matches')
       .select('*')
       .eq('user_id', user.id)
       .order('match_date', { ascending: false })
       .order('created_at', { ascending: false })
+    if (error) { console.error('Error fetching matches:', error); toast.error('Couldn’t load your matches — check your connection.') }
+    matchesData = data || []
+  } catch (e) {
+    console.error('Matches query failed:', e)
+    toast.error('Couldn’t load your matches — check your connection.')
+  }
 
-    if (matchesError) { console.error('Error fetching matches:', matchesError); return }
+  // Render matches immediately (stats fill in once the detail queries return).
+  matches.value = matchesData.map(m => ({
+    ...m, my_goals: 0, shots_on_target: 0, shots_off_target: 0, goalkeeper_stats: null
+  }))
+  dataLoading.value = false
 
-    const matchIds = matchesData.map(m => m.id)
-    if (matchIds.length === 0) { matches.value = []; return }
+  // Profile (independent — never blocks or wipes matches).
+  supabase.from('user_profiles')
+    .select('player_name, position, preferred_foot, club_team')
+    .eq('user_id', user.id).single()
+    .then(({ data }) => {
+      userName.value = data?.player_name || nameFallback
+      userPosition.value = data?.position || ''
+      userPreferredFoot.value = data?.preferred_foot || ''
+      userClubTeam.value = data?.club_team || ''
+    })
+    .catch(() => { userName.value = nameFallback })
 
-    const { data: goalsData, error: goalsError } = await supabase
-      .from('goals')
-      .select('match_id, quadrant, field_position')
-      .in('match_id', matchIds)
+  // Onboarding focus chooses the default mode ('both' opens on Matches).
+  // Fetched separately + failure-tolerant so a pre-migration DB (no
+  // primary_focus column yet) can't break the profile load above.
+  supabase.from('user_profiles')
+    .select('primary_focus')
+    .eq('user_id', user.id).single()
+    .then(({ data, error }) => {
+      if (error || !data?.primary_focus) return
+      seedMode(data.primary_focus === 'training' ? 'training' : 'matches', 'explicit')
+    })
+    .catch(() => { /* column not present yet — ignore */ })
 
-    if (goalsError) console.error('Error fetching goals:', goalsError)
+  // Heuristic fallback: a player with no matches starts in Training (the
+  // lower-effort pillar). Weaker than an explicit choice, so a saved/onboarding
+  // preference still wins whenever it resolves.
+  if (matchesData.length === 0) seedMode('training', 'heuristic')
 
-    const { data: shotsData, error: shotsError } = await supabase
-      .from('shots')
-      .select('match_id, on_target, quadrant, field_position')
-      .in('match_id', matchIds)
+  if (matchesData.length === 0) return
+  const matchIds = matchesData.map(m => m.id)
+  const goalkeeperMatchIds = matchesData
+    .filter(m => m.position_played && m.position_played.toLowerCase().includes('goalkeeper'))
+    .map(m => m.id)
 
-    allShotsData.value = shotsData || []
-    allGoalsData.value = goalsData || []
+  // ── Enrichment — failures here leave the matches list intact. ──────────────
+  try {
+    const [goalsRes, shotsRes, heatmapRes, gkRes] = await Promise.all([
+      supabase.from('goals').select('match_id, quadrant, field_position').in('match_id', matchIds),
+      supabase.from('shots').select('match_id, on_target, quadrant, field_position').in('match_id', matchIds),
+      supabase.from('match_heatmap_points').select('match_id, x_pct, y_pct, event_type, x2_pct, y2_pct').in('match_id', matchIds),
+      goalkeeperMatchIds.length
+        ? supabase.from('goalkeeper_match_stats').select('*').in('match_id', goalkeeperMatchIds)
+        : Promise.resolve({ data: [] })
+    ])
 
-    // Season heatmap + pass-direction data (own-user RLS covers this). Retry
-    // without x2_pct/y2_pct if the DB is behind on migration 0016.
-    let heatmapRes = await supabase
-      .from('match_heatmap_points')
-      .select('match_id, x_pct, y_pct, event_type, x2_pct, y2_pct')
-      .in('match_id', matchIds)
+    const goalsData = goalsRes.data || []
+    const shotsData = shotsRes.data || []
+
+    // Heatmap: retry without x2_pct/y2_pct if the DB is behind on migration 0016.
+    let heatmapData = heatmapRes.data
     if (heatmapRes.error) {
-      heatmapRes = await supabase
-        .from('match_heatmap_points')
-        .select('match_id, x_pct, y_pct, event_type')
-        .in('match_id', matchIds)
-    }
-    allHeatmapData.value = heatmapRes.data || []
-
-    if (shotsError) { console.error('Error fetching shots:', shotsError); matches.value = matchesData; return }
-
-    const goalkeeperMatchIds = matchesData
-      .filter(m => m.position_played && m.position_played.toLowerCase().includes('goalkeeper'))
-      .map(m => m.id)
-
-    let goalkeeperStatsByMatch = {}
-    if (goalkeeperMatchIds.length > 0) {
-      const { data: goalkeeperData, error: goalkeeperError } = await supabase
-        .from('goalkeeper_match_stats')
-        .select('*')
-        .in('match_id', goalkeeperMatchIds)
-      if (!goalkeeperError && goalkeeperData) {
-        goalkeeperStatsByMatch = goalkeeperData.reduce((acc, stats) => {
-          acc[stats.match_id] = stats; return acc
-        }, {})
-      }
+      const retry = await supabase.from('match_heatmap_points')
+        .select('match_id, x_pct, y_pct, event_type').in('match_id', matchIds)
+      heatmapData = retry.data
     }
 
+    allShotsData.value = shotsData
+    allGoalsData.value = goalsData
+    allHeatmapData.value = heatmapData || []
+
+    const goalkeeperStatsByMatch = (gkRes.data || []).reduce((acc, s) => { acc[s.match_id] = s; return acc }, {})
     const statsByMatch = shotsData.reduce((acc, shot) => {
       if (!acc[shot.match_id]) acc[shot.match_id] = { shots_on_target: 0, shots_off_target: 0 }
       if (shot.on_target) acc[shot.match_id].shots_on_target++
       else acc[shot.match_id].shots_off_target++
       return acc
     }, {})
-
-    const goalsByMatch = (goalsData || []).reduce((acc, goal) => {
-      acc[goal.match_id] = (acc[goal.match_id] || 0) + 1; return acc
-    }, {})
+    const goalsByMatch = goalsData.reduce((acc, g) => { acc[g.match_id] = (acc[g.match_id] || 0) + 1; return acc }, {})
 
     matches.value = matchesData.map(match => ({
       ...match,
@@ -278,7 +409,7 @@ const loadData = async () => {
       goalkeeper_stats: goalkeeperStatsByMatch[match.id] || null,
     }))
   } catch (error) {
-    console.error('Error in loadData:', error)
+    console.error('Error loading match detail (matches still shown):', error)
   }
 }
 </script>
@@ -299,6 +430,11 @@ const loadData = async () => {
 .dashboard-hero-wrap {
   max-width: 1280px;
   margin: 3rem auto 24px;
+}
+
+.mode-row {
+  display: flex;
+  margin-bottom: 18px;
 }
 
 .tabs-row {

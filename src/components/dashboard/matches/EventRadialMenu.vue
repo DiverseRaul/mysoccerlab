@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="event-radial" data-testid="event-radial-menu" @click.self="Emit('Cancel')">
+    <div class="event-radial" data-testid="event-radial-menu" @click.self="Emit('cancel')">
       <div class="event-radial__panel" :style="PanelStyle" @click.stop>
         <p class="event-radial__title">{{ HideAttackingActions ? 'In your own half' : 'What happened here?' }}</p>
         <div class="event-radial__grid">
@@ -11,7 +11,7 @@
             class="event-radial__chip"
             :class="`event-radial__chip--${Action.Category}`"
             :data-testid="`event-action-${Action.Key}`"
-            @click="Emit('Select', Action.Key)"
+            @click="Emit('select', Action.Key)"
           >{{ Action.Label }}</button>
         </div>
         <button
@@ -21,7 +21,7 @@
           data-testid="event-action-more"
           @click="ShowMore = true"
         >More — shot &amp; goal</button>
-        <button type="button" class="event-radial__cancel" @click="Emit('Cancel')">Cancel</button>
+        <button type="button" class="event-radial__cancel" @click="Emit('cancel')">Cancel</button>
       </div>
     </div>
   </Teleport>
@@ -39,7 +39,7 @@ const Props = defineProps({
   HideAttackingActions: { type: Boolean, default: false }
 })
 
-const Emit = defineEmits(['Select', 'Cancel'])
+const Emit = defineEmits(['select', 'cancel'])
 
 const Clamp = (Value, Min, Max) => Math.min(Max, Math.max(Min, Value))
 

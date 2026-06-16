@@ -25,10 +25,10 @@ const Props = defineProps({
   }
 })
 
-const Emit = defineEmits(['Select'])
+const Emit = defineEmits(['select'])
 
 const HandleSelect = (Key) => {
-  if (Key !== Props.ActiveKey) Emit('Select', Key)
+  if (Key !== Props.ActiveKey) Emit('select', Key)
 }
 </script>
 

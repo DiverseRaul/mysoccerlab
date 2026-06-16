@@ -10,15 +10,22 @@ import { test, expect } from '@playwright/test'
  */
 
 const isAuthConfigured = () => {
+  // See matches.spec.js: the file always exists, but only counts as configured
+  // when it holds a real (non-empty) signed-in session.
   try {
-    require('node:fs').accessSync('tests/.auth/user.json')
-    return true
+    const raw = require('node:fs').readFileSync('tests/.auth/user.json', 'utf8')
+    const state = JSON.parse(raw)
+    return Array.isArray(state.origins) && state.origins.length > 0
   } catch {
     return false
   }
 }
 
 test('practice tab boots without runtime errors (logged-out redirect)', async ({ page }) => {
+  // Only meaningful signed-out. Under the chromium-auth-* projects we're signed
+  // in (no redirect), and smoke.spec.js already covers the logged-out redirect
+  // in the public projects.
+  test.skip(isAuthConfigured(), 'signed-in project — redirect is covered by smoke.spec.js')
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))
   await page.goto('/dashboard')
@@ -33,17 +40,34 @@ test.describe('authenticated', () => {
   // Use a unique drill name per test run so leftover rows don't break assertions.
   const drillNameFor = (label) => `${label} ${Date.now().toString().slice(-6)}`
 
-  test('Practice tab renders and shows drill list or empty state', async ({ page }) => {
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+  // Practice lives in the Training pillar now: deep-link into Training mode and
+  // open the Drills tab (the old standalone "Practice" tab is gone).
+  const gotoDrills = async (page) => {
+    await page.goto('/dashboard?mode=training')
+    await page.waitForLoadState('networkidle')
+    const skip = page.getByTestId('intro-skip')
+    if (await skip.isVisible().catch(() => false)) await skip.click()
+    await page.getByRole('button', { name: 'Drills', exact: true }).click()
+  }
+
+  test('Training Overview summarises drills and links to the Drills tab', async ({ page }) => {
+    await page.goto('/dashboard?mode=training')
+    await page.waitForLoadState('networkidle')
+    const skip = page.getByTestId('intro-skip')
+    if (await skip.isVisible().catch(() => false)) await skip.click()
+    // The Training pillar opens on its own overview (stats or an empty-state CTA).
+    await expect(page.getByTestId('training-overview')).toBeVisible()
+  })
+
+  test('Drills tab renders and shows drill list or empty state', async ({ page }) => {
+    await gotoDrills(page)
     await expect(page.getByTestId('practice-drill-list')).toBeVisible()
   })
 
   test('create a count drill, log two sessions, see chart + PB + trend', async ({ page }) => {
     const name = drillNameFor('Juggles')
 
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
     await page.getByTestId('practice-add-drill-btn').click()
     await expect(page.getByTestId('practice-add-drill-modal')).toBeVisible()
 
@@ -84,17 +108,17 @@ test.describe('authenticated', () => {
     await expect(page.locator('tbody tr')).toHaveCount(2)
 
     // Cleanup: delete the drill so the test is repeatable.
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
     page.once('dialog', (d) => d.accept()) // safety, though we use a custom modal
     await page.getByTestId('confirm-delete-drill-btn').click()
-    await expect(page.getByText(name)).toBeHidden()
+    // A successful delete unmounts the detail view (back to the drill list).
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
   test('ratio drill renders made/attempted with accuracy percentage', async ({ page }) => {
     const name = drillNameFor('Shots outside box')
 
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
     await page.getByTestId('practice-add-drill-btn').click()
     await page.getByTestId('drill-name-input').fill(name)
     await page.getByTestId('drill-type-input').selectOption('ratio')
@@ -113,16 +137,16 @@ test.describe('authenticated', () => {
     await expect(page.getByText('25 / 50 (50%)').first()).toBeVisible()
 
     // Cleanup
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await page.getByTestId('confirm-delete-drill-btn').click()
-    await expect(page.getByText(name)).toBeHidden()
+    // A successful delete unmounts the detail view (back to the drill list).
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
   test('shot_map drill: free-place markers on goal, derive goals/shots', async ({ page }) => {
     const name = drillNameFor('Penalty practice')
 
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
     await page.getByTestId('practice-add-drill-btn').click()
     await page.getByTestId('drill-name-input').fill(name)
     await page.getByTestId('drill-type-input').selectOption('shot_map')
@@ -166,16 +190,16 @@ test.describe('authenticated', () => {
     ).toHaveCount(3)
 
     // Cleanup
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await page.getByTestId('confirm-delete-drill-btn').click()
-    await expect(page.getByText(name)).toBeHidden()
+    // A successful delete unmounts the detail view (back to the drill list).
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
   test('shot_map: foot toggle tags markers Left vs Right', async ({ page }) => {
     const name = drillNameFor('Foot map')
 
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
     await page.getByTestId('practice-add-drill-btn').click()
     await page.getByTestId('drill-name-input').fill(name)
     await page.getByTestId('drill-type-input').selectOption('shot_map')
@@ -203,16 +227,16 @@ test.describe('authenticated', () => {
     await page.getByTestId('session-submit-btn').click()
 
     // Cleanup
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await page.getByTestId('confirm-delete-drill-btn').click()
-    await expect(page.getByText(name)).toBeHidden()
+    // A successful delete unmounts the detail view (back to the drill list).
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
   test('shot_map: post outcome registers + heatmap toggle works in detail view', async ({ page }) => {
     const name = drillNameFor('Post test')
 
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
     await page.getByTestId('practice-add-drill-btn').click()
     await page.getByTestId('drill-name-input').fill(name)
     await page.getByTestId('drill-type-input').selectOption('shot_map')
@@ -239,14 +263,14 @@ test.describe('authenticated', () => {
     await expect(page.getByTestId('heatmap-toggle')).not.toHaveClass(/active/)
 
     // Cleanup
-    await page.getByRole('button', { name: 'Delete' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
     await page.getByTestId('confirm-delete-drill-btn').click()
-    await expect(page.getByText(name)).toBeHidden()
+    // A successful delete unmounts the detail view (back to the drill list).
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
   test('starter preset prefills the Add Drill modal', async ({ page }) => {
-    await page.goto('/dashboard')
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    await gotoDrills(page)
 
     // Only the empty state shows presets — only meaningful if user has no drills.
     const empty = page.getByTestId('practice-empty-state')
@@ -263,12 +287,15 @@ test.describe('authenticated', () => {
     }
   })
 
-  test('Practice tab is reachable on mobile viewport', async ({ page, isMobile }) => {
+  test('Drills tab is reachable on mobile viewport', async ({ page, isMobile }) => {
     test.skip(!isMobile, 'mobile-only sanity check')
-    await page.goto('/dashboard')
-    const practiceBtn = page.getByRole('button', { name: 'Practice', exact: true })
-    await expect(practiceBtn).toBeVisible()
-    await practiceBtn.click()
+    await page.goto('/dashboard?mode=training')
+    await page.waitForLoadState('networkidle')
+    const skip = page.getByTestId('intro-skip')
+    if (await skip.isVisible().catch(() => false)) await skip.click()
+    const drillsBtn = page.getByRole('button', { name: 'Drills', exact: true })
+    await expect(drillsBtn).toBeVisible()
+    await drillsBtn.click()
     await expect(page.getByTestId('practice-drill-list')).toBeVisible()
   })
 })

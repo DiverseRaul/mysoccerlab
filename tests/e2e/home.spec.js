@@ -17,8 +17,11 @@ test('hero and feature slideshow render', async ({ page }) => {
   await expect(page.getByTestId('feature-slideshow')).toBeVisible()
   // First slide's copy is the active one shown.
   await expect(page.getByRole('heading', { name: /every touch, mapped/i })).toBeVisible()
-  // One dot per feature.
-  await expect(page.getByTestId('slide-dot')).toHaveCount(5)
+  // One dot per feature slide (the feature set is admin-editable content, so
+  // assert the dots match the rendered slides rather than a hard-coded number).
+  const slideCount = await page.locator('.slide').count()
+  expect(slideCount).toBeGreaterThanOrEqual(5)
+  await expect(page.getByTestId('slide-dot')).toHaveCount(slideCount)
 })
 
 test('slideshow advances via the next arrow', async ({ page }) => {

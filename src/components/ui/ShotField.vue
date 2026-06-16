@@ -7,26 +7,8 @@
       :class="{ 'shot-field__field--interactive': interactive }"
       @click="onFieldClick"
     >
-      <!-- Static field markings — see /database/migrations README for coordinate system. -->
-      <svg class="shot-field__svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
-        <!-- Outline -->
-        <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
-        <!-- Penalty Box (16.5m deep, 40.32m wide) -->
-        <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-        <!-- Goal Area (5.5m deep, 18.32m wide) -->
-        <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-        <!-- Penalty Spot (11m from goal) -->
-        <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
-        <!-- Penalty Arc (Radius 9.15m) -->
-        <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-        <!-- Center Circle Arc (at 52.5m) -->
-        <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-        <!-- Corner Arcs -->
-        <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-        <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-        <!-- Goal Post (External) -->
-        <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
-      </svg>
+      <!-- Shared pitch — same surface as every other field in the app. -->
+      <PitchSurface class="shot-field__pitch" />
 
       <!-- Optional trajectory line, drawn before the marker so the marker sits on top. -->
       <svg
@@ -68,57 +50,29 @@
       </div>
     </div>
 
-    <!-- ── Goal placement ──────────────────────────────────────── -->
+    <!-- ── Goal placement (shared GoalNet — free x,y everywhere) ── -->
     <div
       v-if="mode === 'placement' || mode === 'both'"
       class="shot-field__goal"
     >
-      <!-- Free placement: tap anywhere in the goal / show the exact spot. -->
-      <div
-        v-if="freePlacement || placementMarker"
-        class="shot-field__goal-free"
-        :class="{ 'shot-field__goal-free--clickable': interactive }"
-        @click.stop="onGoalFreeClick"
-      >
-        <span class="shot-field__goal-net" aria-hidden="true"></span>
-        <div
-          v-if="placementMarker"
-          class="shot-field__placement-marker"
-          :class="markerClass"
-          :style="placementMarkerStyle"
-        ></div>
-        <span v-else-if="interactive" class="shot-field__goal-hint">Tap where it went</span>
-      </div>
-
-      <!-- Legacy 9-quadrant grid (old data without free placement). -->
-      <template v-else>
-        <div class="shot-field__goal-grid">
-          <button
-            v-for="i in 9"
-            :key="i"
-            type="button"
-            class="shot-field__goal-cell"
-            :class="{
-              'shot-field__goal-cell--highlight': quadrant === i,
-              'shot-field__goal-cell--clickable': interactive
-            }"
-            :disabled="!interactive"
-            @click.stop="onQuadrantClick(i)"
-          >
-            <span v-if="quadrant === i">X</span>
-            <span v-else-if="interactive" class="shot-field__goal-cell-num">{{ i }}</span>
-          </button>
-        </div>
-        <div v-if="!quadrant && !interactive && showPlaceholder" class="shot-field__placement-empty">
-          No placement recorded
-        </div>
-      </template>
+      <GoalNet
+        :markers="GoalMarkers"
+        :interactive="interactive"
+        :show-empty="showPlaceholder"
+        @select="(p) => emit('placement-select', p)"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import PitchSurface from './PitchSurface.vue'
+import GoalNet from './GoalNet.vue'
+
+// Legacy quadrant (1–9) → approximate x,y in the goal mouth, so old data still
+// renders as a dot in the shared GoalNet.
+const QUADRANT_XY = { 1: [17, 25], 2: [50, 25], 3: [83, 25], 4: [17, 50], 5: [50, 50], 6: [83, 50], 7: [17, 78], 8: [50, 78], 9: [83, 78] }
 
 const props = defineProps({
   mode: {
@@ -160,23 +114,21 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['field-click', 'quadrant-select', 'placement-select'])
+const emit = defineEmits(['field-click', 'placement-select'])
 
-const placementMarkerStyle = computed(() => {
-  if (!props.placementMarker) return {}
-  return {
-    left: `${props.placementMarker.xPct}%`,
-    top: `${props.placementMarker.yPct}%`
+// Markers shown in the shared GoalNet: the free x,y placement, or a legacy
+// quadrant mapped to an approximate spot.
+const GoalMarkers = computed(() => {
+  const kind = props.placementMarker?.type || (props.quadrant ? 'goal' : 'goal')
+  if (props.placementMarker) {
+    return [{ x: props.placementMarker.xPct, y: props.placementMarker.yPct, kind }]
   }
+  if (props.quadrant && QUADRANT_XY[props.quadrant]) {
+    const [x, y] = QUADRANT_XY[props.quadrant]
+    return [{ x, y, kind }]
+  }
+  return []
 })
-
-const onGoalFreeClick = (event) => {
-  if (!props.interactive) return
-  const rect = event.currentTarget.getBoundingClientRect()
-  const xPct = ((event.clientX - rect.left) / rect.width) * 100
-  const yPct = ((event.clientY - rect.top) / rect.height) * 100
-  emit('placement-select', { xPct, yPct })
-}
 
 const markerStyle = computed(() => {
   if (!props.marker) return {}
@@ -200,11 +152,6 @@ const onFieldClick = (event) => {
   const yPct = ((event.clientY - rect.top) / rect.height) * 100
   emit('field-click', { xPct, yPct })
 }
-
-const onQuadrantClick = (i) => {
-  if (!props.interactive) return
-  emit('quadrant-select', i)
-}
 </script>
 
 <style scoped>
@@ -224,13 +171,14 @@ const onQuadrantClick = (i) => {
 .shot-field__field {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  background: var(--color-bg-field);
-  border: 2px solid var(--color-border-soft);
-  border-radius: var(--radius-sm);
+  /* Same portrait full pitch as everywhere else. */
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4);
 }
+
+/* The shared pitch fills the field; markers/trajectory overlay on top. */
+.shot-field__pitch { position: absolute; inset: 0; }
 
 .shot-field__field--interactive {
   cursor: crosshair;

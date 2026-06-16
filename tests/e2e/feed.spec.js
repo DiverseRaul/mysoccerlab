@@ -51,6 +51,21 @@ test('feed does not overflow horizontally on mobile', async ({ page, isMobile })
   expect(overflow).toBeLessThanOrEqual(1)
 })
 
+test('practice activity card renders its training tag when present', async ({ page }) => {
+  const authed = await gotoFeed(page)
+  test.skip(!authed, 'requires authenticated test user')
+  // Practice cards only appear when a followed/public player has training logged
+  // (the feed excludes your own activity), so this is conditional like the
+  // match-card test — it documents the merged timeline without requiring seed.
+  await page.getByRole('button', { name: 'Explore' }).click()
+  await page.waitForLoadState('networkidle')
+  const card = page.getByTestId('practice-feed-card').first()
+  const hasCard = await card.isVisible().catch(() => false)
+  test.skip(!hasCard, 'no public practice activity for this test user')
+  await expect(card.getByTestId('practice-feed-author')).toBeVisible()
+  await expect(card).toContainText(/Training|PB/)
+})
+
 test('match report card shows the stats hero and a working shot-map toggle', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const authed = await gotoFeed(page)
