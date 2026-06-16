@@ -522,7 +522,7 @@ const shareNative = async () => {
 .share-bg-btn.active {
   border-color: var(--color-accent-border);
   color: var(--color-text-primary);
-  box-shadow: 0 0 0 3px rgba(76, 218, 156, 0.14);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .share-bg-btn.preset-clean   { background-image: linear-gradient(180deg, rgba(17, 24, 39, 0.95), rgba(11, 18, 32, 0.95)); }
@@ -572,7 +572,7 @@ const shareNative = async () => {
 
 .share-card.bg-clean {
   background:
-    radial-gradient(900px 520px at 30% -20%, rgba(76, 218, 156, 0.14) 0%, rgba(76, 218, 156, 0) 62%),
+    radial-gradient(900px 520px at 30% -20%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, color-mix(in srgb, var(--color-accent) 0%, transparent) 62%),
     radial-gradient(820px 460px at 115% 5%, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0) 60%),
     linear-gradient(180deg, #111827 0%, #0b1220 100%);
 }
@@ -586,7 +586,7 @@ const shareNative = async () => {
 .share-card.bg-emerald {
   background:
     radial-gradient(880px 540px at 25% -25%, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 60%),
-    radial-gradient(740px 420px at 110% 10%, rgba(76, 218, 156, 0.12) 0%, rgba(76, 218, 156, 0) 58%),
+    radial-gradient(740px 420px at 110% 10%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, color-mix(in srgb, var(--color-accent) 0%, transparent) 58%),
     linear-gradient(180deg, #0b1f1a 0%, #081017 100%);
 }
 .share-card.bg-emerald::before {

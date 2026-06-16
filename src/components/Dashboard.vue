@@ -33,6 +33,7 @@
           :allShotsData="filteredShotsData"
           :allGoalsData="filteredGoalsData"
           :allHeatmapData="filteredHeatmapData"
+          :season="activeSeason"
         />
 
         <MatchManager
@@ -48,34 +49,8 @@
           :userName="userName"
         />
 
-        <DashboardAICoach
-          v-if="activeTab === 'ai-coach'"
-          :matches="filteredMatches"
-          :userName="userName"
-          :userPosition="userPosition"
-          :userPreferredFoot="userPreferredFoot"
-          :userClubTeam="userClubTeam"
-        />
       </div>
     </div>
-
-    <button
-      type="button"
-      class="ai-fab"
-      :class="{ 'is-active': activeTab === 'ai-coach' }"
-      :aria-label="activeTab === 'ai-coach' ? 'Close AI Coach' : 'Open AI Coach'"
-      data-testid="ai-fab"
-      @click="ToggleAiCoach"
-    >
-      <svg v-if="activeTab !== 'ai-coach'" class="ai-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" />
-        <path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" />
-      </svg>
-      <svg v-else class="ai-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="6" y1="6" x2="18" y2="18" />
-        <line x1="18" y1="6" x2="6" y2="18" />
-      </svg>
-    </button>
 
     <WelcomeIntro v-if="ShowIntro" @Done="DismissIntro" />
   </div>
@@ -89,7 +64,6 @@ import { ResolveSession } from '../lib/authSession'
 import WelcomeIntro from './onboarding/WelcomeIntro.vue'
 import DashboardOverview from './DashboardOverview.vue'
 import MatchManager from './MatchManager.vue'
-import DashboardAICoach from './DashboardAICoach.vue'
 import SeasonSelector from './SeasonSelector.vue'
 import PracticeTracker from './dashboard/practice/PracticeTracker.vue'
 import ScrollableTabs from './ui/ScrollableTabs.vue'
@@ -111,18 +85,8 @@ const userPosition = ref('')
 const userPreferredFoot = ref('')
 const userClubTeam = ref('')
 const activeTab = ref('overview')
-const PreviousTab = ref('overview')
 const seasons = ref([])
 const activeSeason = ref(null)
-
-const ToggleAiCoach = () => {
-  if (activeTab.value === 'ai-coach') {
-    activeTab.value = PreviousTab.value || 'overview'
-  } else {
-    PreviousTab.value = activeTab.value
-    activeTab.value = 'ai-coach'
-  }
-}
 
 // --- Computed filtered data ---
 const filteredMatches = computed(() => {
@@ -350,50 +314,6 @@ const loadData = async () => {
   min-width: 0;
 }
 
-.ai-fab {
-  position: fixed;
-  right: 24px;
-  bottom: 28px;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  padding: 0;
-  border: 1px solid rgba(137, 248, 193, 0.45);
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #5ee3ad 0%, var(--color-accent) 45%, var(--color-brand) 100%);
-  color: #04130c;
-  cursor: pointer;
-  box-shadow: 0 12px 32px rgba(0, 82, 51, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.ai-fab:hover {
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 16px 40px rgba(0, 82, 51, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-}
-
-.ai-fab:active {
-  transform: translateY(-1px) scale(0.98);
-}
-
-.ai-fab.is-active {
-  background: var(--color-bg-surface);
-  border-color: var(--color-border-soft);
-  color: var(--color-text-primary);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.ai-fab__icon {
-  width: 26px;
-  height: 26px;
-  flex: 0 0 auto;
-}
-
 @media (max-width: 768px) {
   .dashboard-page {
     padding: 16px;
@@ -408,13 +328,6 @@ const loadData = async () => {
     flex-direction: column;
     align-items: stretch;
     gap: 12px;
-  }
-
-  .ai-fab {
-    right: 18px;
-    bottom: 20px;
-    width: 56px;
-    height: 56px;
   }
 }
 </style>

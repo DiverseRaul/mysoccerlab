@@ -352,20 +352,20 @@ const SignInWithGoogle = async () => {
   min-height: 50px;
   margin-top: 4px;
   padding: 13px 16px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
+  background: var(--color-accent);
   border: none;
   border-radius: var(--radius-pill);
-  color: #04130c;
+  color: var(--color-on-accent);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 82, 51, 0.4);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent-deep) 40%, transparent);
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .auth-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(0, 82, 51, 0.5);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-accent-deep) 50%, transparent);
 }
 
 .auth-submit:disabled {
@@ -376,8 +376,8 @@ const SignInWithGoogle = async () => {
 .auth-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(4, 19, 12, 0.3);
-  border-top-color: #04130c;
+  border: 2px solid color-mix(in srgb, var(--color-on-accent) 30%, transparent);
+  border-top-color: var(--color-on-accent);
   border-radius: 50%;
   animation: auth-spin 0.7s linear infinite;
 }

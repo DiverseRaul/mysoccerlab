@@ -67,7 +67,7 @@ const trendDirection = computed(() => {
 
 .stat-tile:hover .stat-tile__icon {
   transform: scale(1.1) rotate(5deg);
-  background: rgba(76, 218, 156, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .stat-tile__content {
@@ -81,7 +81,7 @@ const trendDirection = computed(() => {
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   margin: 0;
-  background: linear-gradient(135deg, #fff 30%, var(--color-brand-fg) 100%);
+  background: var(--color-accent);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

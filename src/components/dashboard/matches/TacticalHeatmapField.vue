@@ -36,9 +36,9 @@
       <svg class="heatmap-field__svg" viewBox="0 0 100 150" preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id="heatmap-halo-positive" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#4cda9c" stop-opacity="0.7" />
-            <stop offset="60%" stop-color="#4cda9c" stop-opacity="0.25" />
-            <stop offset="100%" stop-color="#4cda9c" stop-opacity="0" />
+            <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.7" />
+            <stop offset="60%" stop-color="var(--color-accent)" stop-opacity="0.25" />
+            <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="heatmap-halo-defensive" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.7" />
@@ -246,7 +246,7 @@ const OnCanvasClick = (Event) => {
 .heatmap-field__canvas {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 440px;
   margin: 0 auto;
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);

@@ -340,7 +340,7 @@ const onQuadrantClick = (i) => {
 }
 
 .shot-field__goal-cell--highlight {
-  background: rgba(76, 218, 156, 0.5);
+  background: color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
 .shot-field__goal-cell-num {

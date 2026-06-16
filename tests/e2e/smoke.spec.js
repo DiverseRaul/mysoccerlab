@@ -24,6 +24,18 @@ test('protected routes redirect to /login when unauthenticated', async ({ page }
   expect(page.url()).toMatch(/\/login/)
 })
 
+test('premium screen redirects to /login when unauthenticated', async ({ page }) => {
+  await page.goto('/premium')
+  await page.waitForURL(/\/login/, { timeout: 5000 })
+  expect(page.url()).toMatch(/\/login/)
+})
+
+test('admin panel redirects to /login when unauthenticated', async ({ page }) => {
+  await page.goto('/admin')
+  await page.waitForURL(/\/login/, { timeout: 5000 })
+  expect(page.url()).toMatch(/\/login/)
+})
+
 test('home page loads without runtime errors', async ({ page }) => {
   const errors = []
   page.on('pageerror', (err) => errors.push(err.message))

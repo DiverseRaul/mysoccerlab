@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 /**
  * Overhauled Dashboard coverage: scrollable tab row must not overflow on
- * mobile, tabs switch views, and the floating AI button opens the AI Coach.
+ * mobile, tabs switch views, and the AI Coach nav link opens the AI Coach.
  *
  * These need an authenticated session (see tests/global-setup.js + .env.test).
  * When no test user is configured the route redirects to /login and the test
@@ -39,13 +39,13 @@ test('dashboard tabs switch the active view', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Matches' })).toHaveClass(/is-active/)
 })
 
-test('AI button opens the AI Coach view', async ({ page }) => {
+test('AI Coach nav link opens the AI Coach screen', async ({ page }) => {
   const authed = await gotoDashboard(page)
   test.skip(!authed, 'requires authenticated test user')
-  const fab = page.getByTestId('ai-fab')
-  await expect(fab).toBeVisible()
-  await fab.click()
-  await expect(fab).toHaveClass(/is-active/)
+  const link = page.getByRole('link', { name: /AI Coach/i }).first()
+  await expect(link).toBeVisible()
+  await link.click()
+  await expect(page).toHaveURL(/\/coach$/)
 })
 
 test('dashboard shows the page hero and pitch insights tile', async ({ page }) => {

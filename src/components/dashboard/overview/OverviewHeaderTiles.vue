@@ -155,7 +155,7 @@ const lastMatchResult = computed(() => {
 .record-tile:hover .record-icon,
 .last-match-tile:hover .last-match-icon {
   transform: scale(1.1) rotate(5deg);
-  background: rgba(76, 218, 156, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .wdl-row {

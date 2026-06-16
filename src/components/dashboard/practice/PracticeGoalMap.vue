@@ -76,8 +76,8 @@
         <defs>
           <!-- Soft halo gradients for the heatmap layer, one per outcome -->
           <radialGradient id="halo-goal" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"  stop-color="#4cda9c" stop-opacity="0.65" />
-            <stop offset="100%" stop-color="#4cda9c" stop-opacity="0" />
+            <stop offset="0%"  stop-color="var(--color-accent)" stop-opacity="0.65" />
+            <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="halo-save" cx="50%" cy="50%" r="50%">
             <stop offset="0%"  stop-color="#3b82f6" stop-opacity="0.6" />
@@ -402,7 +402,7 @@ const markerTitle = (p) => {
 }
 
 .marker:disabled { cursor: default; }
-.marker--goal { background: var(--color-success); box-shadow: 0 0 6px rgba(76,218,156,0.6); }
+.marker--goal { background: var(--color-success); box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 60%, transparent); }
 .marker--save { background: var(--color-info);    box-shadow: 0 0 6px rgba(59,130,246,0.6); }
 .marker--miss { background: var(--color-danger);  box-shadow: 0 0 6px rgba(239,83,80,0.6); }
 .marker--post { background: var(--color-warning); box-shadow: 0 0 6px rgba(255,183,77,0.6); }
@@ -478,7 +478,7 @@ const markerTitle = (p) => {
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
-.live-chip--goal { color: var(--color-success); border-color: rgba(76,218,156,0.3); }
+.live-chip--goal { color: var(--color-success); border-color: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 .live-chip--save { color: var(--color-info);    border-color: rgba(59,130,246,0.3); }
 .live-chip--post { color: var(--color-warning); border-color: rgba(255,183,77,0.3); }
 .live-chip--miss { color: var(--color-danger);  border-color: rgba(239,83,80,0.3); }

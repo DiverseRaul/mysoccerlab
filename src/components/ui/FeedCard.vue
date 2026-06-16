@@ -4,7 +4,10 @@
       <button type="button" class="pitch-card__author" data-testid="feed-card-author" @click="Emit('view-profile', Match.user_id)">
         <div class="pitch-card__avatar">{{ Initials }}</div>
         <div class="pitch-card__identity">
-          <span class="pitch-card__name">{{ DisplayName }}</span>
+          <span class="pitch-card__namerow">
+            <span class="pitch-card__name">{{ DisplayName }}</span>
+            <ProBadge v-if="IsAuthorPro" small />
+          </span>
           <span class="pitch-card__meta">{{ Position }} · {{ RelativeDate }}</span>
         </div>
       </button>
@@ -50,6 +53,7 @@ import { computed, ref } from 'vue'
 import ResultBadge from './ResultBadge.vue'
 import MatchHero from './MatchHero.vue'
 import MiniShotMap from './MiniShotMap.vue'
+import ProBadge from './ProBadge.vue'
 import { calculateMatchRating, getRatingColor } from '../../lib/rating'
 
 const Props = defineProps({
@@ -74,16 +78,20 @@ const Props = defineProps({
   }
 })
 
-const Emit = defineEmits(['load-shotmap', 'view-profile'])
+const Emit = defineEmits(['load-shotmap', 'view-profile', 'expand'])
 
 const Expanded = ref(Props.DefaultOpen)
 const Requested = ref(false)
+const ExpandLogged = ref(false)
 
 const ToggleMap = () => {
   Expanded.value = !Expanded.value
-  if (Expanded.value && !Requested.value && Props.ShotData === null) {
-    Requested.value = true
-    Emit('load-shotmap', Props.Match.id)
+  if (Expanded.value) {
+    if (!ExpandLogged.value) { ExpandLogged.value = true; Emit('expand') }
+    if (!Requested.value && Props.ShotData === null) {
+      Requested.value = true
+      Emit('load-shotmap', Props.Match.id)
+    }
   }
 }
 
@@ -99,6 +107,7 @@ const DisplayName = computed(() => {
 })
 
 const Position = computed(() => Props.Match.profile?.position || 'Player')
+const IsAuthorPro = computed(() => Props.Match.profile?.subscription_tier === 'pro')
 
 // The scoreline's "home" label. On the feed this card is someone else's match,
 // so use their first name (not "You").
@@ -208,12 +217,12 @@ const RelativeDate = computed(() => {
 
 .pitch-card.rating-elite {
   border-color: var(--color-accent-border);
-  box-shadow: 0 0 0 1px rgba(76, 218, 156, 0.3), 0 8px 30px rgba(76, 218, 156, 0.2);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent), 0 8px 30px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .pitch-card.rating-excellent {
-  border-color: rgba(76, 218, 156, 0.28);
-  box-shadow: 0 6px 24px rgba(76, 218, 156, 0.1);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 /* good / average use the default neutral surface (no extra treatment) */
@@ -257,18 +266,25 @@ const RelativeDate = computed(() => {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
+  background: var(--color-accent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: var(--font-weight-bold);
-  color: #04130c;
+  color: var(--color-on-accent);
   font-size: var(--font-size-sm);
 }
 
 .pitch-card__identity {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.pitch-card__namerow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
 }
 

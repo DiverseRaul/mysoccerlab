@@ -115,7 +115,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 }
 
 .season-tag:hover {
-  background: rgba(76, 218, 156, 0.18);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 .season-tag__label {

@@ -957,7 +957,7 @@ const activeMatch = ref(null)
       if (goals > shots) {
         const opacity = 0.3 + (intensity * 0.5)
         return {
-          backgroundColor: `rgba(76, 175, 80, ${opacity})`
+          backgroundColor: `color-mix(in srgb, var(--color-accent) ${Math.round(opacity * 100)}%, transparent)`
         }
       } else if (shots > 0) {
         const opacity = 0.2 + (intensity * 0.4)
@@ -1719,10 +1719,10 @@ const activeMatch = ref(null)
 <style scoped>
 /* --- Shared Design Tokens --- */
 :root {
-  --md-sys-color-primary: #4cda9c;
-  --md-sys-color-on-primary: #003822;
-  --md-sys-color-primary-container: #005233;
-  --md-sys-color-on-primary-container: #89f8c1;
+  --md-sys-color-primary: var(--color-accent);
+  --md-sys-color-on-primary: var(--color-on-accent);
+  --md-sys-color-primary-container: var(--color-brand);
+  --md-sys-color-on-primary-container: var(--color-brand-fg);
   --md-sys-color-secondary: #b3ccbf;
   --md-sys-color-surface: #101418;
   --md-sys-color-surface-variant: #2d3135;
@@ -1731,7 +1731,7 @@ const activeMatch = ref(null)
 }
 
 /* --- Stat Color Classes (goals, assists) --- */
-.stat-excellent { color: #4cda9c !important; }
+.stat-excellent { color: var(--color-accent) !important; }
 .stat-good { color: #81c784 !important; }
 .stat-mid { color: #ffb74d !important; }
 .stat-bad { color: #e57373 !important; }
@@ -1739,7 +1739,7 @@ const activeMatch = ref(null)
 
 /* --- Rating Color Classes (from rating.js getRatingColor) --- */
 .rating-elite     { color: #00e5a0 !important; }
-.rating-excellent { color: #4cda9c !important; }
+.rating-excellent { color: var(--color-accent) !important; }
 .rating-good      { color: #81c784 !important; }
 .rating-average   { color: #ffb74d !important; }
 .rating-poor      { color: #e57373 !important; }
@@ -1804,8 +1804,8 @@ const activeMatch = ref(null)
   transition: background 0.18s ease, color 0.18s ease;
 }
 .logger-view-toggle__btn.active {
-  background: #005233;
-  color: #89f8c1;
+  background: var(--color-brand);
+  color: var(--color-brand-fg);
 }
 @media (max-width: 480px) {
   .logger-view-row {
@@ -1908,7 +1908,7 @@ const activeMatch = ref(null)
 .match-item:hover {
   transform: translateY(-4px);
   background: rgba(25, 30, 35, 0.9);
-  border-color: rgba(76, 218, 156, 0.3);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
 }
 
@@ -1952,7 +1952,7 @@ const activeMatch = ref(null)
   display: inline-block;
 }
 
-.win { color: #4cda9c; background: rgba(76, 218, 156, 0.1); }
+.win { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
 .loss { color: #ef5350; background: rgba(239, 83, 80, 0.1); }
 .draw { color: #bdbdbd; background: rgba(189, 189, 189, 0.1); }
 
@@ -2002,20 +2002,20 @@ const activeMatch = ref(null)
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(76, 218, 156, 0.07);
-  border: 1px solid rgba(76, 218, 156, 0.2);
+  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
   border-radius: 12px;
   padding: 4px 10px;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #4cda9c;
+  color: var(--color-accent);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
 }
 
 .season-tag:hover {
-  background: rgba(76, 218, 156, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .season-pick-dropdown {
@@ -2046,8 +2046,8 @@ const activeMatch = ref(null)
 }
 
 .spd-option.active {
-  color: #4cda9c;
-  background: rgba(76, 218, 156, 0.08);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 /* --- Live Match View --- */
@@ -2221,8 +2221,8 @@ const activeMatch = ref(null)
   width: 10px;
   height: 10px;
   transform: translateY(-60%) rotate(45deg);
-  border-right: 2px solid #89f8c1;
-  border-bottom: 2px solid #89f8c1;
+  border-right: 2px solid var(--color-brand-fg);
+  border-bottom: 2px solid var(--color-brand-fg);
   pointer-events: none;
 }
 
@@ -2245,12 +2245,12 @@ const activeMatch = ref(null)
 }
 
 .position-select:hover {
-  border-color: rgba(137, 248, 193, 0.4);
+  border-color: color-mix(in srgb, var(--color-brand-fg) 40%, transparent);
 }
 
 .position-select:focus {
   outline: none;
-  border-color: #4cda9c;
+  border-color: var(--color-accent);
   background: rgba(255, 255, 255, 0.09);
 }
 
@@ -2314,7 +2314,7 @@ const activeMatch = ref(null)
 }
 
 input:checked + .slider {
-  background-color: #4cda9c;
+  background-color: var(--color-accent);
 }
 
 input:checked + .slider:before {
@@ -2482,7 +2482,7 @@ h4 {
 .msl-toast--success {
   background: var(--color-success);
   border-color: var(--color-success);
-  color: #04130c;
+  color: var(--color-on-accent);
 }
 
 .msl-toast-enter-active,
@@ -2521,7 +2521,7 @@ h4 {
 }
 
 .stat-control-group:hover {
-  border-color: rgba(76, 218, 156, 0.18);
+  border-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
   background: rgba(255,255,255,0.04);
 }
 
@@ -2551,14 +2551,14 @@ h4 {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.btn-primary { background: #4cda9c; color: #003822; }
-.btn-primary:hover { background: #3cb885; }
+.btn-primary { background: var(--color-accent); color: var(--color-on-accent); }
+.btn-primary:hover { background: var(--color-accent-strong); }
 
 .btn-danger { background: rgba(239, 83, 80, 0.2); color: #ef5350; }
 .btn-danger:hover { background: rgba(239, 83, 80, 0.4); }
 
-.btn-success { background: rgba(76, 218, 156, 0.2); color: #4cda9c; }
-.btn-success:hover { background: rgba(76, 218, 156, 0.4); }
+.btn-success { background: color-mix(in srgb, var(--color-accent) 20%, transparent); color: var(--color-accent); }
+.btn-success:hover { background: color-mix(in srgb, var(--color-accent) 40%, transparent); }
 
 .stat-value-display {
   font-weight: 700;
@@ -2611,7 +2611,7 @@ h4 {
 
 .event-count {
   font-size: 0.8rem;
-  color: #4cda9c;
+  color: var(--color-accent);
   margin-left: 4px;
 }
 
@@ -2730,8 +2730,8 @@ h4 {
 }
 
 .shot-marker.goal {
-  background: #4caf50; /* Green for goals */
-  box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+  background: var(--color-accent); /* Green for goals */
+  box-shadow: 0 0 5px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
 .goal-grid {
@@ -2767,7 +2767,7 @@ h4 {
 }
 
 .goal-quadrant:hover { background: rgba(255,255,255,0.1); }
-.goal-quadrant.highlight { background: rgba(76, 218, 156, 0.5); }
+.goal-quadrant.highlight { background: color-mix(in srgb, var(--color-accent) 50%, transparent); }
 
 /* Actions */
 .heatmap-view {
@@ -2876,8 +2876,8 @@ h4 {
 }
 
 .modal-option-btn:hover {
-  background: rgba(76, 218, 156, 0.1);
-  border-color: #4cda9c;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: var(--color-accent);
 }
 
 .form-group {
@@ -2954,8 +2954,8 @@ h4 {
 /* Share trigger button (live-view header). All other share styles live
    inside the dedicated <ShareMatchModal> component. */
 .share-btn:hover {
-  border-color: #4cda9c;
-  color: #4cda9c;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 </style>

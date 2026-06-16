@@ -121,7 +121,7 @@
 }
 
 .btn-primary { background: var(--color-accent); color: var(--color-bg-page); }
-.btn-primary:hover { background: #3cb885; transform: translateY(-1px); }
+.btn-primary:hover { background: var(--color-accent-strong); transform: translateY(-1px); }
 
 .btn-secondary {
   background: var(--color-bg-surface-2);

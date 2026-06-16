@@ -253,7 +253,7 @@ onMounted(LoadEntriesFromDb)
   border: none;
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: #04130c;
+  color: var(--color-on-accent);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   cursor: pointer;

@@ -223,6 +223,7 @@ function _outfieldRating(match, pos, goals, shotsOn, shotsOff) {
   // ── 8. Match-defining Errors & Discipline ─────────────────────────────────
   r -= (match.errors_led_to_goal || 0) * 1.6
   r -= (match.own_goals || 0) * 2.5
+  r -= (match.penalties_conceded || 0) * 2.0
   r -= (match.fouls || 0) * 0.18
   r -= (match.yellow_card || 0) * 0.85
   r -= (match.red_card || 0) * 3.5

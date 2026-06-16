@@ -42,9 +42,9 @@
       <svg class="match-map-logger__svg" viewBox="0 0 100 150" preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id="map-halo-positive" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#4cda9c" stop-opacity="0.7" />
-            <stop offset="60%" stop-color="#4cda9c" stop-opacity="0.25" />
-            <stop offset="100%" stop-color="#4cda9c" stop-opacity="0" />
+            <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.7" />
+            <stop offset="60%" stop-color="var(--color-accent)" stop-opacity="0.25" />
+            <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
           </radialGradient>
           <radialGradient id="map-halo-defensive" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.7" />
@@ -61,18 +61,18 @@
             <stop offset="100%" stop-color="#bdbdbd" stop-opacity="0" />
           </radialGradient>
           <linearGradient id="map-attack-tint" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#4cda9c" stop-opacity="0.12" />
-            <stop offset="100%" stop-color="#4cda9c" stop-opacity="0" />
+            <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.12" />
+            <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
           </linearGradient>
         </defs>
 
         <!-- Attacking direction: the top half is where you attack. -->
         <rect x="1" y="1" width="98" height="74" fill="url(#map-attack-tint)" pointer-events="none" />
-        <g pointer-events="none" stroke="rgba(76,218,156,0.28)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <g pointer-events="none" stroke="color-mix(in srgb, var(--color-accent) 28%, transparent)" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="44,108 50,100 56,108" />
           <polyline points="44,117 50,109 56,117" />
         </g>
-        <text x="50" y="41" text-anchor="middle" font-size="5" font-weight="700" letter-spacing="1.4" fill="rgba(76,218,156,0.4)" pointer-events="none">ATTACK</text>
+        <text x="50" y="41" text-anchor="middle" font-size="5" font-weight="700" letter-spacing="1.4" fill="color-mix(in srgb, var(--color-accent) 40%, transparent)" pointer-events="none">ATTACK</text>
         <text x="50" y="124" text-anchor="middle" font-size="4" font-weight="600" letter-spacing="1.2" fill="rgba(255,255,255,0.18)" pointer-events="none">YOUR HALF</text>
 
         <rect x="1" y="1" width="98" height="148" fill="rgba(34, 80, 50, 0.22)" stroke="rgba(255,255,255,0.25)" stroke-width="0.6" rx="2" />
@@ -106,7 +106,7 @@
             :key="`pass-${Pass.Id ?? Index}`"
             :x1="Pass.XPct" :y1="Pass.YPct * 1.5"
             :x2="Pass.EndX" :y2="Pass.EndY * 1.5"
-            :stroke="Pass.Category === 'negative' ? 'rgba(239,83,80,0.7)' : 'rgba(76,218,156,0.75)'"
+            :stroke="Pass.Category === 'negative' ? 'rgba(239,83,80,0.7)' : 'color-mix(in srgb, var(--color-accent) 75%, transparent)'"
             stroke-width="0.8"
             marker-end="url(#map-pass-arrow)"
           />
@@ -114,7 +114,7 @@
 
         <defs>
           <marker id="map-pass-arrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2" orient="auto">
-            <path d="M0,0 L4,2 L0,4 Z" fill="rgba(76,218,156,0.85)" />
+            <path d="M0,0 L4,2 L0,4 Z" fill="color-mix(in srgb, var(--color-accent) 85%, transparent)" />
           </marker>
         </defs>
       </svg>
@@ -391,7 +391,7 @@ const OnDelete = () => {
 .match-map-logger__canvas {
   position: relative;
   width: 100%;
-  max-width: 340px;
+  max-width: 440px;
   margin: 0 auto;
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);

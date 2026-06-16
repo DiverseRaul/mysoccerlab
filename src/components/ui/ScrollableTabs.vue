@@ -79,6 +79,6 @@ const HandleSelect = (Key) => {
 .scrollable-tabs__pill.is-active {
   background: var(--color-brand);
   color: var(--color-brand-fg);
-  box-shadow: 0 2px 12px rgba(0, 82, 51, 0.3);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent-deep) 30%, transparent);
 }
 </style>

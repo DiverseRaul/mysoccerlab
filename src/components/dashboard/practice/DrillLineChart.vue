@@ -23,7 +23,7 @@
         v-if="targetY !== null"
         :x1="padding.left" :x2="width - padding.right"
         :y1="targetY" :y2="targetY"
-        stroke="rgba(76,218,156,0.5)"
+        stroke="color-mix(in srgb, var(--color-accent) 50%, transparent)"
         stroke-dasharray="4 4"
         stroke-width="1"
       />
@@ -31,7 +31,7 @@
         v-if="targetY !== null"
         :x="width - padding.right" :y="targetY - 4"
         text-anchor="end"
-        fill="rgba(76,218,156,0.7)"
+        fill="color-mix(in srgb, var(--color-accent) 70%, transparent)"
         font-size="9"
       >Target {{ drill.target_value }}</text>
 

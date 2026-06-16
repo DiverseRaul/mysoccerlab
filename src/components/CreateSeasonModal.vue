@@ -203,7 +203,7 @@ input {
 }
 
 input:focus {
-  border-color: #4cda9c;
+  border-color: var(--color-accent);
 }
 
 input::placeholder {
@@ -241,8 +241,8 @@ input::placeholder {
 }
 
 .btn-create {
-  background: #4cda9c;
-  color: #003822;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   border: none;
   border-radius: 10px;
   padding: 10px 24px;
@@ -252,7 +252,7 @@ input::placeholder {
   transition: background 0.2s;
 }
 
-.btn-create:hover:not(:disabled) { background: #3ab882; }
+.btn-create:hover:not(:disabled) { background: var(--color-accent-strong); }
 
 .btn-create:disabled {
   opacity: 0.5;

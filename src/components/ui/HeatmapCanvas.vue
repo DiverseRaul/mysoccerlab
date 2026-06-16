@@ -106,7 +106,7 @@ watch(() => Props.points, () => nextTick(Draw), { deep: true })
 <style scoped>
 .heatmap-canvas {
   width: 100%;
-  max-width: 260px;
+  max-width: 440px;
   margin: 0 auto;
 }
 

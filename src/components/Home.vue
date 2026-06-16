@@ -3,28 +3,25 @@
     <!-- Hero -->
     <section class="hero">
       <RevealOnScroll>
-        <p class="hero__eyebrow">My Soccer Lab</p>
-        <h1 class="hero__title">Your season,<br /><span class="hero__accent">measured.</span></h1>
-        <p class="hero__sub">
-          Log every match, map every shot, and get an honest rating, xG, heatmaps,
-          and AI coaching built around your position.
-        </p>
+        <p class="hero__eyebrow">{{ home.hero.eyebrow }}</p>
+        <h1 class="hero__title">{{ home.hero.title }}<br /><span class="hero__accent">{{ home.hero.titleAccent }}</span></h1>
+        <p class="hero__sub">{{ home.hero.sub }}</p>
         <div class="hero__ctas">
-          <router-link v-if="!user" to="/login" class="btn btn-primary">Start your season</router-link>
+          <router-link v-if="!user" to="/login" class="btn btn-primary">{{ home.hero.ctaPrimary }}</router-link>
           <template v-else>
             <router-link to="/dashboard" class="btn btn-primary">Dashboard</router-link>
             <router-link to="/feed" class="btn btn-outline">The Pitch</router-link>
           </template>
         </div>
-        <p class="hero__scroll-hint">Scroll to see how it works ↓</p>
+        <p class="hero__scroll-hint">{{ home.hero.scrollHint }}</p>
       </RevealOnScroll>
     </section>
 
     <!-- Feature slideshow -->
     <section class="showcase">
       <RevealOnScroll class="showcase__head">
-        <span class="showcase__eyebrow">How it works</span>
-        <h2 class="showcase__title">Everything, one match at a time.</h2>
+        <span class="showcase__eyebrow">{{ home.showcase.eyebrow }}</span>
+        <h2 class="showcase__title">{{ home.showcase.title }}</h2>
       </RevealOnScroll>
 
       <RevealOnScroll>
@@ -117,10 +114,10 @@
     <!-- Final CTA -->
     <section class="cta-band">
       <RevealOnScroll>
-        <h2 class="cta-band__title">Every match deserves<br />this treatment.</h2>
-        <p class="cta-band__sub">Start logging — your rating, heatmap, and AI coach are one match away.</p>
+        <h2 class="cta-band__title">{{ home.ctaBand.title }}</h2>
+        <p class="cta-band__sub">{{ home.ctaBand.sub }}</p>
         <div class="cta-band__buttons">
-          <router-link v-if="!user" to="/login" class="btn btn-primary">Start your season</router-link>
+          <router-link v-if="!user" to="/login" class="btn btn-primary">{{ home.hero.ctaPrimary }}</router-link>
           <template v-else>
             <router-link to="/dashboard" class="btn btn-primary">Dashboard</router-link>
             <router-link to="/feed" class="btn btn-outline">The Pitch</router-link>
@@ -132,25 +129,22 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import { content, loadKey } from '../lib/siteContent'
 import RevealOnScroll from './home/RevealOnScroll.vue'
 import HeatmapCanvas from './ui/HeatmapCanvas.vue'
 import FeedCard from './ui/FeedCard.vue'
 
 const user = ref(null)
 
-const features = [
-  { key: 'heatmap', tag: 'Heatmap', title: 'Every touch, mapped.', text: 'Tap the pitch to log where it happened. Over a season it builds a heatmap of exactly where you played, scored, and defended.' },
-  { key: 'rating', tag: 'Match rating', title: 'An honest 1–10 rating.', text: 'A position-aware engine weighs your goals, passing, defending and mistakes.' },
-  { key: 'xg', tag: 'Expected goals', title: 'xG on every shot.', text: 'See how likely each chance was to score, and whether you’re finishing clinically or leaving goals out.' },
-  { key: 'ai', tag: 'AI coach', title: 'Coaching that reads your game.', text: 'The AI coach studies your real numbers and your position, then builds training plans around what you actually need.' },
-  { key: 'feed', tag: 'The Pitch', title: 'Share it on The Pitch.', text: 'Follow other players and see their matches roll into your feed as match-report cards.' }
-]
+// Editable copy (admin → site_content 'home'); falls back to baked-in defaults.
+const home = computed(() => content.value.home)
+const features = computed(() => content.value.home.features)
 
 // ── Slideshow state ────────────────────────────────────────────────
 const active = ref(0)
-const count = features.length
+const count = features.value.length
 const AUTO_MS = 5500
 const prefersReduced = typeof window !== 'undefined'
   && typeof window.matchMedia === 'function'
@@ -228,6 +222,8 @@ onMounted(async () => {
     resizeObserver.observe(trackEl.value)
   }
   window.addEventListener('resize', measure)
+
+  loadKey('home').then(() => nextTick(measure))
 
   const { data } = await supabase.auth.getUser()
   user.value = data.user
@@ -312,12 +308,12 @@ onBeforeUnmount(() => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
-  color: #04130c;
-  box-shadow: 0 8px 24px rgba(0, 82, 51, 0.4);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent-deep) 40%, transparent);
 }
 
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0, 82, 51, 0.5); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px color-mix(in srgb, var(--color-accent-deep) 50%, transparent); }
 
 .btn-outline {
   background: var(--color-bg-surface-2);
@@ -501,7 +497,7 @@ onBeforeUnmount(() => {
 .demo-rating__value { font-size: 3.4rem; font-weight: var(--font-weight-heavy); color: var(--color-rating-excellent); line-height: 1; }
 .demo-rating__label { font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); text-transform: uppercase; letter-spacing: 0.08em; color: var(--color-rating-excellent); }
 .demo-rating__bar { width: 100%; height: 8px; margin-top: 8px; border-radius: var(--radius-pill); background: var(--color-bg-surface-3); overflow: hidden; }
-.demo-rating__bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--color-accent), var(--color-brand-fg)); }
+.demo-rating__bar span { display: block; height: 100%; background: var(--color-accent); }
 
 .demo-xg__row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--color-border-subtle); font-size: var(--font-size-base); color: var(--color-text-secondary); }
 .demo-xg__row strong { font-size: var(--font-size-lg); font-weight: var(--font-weight-heavy); }

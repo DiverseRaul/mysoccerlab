@@ -159,7 +159,7 @@ const save = () => {
 }
 
 .btn-primary:hover {
-  background: #3cb885;
+  background: var(--color-accent-strong);
   transform: translateY(-1px);
 }
 

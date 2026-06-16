@@ -169,7 +169,7 @@ const formatDate = (iso) => {
   white-space: nowrap;
 }
 
-.add-btn:hover { background: #3cb885; }
+.add-btn:hover { background: var(--color-accent-strong); }
 
 .empty-state {
   padding: var(--space-7) var(--space-5);

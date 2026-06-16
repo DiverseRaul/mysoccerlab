@@ -219,8 +219,8 @@ watch(() => Props.userId, Load, { immediate: true })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
-  color: #04130c;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 1.6rem;
   font-weight: var(--font-weight-heavy);
 }
@@ -304,8 +304,8 @@ watch(() => Props.userId, Load, { immediate: true })
   padding: 13px;
   border-radius: var(--radius-pill);
   border: 1px solid transparent;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
-  color: #04130c;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   cursor: pointer;

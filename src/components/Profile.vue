@@ -4,8 +4,14 @@
       <PageHero
         title="Profile"
         subtitle="Manage your account, profile, and achievements."
-        :chip="editableProfile.position || 'Player'"
-      />
+      >
+        <template #action>
+          <div class="profile-hero-meta">
+            <ProBadge v-if="isPro" />
+            <span class="profile-hero-chip">{{ editableProfile.position || 'Player' }}</span>
+          </div>
+        </template>
+      </PageHero>
     </div>
 
     <div class="profile-container">
@@ -196,6 +202,96 @@
         </div>
       </div>
 
+      <!-- Coach / Scout share link (free) -->
+      <div class="profile-section card-glass">
+        <div class="section-header section-header--row">
+          <h3>🔗 Share with your coach</h3>
+          <label class="switch">
+            <input type="checkbox" :checked="shareEnabled" @change="toggleShare" :disabled="shareBusy" />
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <p class="pro-section-desc">Give a coach or scout a private, read-only link to your dashboard. No account needed — turn it off anytime to revoke access.</p>
+
+        <div v-if="shareEnabled && shareLinkUrl" class="share-link">
+          <div class="share-link__row">
+            <input class="share-link__input" :value="shareLinkUrl" readonly @focus="(e) => e.target.select()" />
+            <button type="button" class="btn btn-primary" @click="copyShareLink">{{ shareCopied ? 'Copied!' : 'Copy' }}</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" :disabled="shareBusy" @click="regenerateLink">Generate new link (revokes old)</button>
+        </div>
+        <p v-else class="share-link__off">Sharing is off. Flip the switch to create a link.</p>
+      </div>
+
+      <!-- Lab Pro — always visible so free users see what they'd unlock -->
+      <div class="profile-section pro-section" :class="{ 'is-pro': showPro }">
+        <div class="pro-hero">
+          <div class="pro-hero__brand">
+            <span class="pro-hero__spark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" /></svg>
+            </span>
+            <div>
+              <h3 class="pro-hero__title">Lab Pro</h3>
+              <p class="pro-hero__tag">{{ showPro ? 'Your premium toolkit is active' : 'Unlock your premium toolkit' }}</p>
+            </div>
+          </div>
+          <span v-if="showPro" class="pro-status pro-status--active"><span class="pro-status__dot"></span>Active</span>
+          <router-link v-else to="/premium" class="btn btn-primary pro-upgrade">Unlock Lab Pro</router-link>
+        </div>
+
+        <!-- Free: benefit checklist -->
+        <ul v-if="!showPro" class="pro-perks">
+          <li v-for="p in proPerks" :key="p"><span class="pro-perks__check">✓</span>{{ p }}</li>
+        </ul>
+
+        <!-- Pro analytics (each tile shows a teaser for free users) -->
+        <div class="pro-tiles">
+          <PeerPercentilesTile />
+          <ProfileAnalyticsTile />
+        </div>
+
+        <!-- Accent colour -->
+        <div class="pro-block">
+          <div class="pro-block__head">
+            <span class="info-label">Accent colour</span>
+            <span v-if="!showPro" class="pro-tag">PRO</span>
+          </div>
+          <p class="pro-hint">Recolour the app’s highlights to match your style.</p>
+          <div class="accent-row">
+            <button
+              v-for="c in accentPresets"
+              :key="c"
+              type="button"
+              class="accent-swatch"
+              :class="{ 'is-active': showPro && accent.toLowerCase() === c }"
+              :style="{ background: c }"
+              :title="c"
+              @click="showPro ? selectAccent(c) : goPremium()"
+            ></button>
+            <label class="accent-custom" :class="{ 'is-disabled': !showPro }" title="Custom colour">
+              <span class="accent-custom__plus">+</span>
+              <input type="color" :value="accent || '#4cda9c'" :disabled="!showPro" @input="(e) => { accent = e.target.value }" @change="saveAccent" />
+            </label>
+            <button v-if="showPro && accent" type="button" class="accent-reset" @click="resetAccent">Reset</button>
+          </div>
+        </div>
+
+        <!-- Early access -->
+        <div class="pro-block pro-block--row">
+          <div>
+            <div class="pro-block__head">
+              <span class="info-label">Early access</span>
+              <span v-if="!showPro" class="pro-tag">PRO</span>
+            </div>
+            <p class="pro-hint">Try new beta features before everyone else.<span v-if="showPro && earlyAccessOn" class="ea-chip">Enrolled</span></p>
+          </div>
+          <label class="switch" :class="{ 'is-disabled': !showPro }">
+            <input type="checkbox" v-model="earlyAccessOn" :disabled="!showPro" @change="toggleEarlyAccess" />
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
       <!-- Achievements -->
       <div class="profile-section card-glass">
         <div class="section-header">
@@ -261,13 +357,71 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'vue-router'
 import PageHero from './ui/PageHero.vue'
+import ProBadge from './ui/ProBadge.vue'
+import PeerPercentilesTile from './dashboard/overview/PeerPercentilesTile.vue'
+import ProfileAnalyticsTile from './dashboard/overview/ProfileAnalyticsTile.vue'
+import { isPro, accentColor, earlyAccess, setAccent, setEarlyAccess, loadEntitlements } from '../lib/premium'
+import { getShareState, enableShare, disableShare, regenerateShare, shareUrl } from '../lib/shareLink'
+
+// A small set of dark-mode-friendly accent colours.
+const ACCENT_PRESETS = ['#4cda9c', '#3b82f6', '#a855f7', '#f43f5e', '#f59e0b', '#22d3ee']
 
 export default {
   name: 'ProfileView',
-  components: { PageHero },
-  setup() {
+  components: { PageHero, ProBadge, PeerPercentilesTile, ProfileAnalyticsTile },
+  props: {
+    // Harness-only: render the screen without an auth redirect / server loads.
+    previewMode: { type: Boolean, default: false }
+  },
+  setup(props) {
     const user = ref(null)
     const router = useRouter()
+
+    // Lab Pro: single accent colour + early access.
+    const showPro = computed(() => props.previewMode || isPro.value)
+    const accent = ref('')
+    const earlyAccessOn = ref(false)
+    const accentPresets = ACCENT_PRESETS
+    const proPerks = [
+      'Peer percentiles vs your position',
+      'See who views your profile',
+      'Form & slump alerts',
+      'Custom accent colour',
+      'Early access to new features'
+    ]
+    const goPremium = () => router.push('/premium')
+
+    const selectAccent = (c) => { accent.value = c; setAccent(c) }
+    const saveAccent = () => setAccent(accent.value)
+    const resetAccent = () => { accent.value = ''; setAccent('') }
+    const toggleEarlyAccess = () => setEarlyAccess(earlyAccessOn.value)
+
+    // Coach/scout share link.
+    const shareToken = ref(null)
+    const shareEnabled = ref(false)
+    const shareBusy = ref(false)
+    const shareCopied = ref(false)
+    const shareLinkUrl = computed(() => shareUrl(shareToken.value))
+    const toggleShare = async () => {
+      shareBusy.value = true
+      try {
+        if (shareEnabled.value) { await disableShare(); shareEnabled.value = false }
+        else { shareToken.value = await enableShare(); shareEnabled.value = true }
+      } finally { shareBusy.value = false }
+    }
+    const regenerateLink = async () => {
+      shareBusy.value = true
+      try { shareToken.value = await regenerateShare(); shareEnabled.value = true }
+      finally { shareBusy.value = false }
+    }
+    const copyShareLink = async () => {
+      try { await navigator.clipboard.writeText(shareLinkUrl.value); shareCopied.value = true; setTimeout(() => { shareCopied.value = false }, 1500) }
+      catch { /* clipboard unavailable */ }
+    }
+    const syncProState = () => {
+      accent.value = accentColor.value || ''
+      earlyAccessOn.value = earlyAccess.value
+    }
     // 'idle' | 'saving' | 'saved' | 'error' — drives the inline auto-save chip.
     const saveStatus = ref('idle')
     const editableProfile = ref({
@@ -331,10 +485,23 @@ export default {
     }
 
     onMounted(async () => {
+      if (props.previewMode) {
+        user.value = { email: 'player@demo.com', created_at: '2025-01-01T00:00:00Z' }
+        editableProfile.value = { ...editableProfile.value, playerName: 'Demo Player', position: 'Striker' }
+        syncProState()
+        shareEnabled.value = true
+        shareToken.value = 'demo-share-token-abc123'
+        return
+      }
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         user.value = session.user
         await loadProfile()
+        await loadEntitlements(session.user.id)
+        syncProState()
+        const s = await getShareState()
+        shareToken.value = s.token
+        shareEnabled.value = s.enabled
         // Let the load assignment settle before arming the auto-save watcher.
         await nextTick()
         ready = true
@@ -534,6 +701,24 @@ export default {
 
     return {
       user,
+      isPro,
+      showPro,
+      accent,
+      accentPresets,
+      proPerks,
+      selectAccent,
+      saveAccent,
+      resetAccent,
+      goPremium,
+      earlyAccessOn,
+      toggleEarlyAccess,
+      shareEnabled,
+      shareBusy,
+      shareCopied,
+      shareLinkUrl,
+      toggleShare,
+      regenerateLink,
+      copyShareLink,
       saveStatus,
       editableProfile,
       isProfileComplete,
@@ -554,10 +739,10 @@ export default {
 <style scoped>
 /* --- Shared Design Tokens --- */
 :root {
-  --md-sys-color-primary: #4cda9c;
-  --md-sys-color-on-primary: #003822;
-  --md-sys-color-primary-container: #005233;
-  --md-sys-color-on-primary-container: #89f8c1;
+  --md-sys-color-primary: var(--color-accent);
+  --md-sys-color-on-primary: var(--color-on-accent);
+  --md-sys-color-primary-container: var(--color-brand);
+  --md-sys-color-on-primary-container: var(--color-brand-fg);
   --md-sys-color-secondary: #b3ccbf;
   --md-sys-color-surface: #101418;
   --md-sys-color-surface-variant: #2d3135;
@@ -580,6 +765,23 @@ export default {
 
 .profile-hero-wrap {
   margin: 3rem auto 24px;
+}
+
+.profile-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-hero-chip {
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
 }
 
 .profile-container {
@@ -606,10 +808,10 @@ export default {
   width: 100px;
   height: 100px;
   border-radius: 50%;
-  border: 3px solid #4cda9c;
+  border: 3px solid var(--color-accent);
   overflow: hidden;
   background: #1a1a1a;
-  box-shadow: 0 0 20px rgba(76, 218, 156, 0.2);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .profile-avatar {
@@ -720,9 +922,9 @@ export default {
 }
 
 .save-status--saved {
-  color: #4cda9c;
-  border-color: rgba(76, 218, 156, 0.3);
-  background: rgba(76, 218, 156, 0.1);
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 .save-status--error {
@@ -801,9 +1003,9 @@ export default {
 
 .info-input:focus, .info-select:focus {
   outline: none;
-  border-color: #4cda9c;
+  border-color: var(--color-accent);
   background: rgba(0, 0, 0, 0.5);
-  box-shadow: 0 0 0 2px rgba(76, 218, 156, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .info-select option {
@@ -891,15 +1093,15 @@ export default {
 }
 
 .position-dot:hover {
-  background: rgba(76, 218, 156, 0.6);
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
   border-color: #fff;
   transform: translate(-50%, -50%) scale(1.1);
 }
 
 .position-dot.active {
-  background: #4cda9c;
+  background: var(--color-accent);
   border-color: #fff;
-  box-shadow: 0 0 10px #4cda9c;
+  box-shadow: 0 0 10px var(--color-accent);
   z-index: 3;
 }
 
@@ -911,11 +1113,11 @@ export default {
 }
 
 .position-dot.active .pos-abbr {
-  color: #003822;
+  color: var(--color-on-accent);
 }
 
 .selected-position-label {
-  color: #4cda9c;
+  color: var(--color-accent);
   font-size: 1rem;
 }
 
@@ -968,11 +1170,11 @@ export default {
 }
 
 input:checked + .slider {
-  background-color: #4cda9c;
+  background-color: var(--color-accent);
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #4cda9c;
+  box-shadow: 0 0 1px var(--color-accent);
 }
 
 input:checked + .slider:before {
@@ -1039,6 +1241,198 @@ input:disabled + .slider {
   transform: translateY(-1px);
 }
 
+/* --- Share link --- */
+.share-link { display: flex; flex-direction: column; gap: 12px; }
+.share-link__row { display: flex; gap: 10px; flex-wrap: wrap; }
+.share-link__input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 11px 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.share-link__input:focus { outline: none; border-color: var(--color-accent); }
+.share-link__off { margin: 0; color: #89938d; font-size: 0.9rem; }
+
+/* --- Lab Pro showcase --- */
+.pro-section {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 55%),
+    rgba(15, 18, 20, 0.82);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  box-shadow:
+    0 10px 44px -10px color-mix(in srgb, var(--color-accent) 24%, transparent),
+    0 4px 24px -1px rgba(0, 0, 0, 0.4);
+}
+
+.pro-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+.pro-hero__brand { display: flex; align-items: center; gap: 14px; }
+.pro-hero__spark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  color: var(--color-accent);
+  box-shadow: 0 0 26px color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+.pro-hero__spark svg { width: 24px; height: 24px; }
+.pro-hero__title { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+.pro-hero__tag { margin: 2px 0 0; color: #89938d; font-size: 0.85rem; }
+
+.pro-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.pro-status--active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
+  color: var(--color-accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.pro-status__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+.pro-upgrade { box-shadow: 0 0 22px color-mix(in srgb, var(--color-accent) 35%, transparent); }
+
+.pro-perks {
+  list-style: none;
+  margin: 0 0 1.75rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 11px;
+}
+@media (min-width: 600px) { .pro-perks { grid-template-columns: 1fr 1fr; } }
+.pro-perks li { display: flex; align-items: center; gap: 10px; color: #e1e2e6; font-size: 0.92rem; }
+.pro-perks__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+/* Embedded Pro analytics tiles */
+.pro-tiles {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 1.75rem;
+}
+@media (min-width: 720px) {
+  .pro-tiles { grid-template-columns: 1fr 1fr; }
+}
+
+/* Pro control blocks */
+.pro-block {
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.pro-block--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pro-block--row > div { min-width: 0; }
+/* Keep the toggle at its natural size so the knob can't overflow the track. */
+.pro-block--row .switch { flex: 0 0 auto; }
+.pro-block__head { display: flex; align-items: center; gap: 10px; }
+.pro-tag {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 183, 77, 0.14);
+  color: #ffb74d;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.pro-hint { margin: 6px 0 0; color: #89938d; font-size: 0.9rem; line-height: 1.5; }
+
+/* Accent swatches */
+.accent-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.accent-swatch {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.accent-swatch:hover { transform: scale(1.1); }
+.accent-swatch.is-active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15); }
+
+.accent-custom {
+  position: relative;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+.accent-custom.is-disabled { opacity: 0.4; cursor: not-allowed; }
+.accent-custom__plus { color: #89938d; font-size: 1.1rem; line-height: 1; pointer-events: none; }
+.accent-custom input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.accent-custom.is-disabled input { cursor: not-allowed; }
+
+.accent-reset {
+  margin-left: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  color: #c9cdd2;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 6px 14px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.accent-reset:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.28); color: #fff; }
+
+.ea-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.switch.is-disabled { opacity: 0.4; }
+.switch.is-disabled input { cursor: not-allowed; }
+
 /* --- Achievements --- */
 .achievements-grid {
   display: grid;
@@ -1060,8 +1454,8 @@ input:disabled + .slider {
 
 .achievement.unlocked {
   opacity: 1;
-  background: rgba(76, 218, 156, 0.1);
-  border-color: rgba(76, 218, 156, 0.3);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .achievement-icon {
@@ -1076,7 +1470,7 @@ input:disabled + .slider {
 }
 
 .achievement.unlocked .achievement-icon {
-  background: rgba(76, 218, 156, 0.2);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .achievement-info h4 {

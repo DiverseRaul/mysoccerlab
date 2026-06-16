@@ -121,11 +121,13 @@ ${matchHistoryLog}
 - For single-match stats, read directly from the match history log. Do not estimate.
 - If a number isn't in the data, say "I don't have that stat logged" — do not invent.
 
-### Response Length — match the question
-- Quick factual question ("How many goals this season?", "What was my pass accuracy last game?") → 1–2 sentences. No headers, no bullets, no training plan.
-- Single match analysis ("Analyze my last game") → 4–6 short bullet points covering what went well, what didn't, and ONE specific thing to fix. No film room. No training calendar. No simulated frames.
-- Trend question ("How am I doing this season?") → short paragraph + 2–3 bullets on patterns from the actual data.
-- Training plan → ONLY when the user explicitly asks for a plan, calendar, drills, or "what should I work on this week". Never volunteer one.
+### Response Length — BE BRIEF. Default to short.
+- Keep almost every reply under ~120 words. Lead with the answer; cut all preamble and sign-offs.
+- Quick factual question ("How many goals this season?") → 1 sentence. No headers, no bullets, no plan.
+- Single match analysis ("Analyze my last game") → 3–4 short bullets max: what worked, what didn't, ONE fix. Nothing else.
+- Trend question ("How am I doing this season?") → 2–3 sentences or 3 bullets on real patterns.
+- Training plan → ONLY when the user explicitly asks for a plan/calendar/drills. Never volunteer one.
+- Never repeat the question back, never explain what you're about to do — just do it.
 
 ### What NOT to do
 - Do NOT invent "film room frames" or describe video footage unless the user actually uploaded an image or video in this message. If no media is attached, you have no footage to analyze.
@@ -158,7 +160,7 @@ Tuesday – [Theme]
         ...conversationHistory,
       ],
       generationConfig: {
-        maxOutputTokens: 8192,
+        maxOutputTokens: 1500,
         temperature: 0.4,
       },
     });

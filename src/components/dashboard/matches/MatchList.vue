@@ -269,7 +269,7 @@ const resetFilters = () => {
 }
 
 .add-btn:hover {
-  background: #3cb885;
+  background: var(--color-accent-strong);
   transform: scale(1.05);
 }
 
@@ -379,7 +379,7 @@ const resetFilters = () => {
 }
 
 .empty-state__btn:hover {
-  background: #3cb885;
+  background: var(--color-accent-strong);
   transform: translateY(-1px);
 }
 

@@ -4,7 +4,12 @@
       "Bash(grep -rn '#[0-9a-fA-F]\\\\{3,6\\\\}' src/components/dashboard/overview/ --include=\"*.vue\")",
       "Bash(grep -v \"//.*#\")",
       "Bash(grep -rn '#[0-9a-fA-F]\\\\{3,6\\\\}' src/components/ui/ --include=\"*.vue\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "PowerShell(npm run *)",
+      "PowerShell(npx playwright test home.spec.js smoke.spec.js 2>&1 | Select-Object -Last 5)",
+      "Bash(node __a.cjs)",
+      "Bash(node __a2.cjs)",
+      "PowerShell(try { Get-NetTCPConnection -LocalPort 4173 -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; \"stopped\" } catch { \"no preview\" })"
     ]
   }
 }

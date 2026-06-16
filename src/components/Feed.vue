@@ -41,6 +41,7 @@
           :ShotData="shotDataByMatch[match.id] ?? null"
           @load-shotmap="loadShotData"
           @view-profile="openProfile"
+          @expand="onCardExpand(match.user_id, match.id)"
         />
       </div>
     </div>
@@ -112,6 +113,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import { logProfileView, logCardExpand } from '../lib/profileEvents'
 import { useRouter } from 'vue-router'
 import ScrollableTabs from './ui/ScrollableTabs.vue'
 import FeedCard from './ui/FeedCard.vue'
@@ -144,7 +146,11 @@ const openProfile = (userId) => {
   profileModal.name = Match?.profile?.player_name || ''
   profileModal.position = Match?.profile?.position || ''
   profileModal.userId = userId
+  logProfileView(userId) // Pro: profile analytics (anonymous, skips self)
 }
+
+// FeedCard emits this when a card is first expanded.
+const onCardExpand = (userId, matchId) => logCardExpand(userId, matchId)
 
 // Follow/unfollow by id (used by the profile popup); keeps followingIds in sync.
 const toggleFollowById = async (userId) => {
@@ -238,7 +244,7 @@ const loadFeed = async () => {
     const userIds = [...new Set(matchesData.map(m => m.user_id))]
     const { data: profiles, error: profilesError } = await supabase
       .from('user_profiles')
-      .select('user_id, player_name, position, is_public')
+      .select('user_id, player_name, position, is_public, subscription_tier')
       .in('user_id', userIds)
 
     const profileMap = {}
@@ -637,7 +643,7 @@ const formatEmail = (email) => {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
+  background: var(--color-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -683,7 +689,7 @@ const formatEmail = (email) => {
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   background: var(--color-accent);
-  color: #04130c;
+  color: var(--color-on-accent);
   flex: 0 0 auto;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }

@@ -2,9 +2,18 @@
  * Design Tokens — MySoccerLab Dashboard
  *
  * Values are derived from existing literals in DashboardOverview.vue,
- * MatchManager.vue, DashboardAICoach.vue and ShotMapSection.vue.
+ * MatchManager.vue and ShotMapSection.vue.
  * Phase 0 ships zero visual change — adding more callsites in later phases.
  */
+
+/* Register --color-accent as a real <color> so it can animate. When a Pro user
+   switches accent (premium.js#applyAccent sets this on :root) the whole derived
+   green family — every color-mix off it — eases to the new colour. */
+@property --color-accent {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #4cda9c;
+}
 
 :root {
   /* Tells the browser to render native form controls (select options panel,
@@ -37,16 +46,27 @@
   --color-text-faint:     #666666;
   --color-text-disabled:  #444444;
 
-  /* ── Brand ───────────────────────────────────────────────────── */
-  --color-brand:          #005233;                   /* Active tab bg */
-  --color-brand-fg:       #89f8c1;                   /* Text on brand */
-  --color-accent:         #4cda9c;                   /* Primary accent */
-  --color-accent-soft:    rgba(76, 218, 156, 0.1);   /* Tinted bg */
-  --color-accent-border:  rgba(76, 218, 156, 0.25);  /* Tinted border */
+  /* ── Brand / accent ──────────────────────────────────────────────
+     Single source of truth: --color-accent. Every other green below is
+     derived from it via color-mix, so a Pro custom accent (set by
+     premium.js#applyAccent overriding just --color-accent) recolours the
+     whole UI. Defaults below resolve to the original hand-picked greens
+     (#005233 / #89f8c1 / #3cb885), so the stock look is unchanged. */
+  --color-accent:         #4cda9c;                   /* Primary accent (the one knob) */
+  --color-accent-strong:  color-mix(in srgb, var(--color-accent) 82%, black);   /* Hover/pressed (~#3cb885) */
+  --color-accent-deep:    color-mix(in srgb, var(--color-accent) 50%, black);    /* Deep shade (~#1f6b4d) */
+  --color-accent-soft:    color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --color-accent-border:  color-mix(in srgb, var(--color-accent) 28%, transparent);
+  --color-on-accent:      #06140f;                   /* Dark text sitting ON the accent */
+  --color-accent-glow-20: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  --color-accent-glow-30: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-glow-45: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  --color-brand:          color-mix(in srgb, var(--color-accent) 42%, #04130c);  /* Active tab bg (~#005233) */
+  --color-brand-fg:       color-mix(in srgb, var(--color-accent) 58%, white);    /* Text on brand (~#89f8c1) */
 
   /* ── Semantic ────────────────────────────────────────────────── */
-  --color-success:        #4cda9c;
-  --color-success-bg:     rgba(76, 218, 156, 0.1);
+  --color-success:        var(--color-accent);
+  --color-success-bg:     color-mix(in srgb, var(--color-accent) 12%, transparent);
   --color-warning:        #ffb74d;
   --color-warning-bg:     rgba(255, 183, 77, 0.1);
   --color-danger:         #ef5350;
@@ -112,6 +132,11 @@
   --breakpoint-sm: 480px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
+}
+
+/* Ease the accent recolour (skip for reduced-motion users). */
+@media (prefers-reduced-motion: no-preference) {
+  :root { transition: --color-accent 0.45s ease; }
 }
 
 /* Native select options — Firefox respects these explicitly; Chromium

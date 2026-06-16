@@ -17,22 +17,17 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import StaticPage from './StaticPage.vue'
+import { content, loadKey } from '../../lib/siteContent'
 
 const open = ref(0)
 const toggle = (i) => { open.value = open.value === i ? -1 : i }
 
-const items = [
-  { q: 'What is My Soccer Lab?', a: 'A personal analytics app for individual players. You log your matches and shots, and it turns them into a position-aware rating, heatmaps, xG, and AI coaching — plus a social feed called The Pitch.' },
-  { q: 'How is my match rating calculated?', a: 'Every match gets a 1.0–10.0 rating from a position-aware engine that weighs goals, assists, passing, defending, and mistakes differently by your position. It is deliberately hard to max out — a 10 needs sustained quality, not one hot stat.' },
-  { q: 'What is xG?', a: 'Expected goals — an estimate of how likely each shot was to score based on where it was taken. It helps you see whether you are finishing clinically or wasting good chances.' },
-  { q: 'How do I log where things happened on the pitch?', a: 'In a match, use the map logger: tap the pitch to drop an event. Goals and shots also record where in the goal they went, and passes can record their direction. Switch to the Heatmap or Timeline tabs to review.' },
-  { q: 'Who can see my matches?', a: 'Only you, unless you make your profile public or someone follows you — then your matches appear in their feed. You can go private again anytime from your Profile.' },
-  { q: 'Do I need to log every single action?', a: 'No. Log as much or as little as you like. The more you log, the richer your heatmaps and stats — but even a quick scoreline and a couple of shots give you a rating.' },
-  { q: 'Is my data safe and can I delete it?', a: 'Your data is private by default and protected by row-level security. You can edit or delete matches anytime, and delete your whole account from the Profile page. See our Privacy Policy for details.' },
-  { q: 'Does the AI Coach really use my stats?', a: 'Yes — it reads your actual match history and position, so its advice and training plans are about your game, not generic tips.' }
-]
+// Editable copy (admin → site_content 'faq'); falls back to baked-in defaults.
+const items = computed(() => content.value.faq.items)
+
+onMounted(() => loadKey('faq'))
 </script>
 
 <style scoped>

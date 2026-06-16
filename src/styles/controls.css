@@ -42,7 +42,7 @@
   color: var(--color-bg-page);
 }
 .btn-primary:not(:disabled):hover {
-  background: #3cb885;
+  background: var(--color-accent-strong);
   transform: translateY(-1px);
 }
 

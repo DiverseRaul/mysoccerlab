@@ -321,10 +321,10 @@ const radarLabels = computed(() =>
 }
 
 .radar-polygon {
-  fill: rgba(76, 218, 156, 0.3);
+  fill: color-mix(in srgb, var(--color-accent) 30%, transparent);
   stroke: var(--color-accent);
   stroke-width: 2;
-  filter: drop-shadow(0 0 8px rgba(76, 218, 156, 0.4));
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent));
   transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 

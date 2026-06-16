@@ -163,9 +163,9 @@ const formatDate = (dateStr) => {
 }
 
 .season-pill.open {
-  background: #005233;
-  color: #89f8c1;
-  box-shadow: 0 2px 12px rgba(0, 82, 51, 0.3);
+  background: var(--color-brand);
+  color: var(--color-brand-fg);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent-deep) 30%, transparent);
 }
 
 .season-pill svg {
@@ -215,8 +215,8 @@ const formatDate = (dateStr) => {
 }
 
 .season-option.active {
-  background: rgba(76, 218, 156, 0.1);
-  color: #4cda9c;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
 }
 
 .option-dot {
@@ -257,8 +257,8 @@ const formatDate = (dateStr) => {
 }
 
 .edit-season-btn:hover {
-  background: rgba(76, 218, 156, 0.12);
-  color: #4cda9c;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
 }
 
 .delete-season-btn {
@@ -299,7 +299,7 @@ const formatDate = (dateStr) => {
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: #4cda9c;
+  color: var(--color-accent);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -307,6 +307,6 @@ const formatDate = (dateStr) => {
 }
 
 .new-season-btn:hover {
-  background: rgba(76, 218, 156, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 </style>

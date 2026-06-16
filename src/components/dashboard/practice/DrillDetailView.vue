@@ -305,7 +305,7 @@ const confirmDelete = (session) => {
 }
 
 .btn-primary { background: var(--color-accent); color: var(--color-bg-page); }
-.btn-primary:hover { background: #3cb885; }
+.btn-primary:hover { background: var(--color-accent-strong); }
 
 .btn-secondary {
   background: var(--color-bg-surface-2);

@@ -708,7 +708,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 }
 
 .trajectory--shot { stroke: rgba(59, 130, 246, 0.4); }
-.trajectory--goal { stroke: rgba(76, 218, 156, 0.55); stroke-width: 0.5; }
+.trajectory--goal { stroke: color-mix(in srgb, var(--color-accent) 55%, transparent); stroke-width: 0.5; }
 
 .markers {
   position: absolute;
@@ -746,7 +746,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 
 .marker--goal {
   background: var(--color-success);
-  box-shadow: 0 0 8px rgba(76, 218, 156, 0.6);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 60%, transparent);
   width: 16px;
   height: 16px;
   z-index: 6;

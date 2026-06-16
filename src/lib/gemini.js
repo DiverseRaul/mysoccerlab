@@ -15,7 +15,8 @@ export const generateCoachResponse = async (
   MatchesData = [],
   PlayerName = 'Player',
   PlayerProfile = {},
-  ConversationHistory = []
+  ConversationHistory = [],
+  Signal = undefined
 ) => {
   if (!SUPABASE_URL) {
     return "Error: VITE_SUPABASE_URL is not configured in your .env file.";
@@ -24,6 +25,7 @@ export const generateCoachResponse = async (
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/ai-coach`, {
       method: 'POST',
+      signal: Signal,
       headers: {
         'Content-Type': 'application/json',
         // Supabase anon key lets the edge function verify the request origin
@@ -48,6 +50,8 @@ export const generateCoachResponse = async (
     return data.text;
 
   } catch (Error) {
+    // Let callers detect a user-initiated stop and handle it quietly.
+    if (Error.name === 'AbortError') throw Error;
     console.error("Error calling AI Coach function:", Error);
     return "I'm sorry, I'm having trouble analyzing your data right now. Please try again later. Error: " + Error.message;
   }

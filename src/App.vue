@@ -11,30 +11,85 @@
           <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
           <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
           <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
-          <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
-          <button @click="signOut" class="nav-link logout-btn" v-if="user">Logout</button>
+          <router-link to="/coach" class="nav-link nav-link--coach" v-if="user">
+            <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /></svg>AI Coach
+          </router-link>
+          <router-link to="/premium" class="nav-link nav-link--pro" v-if="user">Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span></router-link>
+          
+          <div class="nav-dropdown-wrapper" v-if="user" ref="profileDropdownRef">
+            <button @click="isProfileDropdownOpen = !isProfileDropdownOpen" class="nav-link nav-profile-trigger" :class="{ 'is-active': isProfileDropdownOpen }">
+              <img v-if="userAvatar" :src="userAvatar" class="nav-avatar" />
+              <span v-else class="nav-avatar-placeholder">👤</span>
+              <span>{{ userName || 'Profile' }}</span>
+              <span class="nav-arrow" :class="{ 'is-open': isProfileDropdownOpen }">▼</span>
+            </button>
+            <div class="nav-dropdown" v-if="isProfileDropdownOpen">
+              <router-link to="/profile" class="nav-dropdown-item" @click="isProfileDropdownOpen = false">My Profile</router-link>
+              <router-link to="/admin" class="nav-dropdown-item" v-if="isAdmin" @click="isProfileDropdownOpen = false">Admin Portal</router-link>
+              <div class="nav-dropdown-divider"></div>
+              <button @click="signOut" class="nav-dropdown-item logout-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Mobile Nav Toggle -->
-        <button @click="toggleMobileMenu" class="mobile-nav-toggle" :class="{ 'is-active': isMobileMenuOpen }">
-          <span class="hamburger-box">
-            <span class="hamburger-inner"></span>
-          </span>
+        <button @click="toggleMobileMenu" class="mobile-nav-toggle" :class="{ 'is-active': isMobileMenuOpen }" aria-label="Toggle menu">
+          <svg v-if="!isMobileMenuOpen" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
         </button>
+
+        <!-- Mobile Nav Dropdown -->
+        <Transition name="dropdown-fade">
+          <div class="mobile-dropdown" v-if="isMobileMenuOpen">
+            <router-link to="/" class="mobile-pill-link">Home</router-link>
+            <router-link to="/login" class="mobile-pill-link" v-if="!user">Login</router-link>
+            <router-link to="/signup" class="mobile-pill-link" v-if="!user">Sign Up</router-link>
+            <router-link to="/dashboard" class="mobile-pill-link" v-if="user">Dashboard</router-link>
+            <router-link to="/feed" class="mobile-pill-link" v-if="user">The Pitch</router-link>
+            <router-link to="/coach" class="mobile-pill-link mobile-pill-link--coach" v-if="user">
+              <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /></svg>AI Coach
+            </router-link>
+            <router-link to="/premium" class="mobile-pill-link mobile-pill-link--pro" v-if="user">
+              Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span>
+            </router-link>
+            
+            <!-- Profile Pill (clickable sub-menu dropdown) -->
+            <div class="mobile-profile-wrapper" v-if="user">
+              <button @click="isMobileProfileOpen = !isMobileProfileOpen" class="mobile-profile-card" :class="{ 'is-active': isMobileProfileOpen }">
+                <img v-if="userAvatar" :src="userAvatar" class="mobile-avatar" />
+                <span v-else class="mobile-avatar-placeholder">👤</span>
+                <span class="mobile-profile-name">{{ userName || 'Player' }}</span>
+                <span class="mobile-arrow" :class="{ 'is-open': isMobileProfileOpen }">▼</span>
+              </button>
+              <div class="mobile-sub-menu" v-if="isMobileProfileOpen">
+                <router-link to="/profile" class="mobile-sub-button">My Profile</router-link>
+                <router-link to="/admin" class="mobile-sub-button" v-if="isAdmin">Admin Portal</router-link>
+                <button @click="signOutAndCloseMenu" class="mobile-sub-button logout-sub-button">
+                  <svg class="logout-pill-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
 
       </div>
     </nav>
 
-    <!-- Mobile Nav Dropdown -->
-    <div class="mobile-nav-dropdown" :class="{ 'is-open': isMobileMenuOpen }">
-      <router-link to="/" class="nav-link">Home</router-link>
-      <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
-      <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
-      <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
-      <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
-      <router-link to="/profile" class="nav-link" v-if="user">Profile</router-link>
-      <button @click="signOutAndCloseMenu" class="nav-link logout-btn" v-if="user">Logout</button>
-    </div>
+    <!-- Mobile Nav Blur Overlay -->
+    <Transition name="drawer-fade">
+      <div class="mobile-drawer-overlay" v-if="isMobileMenuOpen" @click="isMobileMenuOpen = false"></div>
+    </Transition>
 
     <main class="main-content">
       <router-view />
@@ -46,10 +101,11 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from './lib/supabase'
 import AppFooter from './components/Footer.vue'
+import { isPro, isAdmin, loadEntitlements } from './lib/premium'
 
 export default {
   name: 'App',
@@ -58,15 +114,67 @@ export default {
   },
   setup() {
     const user = ref(null)
+    const userName = ref('')
+    const userAvatar = ref('')
+    const isProfileDropdownOpen = ref(false)
+    const isMobileProfileOpen = ref(false)
+    const profileDropdownRef = ref(null)
+
+    const fetchUserProfile = async (uid) => {
+      if (!uid) {
+        userName.value = ''
+        userAvatar.value = ''
+        return
+      }
+      try {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('player_name, avatar_url')
+          .eq('user_id', uid)
+          .single()
+        if (data) {
+          userName.value = data.player_name || user.value?.email?.split('@')[0] || 'Player'
+          userAvatar.value = data.avatar_url || ''
+        } else {
+          userName.value = user.value?.email?.split('@')[0] || 'Player'
+          userAvatar.value = ''
+        }
+      } catch (e) {
+        userName.value = user.value?.email?.split('@')[0] || 'Player'
+      }
+    }
 
     onMounted(async () => {
       // Get initial session
       const { data: { session } } = await supabase.auth.getSession()
       user.value = session?.user || null
+      loadEntitlements(user.value?.id || null)
+      if (user.value) {
+        await fetchUserProfile(user.value.id)
+      }
 
       // Listen for auth changes
-      supabase.auth.onAuthStateChange((event, session) => {
+      supabase.auth.onAuthStateChange(async (event, session) => {
         user.value = session?.user || null
+        loadEntitlements(user.value?.id || null)
+        if (user.value) {
+          await fetchUserProfile(user.value.id)
+        } else {
+          userName.value = ''
+          userAvatar.value = ''
+        }
+      })
+
+      // Outside click listener for desktop profile dropdown
+      const handleOutsideClick = (e) => {
+        if (profileDropdownRef.value && !profileDropdownRef.value.contains(e.target)) {
+          isProfileDropdownOpen.value = false
+        }
+      }
+      document.addEventListener('click', handleOutsideClick)
+      
+      onBeforeUnmount(() => {
+        document.removeEventListener('click', handleOutsideClick)
       })
     })
 
@@ -89,10 +197,19 @@ export default {
     // Watch for route changes to close the mobile menu
     watch(() => route.path, () => {
       isMobileMenuOpen.value = false
+      isProfileDropdownOpen.value = false
+      isMobileProfileOpen.value = false
     })
 
     return {
       user,
+      isPro,
+      isAdmin,
+      userName,
+      userAvatar,
+      isProfileDropdownOpen,
+      isMobileProfileOpen,
+      profileDropdownRef,
       signOut,
       isMobileMenuOpen,
       toggleMobileMenu,
@@ -138,11 +255,12 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 2rem;
+  padding: 0 1rem;
+  position: relative;
 }
 
 .logo {
-  background: linear-gradient(45deg, #4CAF50, #81C784);
+  background: var(--color-accent);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -157,6 +275,9 @@ export default {
 }
 
 .nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   color: rgba(255, 255, 255, 0.7);
   font-weight: 500;
@@ -173,7 +294,35 @@ export default {
 
 .nav-link.router-link-active {
   color: white;
-  background: rgba(76, 175, 80, 0.25);
+  background: var(--color-accent-soft);
+}
+
+.nav-link--pro {
+  gap: 6px;
+}
+
+/* AI Coach nav link — sparkle icon + label */
+.nav-link--coach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-coach-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.nav-pro-chip {
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
 }
 
 .logout-btn {
@@ -189,6 +338,105 @@ export default {
   color: white;
 }
 
+/* ── Desktop Profile Dropdown Styles ── */
+.nav-dropdown-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.nav-profile-trigger {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border-strong);
+}
+
+.nav-avatar-placeholder {
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.nav-arrow {
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+  color: var(--color-text-muted);
+}
+.nav-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.nav-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  background: rgba(18, 18, 18, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  min-width: 180px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 250;
+}
+
+.nav-dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.nav-dropdown-item:hover {
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-primary);
+}
+
+.nav-dropdown-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: 4px 0;
+}
+
+.logout-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-danger);
+}
+.logout-item svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.logout-item:hover {
+  background: var(--color-danger-bg);
+  color: #ff6b78;
+}
+
 .main-content {
   margin: 0 auto;
 }
@@ -201,30 +449,11 @@ export default {
   margin-bottom: 2rem;
 }
 
-.btn {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 25px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  transition: all 0.3s ease;
-}
-
-.btn:hover {
-  background: #45a049;
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background: #6c5ce7;
-}
-
-.btn-secondary:hover {
-  background: #5f3dc4;
-}
+/* Legacy global .btn / .btn-secondary removed — the design-system button
+   classes live in src/styles/controls.css. These unscoped rules used to leak
+   app-wide and override controls.css (e.g. turning .btn-danger green and
+   .btn-secondary purple). Screens that need a button use controls.css variants
+   or their own scoped styles (MatchManager's "+" counters, modal-shared.css). */
 
 .form-group {
   margin-bottom: 1.5rem;
@@ -248,104 +477,324 @@ export default {
 
 .form-group input:focus {
   outline: none;
-  border-color: #4CAF50;
+  border-color: var(--color-accent);
 }
 
 .mobile-nav-toggle {
   display: none;
-  background: transparent;
-  border: none;
+  background: rgba(18, 18, 18, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
   cursor: pointer;
-  padding: 0.5rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
   z-index: 1001;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.hamburger-box {
-  width: 30px;
-  height: 24px;
-  display: inline-block;
-  position: relative;
+.mobile-nav-toggle svg {
+  transition: transform 0.25s ease;
 }
 
-.hamburger-inner,
-.hamburger-inner::before,
-.hamburger-inner::after {
-  width: 30px;
-  height: 2px;
-  background-color: white;
-  border-radius: 4px;
-  position: absolute;
-  transition-property: transform;
-  transition-duration: 0.15s;
-  transition-timing-function: ease;
+.mobile-nav-toggle.is-active svg {
+  transform: rotate(90deg);
 }
 
-.hamburger-inner {
-  top: 50%;
-  transform: translateY(-50%);
+.mobile-nav-toggle:hover,
+.mobile-nav-toggle.is-active {
+  background: var(--color-accent-soft, rgba(76, 175, 80, 0.25));
+  border-color: var(--color-accent-border, rgba(76, 175, 80, 0.5));
+  color: var(--color-accent, #4CAF50);
 }
 
-.hamburger-inner::before,
-.hamburger-inner::after {
-  content: '';
-  display: block;
-}
-
-.hamburger-inner::before {
-  top: -10px;
-}
-
-.hamburger-inner::after {
-  bottom: -10px;
-}
-
-.mobile-nav-toggle.is-active .hamburger-inner {
-  transform: rotate(45deg);
-}
-.mobile-nav-toggle.is-active .hamburger-inner::before {
+/* ── Mobile Nav Dropdown & Glassy Styles ── */
+.mobile-drawer-overlay {
+  position: fixed;
   top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 99;
+}
+
+.mobile-dropdown {
+  position: absolute;
+  top: calc(100% + 30px);
+  right: 0;
+  width: auto;
+  min-width: 220px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 150;
+  transform-origin: top right;
+}
+
+/* Stagger entrance animations for dropdown items */
+@keyframes staggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mobile-dropdown > * {
+  animation: staggerFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   opacity: 0;
 }
-.mobile-nav-toggle.is-active .hamburger-inner::after {
-  bottom: 0;
-  transform: rotate(-90deg);
+
+.mobile-dropdown > *:nth-child(1) { animation-delay: 0.02s; }
+.mobile-dropdown > *:nth-child(2) { animation-delay: 0.06s; }
+.mobile-dropdown > *:nth-child(3) { animation-delay: 0.10s; }
+.mobile-dropdown > *:nth-child(4) { animation-delay: 0.14s; }
+.mobile-dropdown > *:nth-child(5) { animation-delay: 0.18s; }
+.mobile-dropdown > *:nth-child(6) { animation-delay: 0.22s; }
+
+.mobile-sub-menu > * {
+  animation: staggerFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
 }
 
-.mobile-nav-dropdown {
-  display: none;
-  position: fixed;
-  top: calc(2rem + 60px);
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  z-index: 99;
+.mobile-sub-menu > *:nth-child(1) { animation-delay: 0.02s; }
+.mobile-sub-menu > *:nth-child(2) { animation-delay: 0.06s; }
+.mobile-sub-menu > *:nth-child(3) { animation-delay: 0.10s; }
+
+.mobile-pill-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 8px 20px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mobile-pill-link:hover,
+.mobile-pill-link:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.mobile-pill-link.router-link-active {
+  background: var(--color-accent-soft, rgba(76, 175, 80, 0.25));
+  border-color: var(--color-accent-border, rgba(76, 175, 80, 0.5));
+  color: var(--color-accent, #4CAF50);
+  box-shadow: 0 0 12px var(--color-accent-soft, rgba(76, 175, 80, 0.15));
+}
+
+.mobile-pill-link--pro {
+  gap: 6px;
+}
+
+.mobile-pill-link--coach {
+  gap: 6px;
+}
+
+.mobile-profile-wrapper {
+  display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: rgba(18, 18, 18, 0.65);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: 28px;
-  padding: 0;
-  max-height: 0;
-  overflow: hidden;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  transition: max-height 0.4s ease-in-out, padding 0.3s ease;
-}
-
-.mobile-nav-dropdown.is-open {
-  padding: 1rem;
-  max-height: 500px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-.mobile-nav-dropdown .nav-link {
+  align-items: flex-end;
   width: 100%;
-  text-align: center;
-  padding: 0.9rem 1rem;
-  border-radius: 18px;
-  font-size: 1.05rem;
 }
 
+.mobile-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 6px;
+  border-radius: 9999px;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mobile-profile-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.mobile-profile-card.is-active {
+  background: rgba(18, 18, 18, 0.85);
+  border-color: var(--color-accent, #4CAF50);
+  box-shadow: 0 0 12px var(--color-accent-soft, rgba(76, 175, 80, 0.15));
+}
+
+.mobile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.mobile-avatar-placeholder {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.mobile-profile-name {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-arrow {
+  font-size: 0.6rem;
+  transition: transform 0.2s ease;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 2px;
+}
+.mobile-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.mobile-sub-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mobile-sub-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(18, 18, 18, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 18px;
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  width: fit-content;
+}
+
+.mobile-sub-button:hover,
+.mobile-sub-button:focus {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.mobile-sub-button.router-link-active {
+  background: var(--color-accent-soft, rgba(76, 175, 80, 0.25));
+  border-color: var(--color-accent-border, rgba(76, 175, 80, 0.5));
+  color: var(--color-accent, #4CAF50);
+}
+
+.logout-sub-button {
+  color: #ff4757;
+  background: rgba(255, 71, 87, 0.15);
+  border-color: rgba(255, 71, 87, 0.2);
+  gap: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.logout-sub-button:hover {
+  background: rgba(255, 71, 87, 0.25);
+  border-color: rgba(255, 71, 87, 0.35);
+  color: #fff;
+}
+
+.logout-pill {
+  color: #ff4757 !important;
+  background: rgba(255, 71, 87, 0.1) !important;
+  border-color: rgba(255, 71, 87, 0.15) !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.logout-pill:hover {
+  background: rgba(255, 71, 87, 0.2) !important;
+  border-color: rgba(255, 71, 87, 0.3) !important;
+  color: #fff !important;
+}
+
+/* Transitions */
+.drawer-fade-enter-active,
+.drawer-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.drawer-fade-enter-from,
+.drawer-fade-leave-to {
+  opacity: 0;
+}
+
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-8px);
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .navbar {
+    width: 92%;
+  }
+  .nav-links {
+    gap: 0.75rem;
+  }
+  .nav-link {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+}
 
 @media (max-width: 768px) {
   .nav-container {
@@ -357,17 +806,13 @@ export default {
   }
 
   .mobile-nav-toggle {
-    display: block;
+    display: flex;
   }
 
   .navbar {
     width: 90%;
     top: 1rem;
     padding-bottom: 0.75rem;
-  }
-
-  .mobile-nav-dropdown {
-    display: flex;
   }
 }
 </style>

@@ -87,7 +87,7 @@ const Emit = defineEmits(['delete'])
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 260px;
+  max-height: 320px;
   overflow-y: auto;
 }
 

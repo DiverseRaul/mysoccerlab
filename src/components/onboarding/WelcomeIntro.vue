@@ -226,16 +226,16 @@ const Skip = () => Emit('Done')
 .intro-btn--primary {
   flex: 1;
   max-width: 220px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-brand));
+  background: var(--color-accent);
   border: none;
-  color: #04130c;
+  color: var(--color-on-accent);
   font-weight: var(--font-weight-bold);
-  box-shadow: 0 8px 24px rgba(0, 82, 51, 0.4);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent-deep) 40%, transparent);
 }
 
 .intro-btn--primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 30px rgba(0, 82, 51, 0.5);
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-accent-deep) 50%, transparent);
 }
 
 @keyframes intro-fade {

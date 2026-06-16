@@ -26,25 +26,27 @@
 
     <div v-else class="pitch-insights__body" data-testid="pitch-insights-passes-view">
       <div class="pitch-insights__pitch">
-        <svg viewBox="0 0 100 150" preserveAspectRatio="xMidYMid meet" class="pitch-insights__svg">
+        <svg viewBox="0 0 100 150" preserveAspectRatio="none" class="pitch-insights__svg">
           <defs>
             <marker id="pi-arrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2" orient="auto">
-              <path d="M0,0 L4,2 L0,4 Z" fill="rgba(76,218,156,0.85)" />
+              <path d="M0,0 L4,2 L0,4 Z" fill="color-mix(in srgb, var(--color-accent) 85%, transparent)" />
             </marker>
           </defs>
           <rect x="1" y="1" width="98" height="148" rx="2" class="pi-line" />
           <line x1="1" y1="75" x2="99" y2="75" class="pi-line" />
           <circle cx="50" cy="75" r="12" class="pi-line" />
           <rect x="25" y="1" width="50" height="22" class="pi-line" />
+          <rect x="40" y="1" width="20" height="8" class="pi-line" />
           <rect x="25" y="127" width="50" height="22" class="pi-line" />
+          <rect x="40" y="141" width="20" height="8" class="pi-line" />
           <line
-            v-for="(p, i) in passArrows"
-            :key="i"
-            :x1="p.x_pct" :y1="p.y_pct * 1.5"
-            :x2="p.x2_pct" :y2="p.y2_pct * 1.5"
+            v-for="(PassItem, Index) in passArrows"
+            :key="Index"
+            :x1="PassItem.x_pct" :y1="PassItem.y_pct * 1.5"
+            :x2="PassItem.x2_pct" :y2="PassItem.y2_pct * 1.5"
             class="pi-pass"
-            :class="p.progressive ? 'pi-pass--prog' : 'pi-pass--reg'"
-            :marker-end="p.progressive ? 'url(#pi-arrow)' : ''"
+            :class="PassItem.progressive ? 'pi-pass--prog' : 'pi-pass--reg'"
+            marker-end="url(#pi-arrow)"
           />
         </svg>
         <p v-if="!passArrows.length" class="pitch-insights__empty">No pass directions logged yet</p>
@@ -123,25 +125,26 @@ const View = ref('heatmap')
   gap: var(--space-3);
 }
 
+/* Match HeatmapCanvas pitch exactly so the two views feel like one surface. */
 .pitch-insights__pitch {
   position: relative;
   width: 100%;
-  max-width: 260px;
+  max-width: 440px;
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 30%, rgba(34, 80, 50, 0.3), rgba(20, 24, 22, 0.95)),
+    radial-gradient(circle at 50% 30%, rgba(34, 80, 50, 0.35), rgba(20, 24, 22, 0.95)),
     var(--color-bg-field);
 }
 
 .pitch-insights__svg { display: block; width: 100%; height: 100%; }
 
-.pi-line { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 0.5; }
+.pi-line { fill: none; stroke: rgba(255, 255, 255, 0.18); stroke-width: 0.5; }
 
-.pi-pass { stroke-width: 0.7; vector-effect: non-scaling-stroke; }
-.pi-pass--prog { stroke: rgba(76, 218, 156, 0.8); }
-.pi-pass--reg { stroke: rgba(255, 255, 255, 0.16); }
+.pi-pass { stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.pi-pass--prog { stroke: color-mix(in srgb, var(--color-accent) 80%, transparent); }
+.pi-pass--reg { stroke: color-mix(in srgb, var(--color-accent) 30%, transparent); }
 
 .pitch-insights__empty {
   position: absolute;

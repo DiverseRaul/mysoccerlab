@@ -37,7 +37,7 @@ const Props = defineProps({
 <style scoped>
 .plan-wrapper {
   background: #09090b;
-  border: 1px solid rgba(52, 211, 153, 0.2);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
   border-radius: 16px;
   overflow: hidden;
   margin-top: 10px;
@@ -48,13 +48,13 @@ const Props = defineProps({
   align-items: center;
   gap: 8px;
   padding: 14px 20px;
-  background: rgba(52, 211, 153, 0.08);
-  border-bottom: 1px solid rgba(52, 211, 153, 0.15);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 15%, transparent);
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: #4cda9c;
+  color: var(--color-accent);
 }
 
 .sessions-list {
@@ -89,9 +89,9 @@ const Props = defineProps({
 }
 
 .day-badge {
-  background: rgba(76, 218, 156, 0.1);
-  border: 1px solid rgba(76, 218, 156, 0.3);
-  color: #4cda9c;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -131,7 +131,7 @@ const Props = defineProps({
   height: 5px;
   min-width: 5px;
   border-radius: 50%;
-  background: #4cda9c;
+  background: var(--color-accent);
   opacity: 0.6;
   margin-top: 6px;
 }

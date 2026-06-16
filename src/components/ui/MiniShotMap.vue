@@ -431,7 +431,7 @@ const HasQuadrantData = computed(() =>
 }
 
 .traj--shot { stroke: rgba(59, 130, 246, 0.5); }
-.traj--goal { stroke: rgba(76, 218, 156, 0.65); stroke-width: 1; }
+.traj--goal { stroke: color-mix(in srgb, var(--color-accent) 65%, transparent); stroke-width: 1; }
 
 .mini-shotmap__marker {
   position: absolute;
@@ -487,7 +487,7 @@ const HasQuadrantData = computed(() =>
   text-align: center;
 }
 
-.mini-shotmap__pill--goal { background: var(--color-success); color: #04130c; }
+.mini-shotmap__pill--goal { background: var(--color-success); color: var(--color-on-accent); }
 .mini-shotmap__pill--shot { background: var(--color-info-bg, rgba(59,130,246,0.18)); color: var(--color-info); }
 
 .mini-shotmap__sub-empty {
