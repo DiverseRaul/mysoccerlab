@@ -32,6 +32,9 @@
               <marker id="pi-arrow" markerWidth="5" markerHeight="5" refX="3.5" refY="2" orient="auto">
                 <path d="M0,0 L4,2 L0,4 Z" fill="color-mix(in srgb, var(--color-accent) 85%, transparent)" />
               </marker>
+              <marker id="pi-arrow-bad" markerWidth="5" markerHeight="5" refX="3.5" refY="2" orient="auto">
+                <path d="M0,0 L4,2 L0,4 Z" fill="var(--color-danger)" />
+              </marker>
             </defs>
             <line
               v-for="(PassItem, Index) in passArrows"
@@ -39,8 +42,8 @@
               :x1="PassItem.x_pct" :y1="PassItem.y_pct * 1.5"
               :x2="PassItem.x2_pct" :y2="PassItem.y2_pct * 1.5"
               class="pi-pass"
-              :class="PassItem.progressive ? 'pi-pass--prog' : 'pi-pass--reg'"
-              marker-end="url(#pi-arrow)"
+              :class="!PassItem.success ? 'pi-pass--bad' : (PassItem.progressive ? 'pi-pass--prog' : 'pi-pass--reg')"
+              :marker-end="PassItem.success ? 'url(#pi-arrow)' : 'url(#pi-arrow-bad)'"
             />
           </svg>
           <p v-if="!passArrows.length" class="pitch-insights__empty">No pass directions logged yet</p>
@@ -132,6 +135,7 @@ const View = ref('heatmap')
 .pi-pass { stroke-width: 1.4; vector-effect: non-scaling-stroke; }
 .pi-pass--prog { stroke: color-mix(in srgb, var(--color-accent) 80%, transparent); }
 .pi-pass--reg { stroke: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+.pi-pass--bad { stroke: var(--color-danger); stroke-dasharray: 3 2; }
 
 .pitch-insights__empty {
   position: absolute;

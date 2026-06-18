@@ -69,7 +69,7 @@
             :progressiveCount="ProgressivePasses"
           />
 
-          <MatchRatingsChart v-else-if="tile.id === 'match-ratings'" :matches="matches" />
+          <MatchRatingsChart v-else-if="tile.id === 'match-ratings'" :matches="matches" @open-match="emit('open-match', $event)" />
           <SeasonGoalsTile v-else-if="tile.id === 'season-goals'" :matches="matches" :season="season" />
           <TrendAlertsTile v-else-if="tile.id === 'trend-alerts'" :matches="matches" />
           <SeasonTotalsTile v-else-if="tile.id === 'season-totals'" :matches="matches" />
@@ -78,7 +78,7 @@
           <DefensiveActionsTile v-else-if="tile.id === 'defensive-actions'" :matches="matches" />
           <SeasonInsightsTile v-else-if="tile.id === 'season-insights'" :matches="matches" />
           <GoalsAssistsLast10Chart v-else-if="tile.id === 'goals-assists-chart'" :matches="matches" />
-          <PracticeRecentTile v-else-if="tile.id === 'practice-recent'" />
+          <PracticeRecentTile v-else-if="tile.id === 'practice-recent'" @go-to-drills="emit('go-to-drills')" />
 
           <BentoItem v-else-if="tile.id === 'load-management'" :delay="0" extra-class="load-management-tile">
             <LoadManagementWidget />
@@ -138,7 +138,7 @@ const Props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['go-to-matches', 'clear-season'])
+const emit = defineEmits(['go-to-matches', 'clear-season', 'go-to-drills', 'open-match'])
 
 const SeasonXg = computed(() => sumExpectedGoals([...Props.allGoalsData, ...Props.allShotsData]))
 const SeasonHeatmapPoints = computed(() => buildSeasonHeatmapPoints(Props.allGoalsData, Props.allShotsData, Props.allHeatmapData))

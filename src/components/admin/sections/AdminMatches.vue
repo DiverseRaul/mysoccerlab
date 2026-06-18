@@ -9,16 +9,20 @@
     <template v-else>
       <div class="asec__toolbar">
         <input v-model="search" class="asec__search" type="text" placeholder="Search opponent or player…" @keyup.enter="reload(0)" />
-        
-        <select v-model="positionFilter" class="asec__filter" @change="reload(0)">
-          <option value="all">All positions</option>
-          <option v-for="pos in POSITIONS" :key="pos" :value="pos">{{ pos }}</option>
-        </select>
-
-        <label class="asec__toggle">
-          <input v-model="onlyPosts" type="checkbox" @change="reload(0)" />
-          <span>Public posts only</span>
-        </label>
+        <div class="asec__filters">
+          <select v-model="positionFilter" class="asec__filter" @change="reload(0)">
+            <option value="all">All positions</option>
+            <option v-for="pos in POSITIONS" :key="pos" :value="pos">{{ pos }}</option>
+          </select>
+          <label class="asec__toggle">
+            <input v-model="onlyPosts" type="checkbox" @change="reload(0)" />
+            <span>Public posts only</span>
+          </label>
+          <label class="asec__toggle">
+            <input v-model="includeTest" type="checkbox" @change="reload(0)" />
+            <span>Show test accounts</span>
+          </label>
+        </div>
       </div>
 
       <AdminTable
@@ -63,6 +67,7 @@ const notDeployed = ref(false)
 const search = ref('')
 const positionFilter = ref('all')
 const onlyPosts = ref(false)
+const includeTest = ref(false)
 const page = ref(0)
 const pageSize = ref(25)
 const total = ref(0)
@@ -79,7 +84,8 @@ const reload = async (p = 0) => {
       pageSize: pageSize.value,
       search: search.value.trim(),
       position: positionFilter.value,
-      onlyPosts: onlyPosts.value
+      onlyPosts: onlyPosts.value,
+      includeTest: includeTest.value
     })
     rows.value = data.rows; total.value = data.total
   } catch (e) {
@@ -105,13 +111,14 @@ onMounted(() => {
 .asec__notice { padding: var(--space-4); background: var(--color-warning-bg); border: 1px solid rgba(255,183,77,0.35); border-radius: var(--radius-md); color: var(--color-text-secondary); line-height: 1.6; font-size: var(--font-size-sm); }
 .asec__notice code { color: var(--color-warning); background: rgba(255,183,77,0.12); padding: 1px 5px; border-radius: 4px; }
 
-.asec__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.asec__toolbar { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
 .asec__search, .asec__filter {
   box-sizing: border-box; padding: 11px 14px;
   background: var(--color-bg-field); border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-md); color: var(--color-text-primary); font-family: inherit; font-size: var(--font-size-base);
 }
-.asec__search { flex: 1 1 200px; }
+.asec__search { width: 100%; }
+.asec__filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .asec__filter { flex: 0 1 180px; cursor: pointer; }
 .asec__search:focus, .asec__filter:focus { outline: none; border-color: var(--color-accent-border); box-shadow: 0 0 0 3px var(--color-accent-soft); }
 .asec__toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--color-text-secondary); font-size: var(--font-size-sm); cursor: pointer; }

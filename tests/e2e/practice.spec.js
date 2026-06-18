@@ -64,6 +64,34 @@ test.describe('authenticated', () => {
     await expect(page.getByTestId('practice-drill-list')).toBeVisible()
   })
 
+  test('edit a logged session updates its value', async ({ page }) => {
+    const name = drillNameFor('EditMe')
+    await gotoDrills(page)
+    await page.getByTestId('practice-add-drill-btn').click()
+    await page.getByTestId('drill-name-input').fill(name)
+    await page.getByTestId('drill-type-input').selectOption('count')
+    await page.getByTestId('drill-submit-btn').click()
+    await page.getByRole('button').filter({ hasText: name }).first().click()
+
+    // Log a session, then edit its value.
+    await page.getByTestId('practice-log-session-btn').click()
+    await page.locator('input[type="date"]').fill('2026-05-01')
+    await page.getByTestId('session-primary-input').fill('40')
+    await page.getByTestId('session-submit-btn').click()
+    await expect(page.locator('tbody')).toContainText('40')
+
+    await page.locator('[data-testid^="practice-session-edit-"]').first().click()
+    await expect(page.getByTestId('practice-log-session-modal')).toBeVisible()
+    await page.getByTestId('session-primary-input').fill('75')
+    await page.getByTestId('session-submit-btn').click()
+    await expect(page.locator('tbody')).toContainText('75')
+
+    // Cleanup
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.getByTestId('confirm-delete-drill-btn').click()
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
+  })
+
   test('create a count drill, log two sessions, see chart + PB + trend', async ({ page }) => {
     const name = drillNameFor('Juggles')
 
@@ -167,13 +195,12 @@ test.describe('authenticated', () => {
     const box = await canvas.boundingBox()
     if (!box) throw new Error('goal canvas has no bounding box')
 
-    // Two goals inside the goal mouth (which sits in the upper-middle band of the canvas).
-    await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.35 } })
-    await canvas.click({ position: { x: box.width * 0.65, y: box.height * 0.45 } })
+    // Two goals inside the net (centre of the canvas), mode defaults to "Shot".
+    await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.4 } })
+    await canvas.click({ position: { x: box.width * 0.6, y: box.height * 0.5 } })
 
-    // A miss outside the goal frame (lower part of the canvas).
-    await page.getByTestId('outcome-pill-miss').click()
-    await canvas.click({ position: { x: box.width * 0.2, y: box.height * 0.85 } })
+    // A miss — tap outside the goal frame (bottom corner).
+    await canvas.click({ position: { x: box.width * 0.12, y: box.height * 0.92 } })
 
     // 2 goals out of 3 attempts derived.
     await expect(page.locator('.derived-hint')).toContainText('2')
@@ -196,6 +223,33 @@ test.describe('authenticated', () => {
     await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
   })
 
+  test('shot_map: the shot timeline lets you delete a specific shot', async ({ page }) => {
+    const name = drillNameFor('Timeline')
+    await gotoDrills(page)
+    await page.getByTestId('practice-add-drill-btn').click()
+    await page.getByTestId('drill-name-input').fill(name)
+    await page.getByTestId('drill-type-input').selectOption('shot_map')
+    await page.getByTestId('drill-submit-btn').click()
+    await page.getByRole('button').filter({ hasText: name }).first().click()
+    await page.getByTestId('practice-log-session-btn').click()
+
+    const canvas = page.getByTestId('practice-goal-map').locator('.goal-canvas')
+    const box = await canvas.boundingBox()
+    await canvas.click({ position: { x: box.width * 0.4, y: box.height * 0.45 } })
+    await canvas.click({ position: { x: box.width * 0.55, y: box.height * 0.55 } })
+
+    const items = page.getByTestId('shot-timeline').locator('.shot-list__item')
+    await expect(items).toHaveCount(2)
+    await page.getByTestId('shot-delete-0').click()
+    await expect(items).toHaveCount(1)
+
+    // Cleanup: cancel (no session logged) then delete the drill.
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
+    await page.getByTestId('confirm-delete-drill-btn').click()
+    await expect(page.getByTestId('practice-drill-detail')).toBeHidden()
+  })
+
   test('shot_map: foot toggle tags markers Left vs Right', async ({ page }) => {
     const name = drillNameFor('Foot map')
 
@@ -211,20 +265,20 @@ test.describe('authenticated', () => {
     const canvas = page.getByTestId('practice-goal-map').locator('.goal-canvas')
     const box = await canvas.boundingBox()
 
-    // Left foot, place one inside the goal
+    // Left foot, place one inside the net
     await page.getByTestId('foot-pill-left').click()
-    await canvas.click({ position: { x: box.width * 0.3, y: box.height * 0.35 } })
+    await canvas.click({ position: { x: box.width * 0.35, y: box.height * 0.4 } })
 
-    // Right foot, place two more inside the goal
+    // Right foot, place two more inside the net
     await page.getByTestId('foot-pill-right').click()
     await canvas.click({ position: { x: box.width * 0.6, y: box.height * 0.4 } })
-    await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.45 } })
-
-    // Legend reflects the per-foot counts
-    await expect(page.locator('.legend')).toContainText('L 1')
-    await expect(page.locator('.legend')).toContainText('R 2')
+    await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.55 } })
 
     await page.getByTestId('session-submit-btn').click()
+
+    // The detail-view legend reflects the per-foot counts.
+    await expect(page.locator('.map-section .legend')).toContainText('L 1')
+    await expect(page.locator('.map-section .legend')).toContainText('R 2')
 
     // Cleanup
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -248,13 +302,14 @@ test.describe('authenticated', () => {
     const canvas = page.getByTestId('practice-goal-map').locator('.goal-canvas')
     const box = await canvas.boundingBox()
 
-    // One goal + one post
-    await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.35 } })
-    await page.getByTestId('outcome-pill-post').click()
-    await canvas.click({ position: { x: box.width * 0.12, y: box.height * 0.2 } })
+    // One goal (net centre) + one post (the left-post band, x≈16%).
+    await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.4 } })
+    await canvas.click({ position: { x: box.width * 0.16, y: box.height * 0.5 } })
 
-    await expect(page.locator('.legend')).toContainText('Post (1)')
     await page.getByTestId('session-submit-btn').click()
+
+    // Detail-view legend records the post.
+    await expect(page.locator('.map-section .legend')).toContainText('Post (1)')
 
     // Detail view shows the heatmap toggle and lets us flip it off
     await expect(page.getByTestId('heatmap-toggle')).toBeVisible()

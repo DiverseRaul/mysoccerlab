@@ -248,7 +248,7 @@ const showTrendFooter = computed(() =>
   font-size: 2.4rem;
   font-weight: var(--font-weight-heavy);
   color: var(--color-text-primary);
-  background: linear-gradient(135deg, #fff 30%, var(--color-brand-fg) 100%);
+  background: linear-gradient(135deg, var(--color-text-primary) 30%, var(--color-brand-fg) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -266,7 +266,7 @@ const showTrendFooter = computed(() =>
 .stat-divider {
   width: 1px;
   height: 48px;
-  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.1) 80%, transparent);
+  background: linear-gradient(to bottom, transparent, var(--color-border-soft) 20%, var(--color-border-soft) 80%, transparent);
   flex-shrink: 0;
 }
 

@@ -34,10 +34,33 @@ Deno.serve(async (req) => {
     // ── Counts ─────────────────────────────────────────────────────────────
     const now = Date.now();
     const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
+    const d1 = iso(1 * 864e5);
     const d7 = iso(7 * 864e5);
     const d30 = iso(30 * 864e5);
 
-    const countOf = async (table: string, build?: (q: any) => any) => {
+    // Test/seed accounts (e.g. "Admin 1") are excluded from every metric so the
+    // numbers reflect real players. We filter user_profiles by the flag directly
+    // and owned tables (matches, goals, …) by the test owners' user_ids.
+    const { data: testRows } = await admin.from("user_profiles").select("user_id").eq("is_test_account", true);
+    const testIds = (testRows || []).map((r: any) => r.user_id);
+    const excludeTestOwned = (q: any) => (testIds.length ? q.not("user_id", "in", `(${testIds.join(",")})`) : q);
+
+    // Count of a table owned by users (excludes test owners by user_id).
+    const countOwned = async (table: string, build?: (q: any) => any) => {
+      let q = excludeTestOwned(admin.from(table).select("*", { count: "exact", head: true }));
+      if (build) q = build(q);
+      const { count } = await q;
+      return count || 0;
+    };
+    // Count of user_profiles (excludes test accounts by the flag).
+    const countUsers = async (build?: (q: any) => any) => {
+      let q = admin.from("user_profiles").select("*", { count: "exact", head: true }).eq("is_test_account", false);
+      if (build) q = build(q);
+      const { count } = await q;
+      return count || 0;
+    };
+    // Plain count (no owner concept), e.g. waitlist.
+    const countAll = async (table: string, build?: (q: any) => any) => {
       let q = admin.from(table).select("*", { count: "exact", head: true });
       if (build) q = build(q);
       const { count } = await q;
@@ -45,29 +68,43 @@ Deno.serve(async (req) => {
     };
 
     const [
-      totalUsers, newUsers7, newUsers30,
+      totalUsers, newUsersToday, newUsers7, newUsers30,
+      proUsers, publicUsers, adminUsers,
       totalMatches, matches7, matches30,
-      totalGoals, aiConversations, aiMessages,
-      relationships, proUsers, waitlist,
+      totalGoals, totalShots,
+      totalDrills, totalSessions, sessions7,
+      aiConversations, aiMessages,
+      relationships, waitlist,
     ] = await Promise.all([
-      countOf("user_profiles"),
-      countOf("user_profiles", (q) => q.gte("created_at", d7)),
-      countOf("user_profiles", (q) => q.gte("created_at", d30)),
-      countOf("matches"),
-      countOf("matches", (q) => q.gte("created_at", d7)),
-      countOf("matches", (q) => q.gte("created_at", d30)),
-      countOf("goals"),
-      countOf("ai_conversations"),
-      countOf("ai_chat_messages"),
-      countOf("user_relationships"),
-      countOf("user_profiles", (q) => q.eq("subscription_tier", "pro")),
-      countOf("waitlist"),
+      countUsers(),
+      countUsers((q) => q.gte("created_at", d1)),
+      countUsers((q) => q.gte("created_at", d7)),
+      countUsers((q) => q.gte("created_at", d30)),
+      countUsers((q) => q.eq("subscription_tier", "pro")),
+      countUsers((q) => q.eq("is_public", true)),
+      countUsers((q) => q.eq("is_admin", true)),
+      countOwned("matches"),
+      countOwned("matches", (q) => q.gte("created_at", d7)),
+      countOwned("matches", (q) => q.gte("created_at", d30)),
+      countOwned("goals"),
+      countOwned("shots"),
+      countOwned("practice_drills"),
+      countOwned("practice_sessions"),
+      countOwned("practice_sessions", (q) => q.gte("created_at", d7)),
+      countOwned("ai_conversations"),
+      countOwned("ai_chat_messages"),
+      countAll("user_relationships"),
+      countAll("waitlist"),
     ]);
 
-    // ── 14-day signup series ───────────────────────────────────────────────
+    const freeUsers = Math.max(0, totalUsers - proUsers);
+    const conversionPct = totalUsers ? Math.round((proUsers / totalUsers) * 1000) / 10 : 0;
+    const avgMatchesPerUser = totalUsers ? Math.round((totalMatches / totalUsers) * 10) / 10 : 0;
+
+    // ── 14-day signup series (excludes test accounts) ──────────────────────
     const since = iso(14 * 864e5);
     const { data: recent } = await admin
-      .from("user_profiles").select("created_at").gte("created_at", since);
+      .from("user_profiles").select("created_at").eq("is_test_account", false).gte("created_at", since);
     const series: { date: string; count: number }[] = [];
     for (let i = 13; i >= 0; i--) {
       const day = new Date(now - i * 864e5).toISOString().slice(0, 10);
@@ -82,10 +119,13 @@ Deno.serve(async (req) => {
 
     return json({
       totals: {
-        totalUsers, newUsers7, newUsers30,
-        totalMatches, matches7, matches30,
-        totalGoals, aiConversations, aiMessages,
-        relationships, proUsers, waitlist,
+        totalUsers, newUsersToday, newUsers7, newUsers30,
+        proUsers, freeUsers, conversionPct, publicUsers, adminUsers,
+        totalMatches, matches7, matches30, avgMatchesPerUser,
+        totalGoals, totalShots,
+        totalDrills, totalSessions, sessions7,
+        aiConversations, aiMessages,
+        relationships, waitlist,
       },
       signupSeries: series,
     });

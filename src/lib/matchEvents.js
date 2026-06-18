@@ -15,7 +15,7 @@ export const EventCatalog = {
 
 export const EventActions = [
   { Key: 'goal', Label: 'Goal', Category: 'positive', FollowUp: 'goal' },
-  { Key: 'assists', Label: 'Assist', Category: 'positive', FollowUp: null },
+  { Key: 'assists', Label: 'Assist', Category: 'positive', FollowUp: 'assist' },
   { Key: 'shot', Label: 'Shot', Category: 'neutral', FollowUp: 'shot' },
   { Key: 'pass', Label: 'Pass', Category: 'positive', FollowUp: 'pass' },
   { Key: 'dribbles', Label: 'Dribble', Category: 'positive', FollowUp: null },

@@ -3,10 +3,14 @@
     <div class="tile-header">
       <h4>Goals & Assists (Last 10 Matches)</h4>
       <div class="rating-badges">
-        <span class="badge">Avg: {{ averagePerMatch }}</span>
+        <span class="badge">Avg/match: {{ averagePerMatch }}</span>
       </div>
     </div>
-    <BarChart :bars="bars" :max="maxValue" />
+    <div class="ga-legend">
+      <span class="ga-legend__item"><span class="ga-dot ga-dot--goal"></span>Goals</span>
+      <span class="ga-legend__item"><span class="ga-dot ga-dot--assist"></span>Assists</span>
+    </div>
+    <BarChart :bars="bars" :max="maxValue" show-grid />
   </BentoItem>
 </template>
 
@@ -28,12 +32,18 @@ const recentMatches = computed(() => {
 
 const bars = computed(() =>
   recentMatches.value.map(match => {
-    const total = (match.my_goals || 0) + (match.assists || 0)
+    const goals = match.my_goals || 0
+    const assists = match.assists || 0
     return {
       key: match.id,
-      value: total,
+      value: goals + assists,
+      // displayValue keeps the total label on top of the stacked bar.
+      displayValue: goals + assists,
       label: match.opponent,
-      colorClass: 'goal-fill'
+      segments: [
+        { value: goals, colorClass: 'goal-seg' },
+        { value: assists, colorClass: 'assist-seg' }
+      ]
     }
   })
 )
@@ -75,6 +85,12 @@ const averagePerMatch = computed(() => {
   display: flex;
   gap: 8px;
 }
+
+.ga-legend { display: flex; gap: 16px; margin-bottom: 4px; }
+.ga-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.ga-dot { width: 10px; height: 10px; border-radius: 2px; }
+.ga-dot--goal { background: var(--color-accent); }
+.ga-dot--assist { background: var(--color-card-yellow); }
 
 .badge {
   font-size: 0.7rem;

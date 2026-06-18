@@ -83,9 +83,13 @@ tbody tr.is-clickable:hover { background: var(--color-bg-surface-2); }
 
 @media (max-width: 600px) {
   thead { display: none; }
-  table, tbody, tr, td { display: block; width: 100%; }
-  tbody tr { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); margin-bottom: 10px; }
-  tbody td { border: none; display: flex; justify-content: space-between; gap: 12px; padding: 8px 14px; }
+  table, tbody, tr, td { display: block; width: 100%; box-sizing: border-box; }
+  tbody tr { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); margin-bottom: 10px; padding: 4px 0; }
+  /* Stack the column label above its value: cells with rich content (status
+     badges, name + email) get full width and stay readable instead of being
+     squeezed against the label on one line. */
+  tbody td { border: none; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 14px; min-width: 0; }
   tbody td::before { content: attr(data-label); color: var(--color-text-faint); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+  tbody td:empty { display: none; }
 }
 </style>

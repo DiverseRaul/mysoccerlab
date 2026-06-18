@@ -57,15 +57,61 @@
       <p v-if="placements.length === 0" class="map-empty">
         No shots marked yet. When logging a session, toggle <em>“Mark each shot on the goal map”</em> to build a heatmap.
       </p>
-      <PracticeGoalMap
-        v-else
-        :placements="placements"
-        :interactive="false"
-        :show-heatmap="showHeatmap"
-        :show-markers="showMarkers"
-        @update:showHeatmap="showHeatmap = $event"
-        @update:showMarkers="showMarkers = $event"
-      />
+      <template v-else>
+        <!-- Filters: by session, foot, and outcome -->
+        <div class="map-filters" data-testid="shot-map-filters">
+          <label class="map-filter">
+            <span>Session</span>
+            <select v-model="filterSession" class="map-filter__select" data-testid="filter-session">
+              <option :value="null">All sessions</option>
+              <option v-for="s in sortedDesc" :key="s.id" :value="s.id">
+                {{ formatDate(s.session_date) }}
+              </option>
+            </select>
+          </label>
+          <div class="map-filter">
+            <span>Foot</span>
+            <div class="map-filter__pills">
+              <button
+                v-for="f in FOOT_FILTERS"
+                :key="f.value"
+                type="button"
+                class="filter-pill"
+                :class="{ active: filterFoot === f.value }"
+                :data-testid="`filter-foot-${f.value}`"
+                @click="filterFoot = f.value"
+              >{{ f.label }}</button>
+            </div>
+          </div>
+          <div class="map-filter">
+            <span>Outcome</span>
+            <div class="map-filter__pills">
+              <button
+                v-for="o in OUTCOME_FILTERS"
+                :key="o.value"
+                type="button"
+                class="filter-pill"
+                :class="{ active: filterOutcome === o.value }"
+                :data-testid="`filter-outcome-${o.value}`"
+                @click="filterOutcome = o.value"
+              >{{ o.label }}</button>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="filteredPlacements.length === 0" class="map-empty">No shots match these filters.</p>
+        <template v-else>
+          <ShotAnalytics :placements="filteredPlacements" />
+          <PracticeGoalMap
+            :placements="filteredPlacements"
+            :interactive="false"
+            :show-heatmap="showHeatmap"
+            :show-markers="showMarkers"
+            @update:showHeatmap="showHeatmap = $event"
+            @update:showMarkers="showMarkers = $event"
+          />
+        </template>
+      </template>
     </section>
 
     <div class="log-section">
@@ -97,6 +143,13 @@
             <td class="row-action">
               <button
                 type="button"
+                class="row-edit"
+                aria-label="Edit session"
+                :data-testid="`practice-session-edit-${s.id}`"
+                @click="$emit('edit-session', s)"
+              >Edit</button>
+              <button
+                type="button"
                 class="row-delete"
                 aria-label="Delete session"
                 @click="confirmDelete(s)"
@@ -113,6 +166,7 @@
 import { computed, ref } from 'vue'
 import DrillLineChart from './DrillLineChart.vue'
 import PracticeGoalMap from './PracticeGoalMap.vue'
+import ShotAnalytics from './ShotAnalytics.vue'
 
 const showHeatmap = ref(true)
 const showMarkers = ref(true)
@@ -130,7 +184,32 @@ const props = defineProps({
   placements: { type: Array, default: () => [] }
 })
 
-const emit = defineEmits(['back', 'log-session', 'edit-drill', 'delete-drill', 'delete-session'])
+const emit = defineEmits(['back', 'log-session', 'edit-drill', 'delete-drill', 'delete-session', 'edit-session'])
+
+const FOOT_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'left', label: 'Left' },
+  { value: 'right', label: 'Right' }
+]
+const OUTCOME_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'goal', label: 'Goal' },
+  { value: 'save', label: 'Save' },
+  { value: 'post', label: 'Post' },
+  { value: 'miss', label: 'Miss' }
+]
+const filterSession = ref(null)
+const filterFoot = ref('all')
+const filterOutcome = ref('all')
+
+const filteredPlacements = computed(() =>
+  props.placements.filter((p) => {
+    if (filterSession.value !== null && p.session_id !== filterSession.value) return false
+    if (filterFoot.value !== 'all' && p.foot !== filterFoot.value) return false
+    if (filterOutcome.value !== 'all' && p.outcome !== filterOutcome.value) return false
+    return true
+  })
+)
 
 const latest = computed(() => latestSession(props.sessions))
 const pb = computed(() => personalBest(props.sessions, props.drill))
@@ -227,6 +306,41 @@ const confirmDelete = (session) => {
 
 .map-section h3 { margin: 0 0 var(--space-3); font-size: var(--font-size-md); }
 
+.map-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+  align-items: center;
+}
+.map-filter { display: flex; align-items: center; gap: 8px; }
+.map-filter > span { font-size: var(--font-size-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Space the analytics panel off the goal map below it. */
+.map-section :deep(.goal-map) { margin-top: var(--space-4); }
+.map-filter__select {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+}
+.map-filter__pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-pill {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.filter-pill.active { background: var(--color-accent); color: var(--color-on-accent); border-color: var(--color-accent); }
+
 .map-empty {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -280,7 +394,21 @@ const confirmDelete = (session) => {
   font-weight: var(--font-weight-bold);
 }
 
-.row-action { width: 36px; }
+.row-action { width: 96px; white-space: nowrap; text-align: right; }
+
+.row-edit {
+  background: transparent;
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  margin-right: 6px;
+  font-family: inherit;
+}
+.row-edit:hover { border-color: var(--color-accent-border); color: var(--color-accent); }
 
 .row-delete {
   background: transparent;

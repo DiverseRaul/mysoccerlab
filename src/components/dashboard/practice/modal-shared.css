@@ -21,6 +21,11 @@
   box-shadow: var(--shadow-lg);
   max-height: 90vh;
   overflow-y: auto;
+  /* Without this the 24px padding + border are ADDED to width:100%, making the
+     card wider than the overlay's content area so both edges touch the screen. */
+  box-sizing: border-box;
+  /* Belt-and-braces: no child can push the card past the overlay's margins. */
+  overflow-x: hidden;
 }
 
 .modal-header {

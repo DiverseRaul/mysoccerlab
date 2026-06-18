@@ -18,10 +18,11 @@
           <text x="100" y="95" text-anchor="middle" class="donut-total-label">Total</text>
           <text x="100" y="115" text-anchor="middle" class="donut-total-value">{{ totalDefensiveActions }}</text>
         </svg>
+        <p class="donut-per">{{ perMatch(totalDefensiveActions) }} actions / match</p>
         <div class="donut-legend">
           <div v-for="(slice, i) in donutPaths" :key="i" class="legend-item">
             <div class="dot" :class="slice.colorClass"></div>
-            <span>{{ slice.label }} ({{ slice.value }})</span>
+            <span>{{ slice.label }} ({{ slice.value }} · {{ perMatch(slice.value) }}/match)</span>
           </div>
         </div>
       </div>
@@ -60,6 +61,9 @@ import BentoItem from './BentoItem.vue'
 const props = defineProps({
   matches: { type: Array, required: true }
 })
+
+// Per-match rate (matches don't track minutes, so per-90 isn't possible).
+const perMatch = (total) => (props.matches.length ? (total / props.matches.length).toFixed(1) : '0.0')
 
 const totalTackles = computed(() =>
   props.matches.reduce((sum, m) => sum + (m.tackles || 0), 0)
@@ -191,6 +195,13 @@ const donutPaths = computed(() => {
   fill: var(--color-text-primary);
   font-size: 1.6rem;
   font-weight: var(--font-weight-heavy);
+}
+
+.donut-per {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-faint);
+  text-align: center;
 }
 
 .donut-legend {

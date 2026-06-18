@@ -248,7 +248,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
-                    <button @click="incrementStat('assists', 1)" class="btn">+</button>
+                    <button @click="LogEvent('assists', 'Assist')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -281,7 +281,7 @@
                   <div class="button-group">
                     <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
                     <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
-                    <button @click="incrementStat('assists', 1)" class="btn">+</button>
+                    <button @click="LogEvent('assists', 'Assist')" class="btn">+</button>
                   </div>
                 </div>
                 <div class="stat-control-group">
@@ -579,10 +579,12 @@ import { toast } from '../lib/toast'
 const props = defineProps({
   matches: { type: Array, required: true },
   activeSeason: { type: Object, default: null },
-  seasons: { type: Array, default: () => [] }
+  seasons: { type: Array, default: () => [] },
+  // When set (e.g. from an Overview chart), open this match on mount.
+  openMatchId: { type: [Number, String], default: null }
 })
 
-const emit = defineEmits(['match-updated'])
+const emit = defineEmits(['match-updated', 'match-opened'])
 
 const onAssignSeason = async ({ match, seasonId }) => {
   try {
@@ -1205,7 +1207,10 @@ const activeMatch = ref(null)
           created_chances: 0,
           lost_possessions: 0,
           yellow_card: 0,
-          red_card: 0
+          red_card: 0,
+          // New matches log shot/goal origins over the full pitch (x,y). Old
+          // matches predate this (NULL) and are treated as half-field on read.
+          origins_full_field: true
         }
 
         const { error } = await supabase
@@ -1698,6 +1703,12 @@ const activeMatch = ref(null)
     onMounted(() => {
       loadMyClubTeamName()
       LoadHeatmapPreference()
+      // Deep-open a match requested from elsewhere (e.g. the ratings chart).
+      if (props.openMatchId != null) {
+        const target = props.matches.find(m => m.id === props.openMatchId)
+        if (target) selectMatch(target)
+        emit('match-opened')
+      }
     })
 
     // Share helpers (preview, native share, copy summary, layout variants,

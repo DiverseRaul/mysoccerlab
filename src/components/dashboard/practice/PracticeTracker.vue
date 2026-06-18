@@ -15,10 +15,11 @@
       :sessions="sessionsForSelected"
       :placements="placementsForSelected"
       @back="selectedDrill = null"
-      @log-session="showLogSession = true"
+      @log-session="openNewSession"
       @edit-drill="showEditDrill = true"
       @delete-drill="confirmDeleteDrill = true"
       @delete-session="deleteSession"
+      @edit-session="openEditSession"
     />
 
     <AddDrillModal
@@ -36,6 +37,8 @@
     <LogSessionModal
       v-model="showLogSession"
       :drill="selectedDrill"
+      :edit-session="editingSession"
+      :edit-placements="editingPlacements"
       @submit="onLogSession"
     />
 
@@ -72,6 +75,16 @@ const addDrillPreset = ref(null)
 const showEditDrill = ref(false)
 const showLogSession = ref(false)
 const confirmDeleteDrill = ref(false)
+const editingSession = ref(null)
+
+// Placements belonging to the session currently being edited (shot_map drills).
+const editingPlacements = computed(() => {
+  if (!editingSession.value) return []
+  return placements.value.filter(p => p.session_id === editingSession.value.id)
+})
+
+const openNewSession = () => { editingSession.value = null; showLogSession.value = true }
+const openEditSession = (session) => { editingSession.value = session; showLogSession.value = true }
 
 const sessionsByDrill = computed(() => {
   const map = {}
@@ -208,13 +221,49 @@ const onDeleteDrill = async () => {
   confirmDeleteDrill.value = false
 }
 
+const savePlacements = async (sessionId, userId, formPlacements) => {
+  if (!Array.isArray(formPlacements) || formPlacements.length === 0) return
+  const rows = formPlacements.map(p => ({
+    session_id: sessionId,
+    drill_id: selectedDrill.value.id,
+    user_id: userId,
+    x_pct: p.x_pct,
+    y_pct: p.y_pct,
+    outcome: p.outcome,
+    foot: p.foot ?? null
+  }))
+  const { data: placementRows, error } = await supabase
+    .from('practice_shot_placements')
+    .insert(rows)
+    .select()
+  if (error) {
+    console.error('Error saving shot placements:', error)
+    toast.error('Session saved but shot placements failed to save.')
+  } else if (placementRows) {
+    placements.value = [...placements.value, ...placementRows]
+  }
+}
+
+// Guards against double-submit: the modal stays open during the async insert,
+// so a second click / Enter would otherwise fire a second insert (the "counts
+// twice" bug). Re-entrant calls are ignored until this one settles.
+const savingSession = ref(false)
+
 const onLogSession = async (form) => {
+  if (savingSession.value) return
   if (!selectedDrill.value) return
+  savingSession.value = true
+  try {
+    await doLogSession(form)
+  } finally {
+    savingSession.value = false
+  }
+}
+
+const doLogSession = async (form) => {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-  const payload = {
-    user_id: user.id,
-    drill_id: selectedDrill.value.id,
+  const fields = {
     session_date: form.session_date,
     primary_value: Number(form.primary_value),
     secondary_value: form.secondary_value === '' || form.secondary_value === null || form.secondary_value === undefined
@@ -222,38 +271,43 @@ const onLogSession = async (form) => {
       : Number(form.secondary_value),
     notes: form.notes?.trim() || null
   }
+
+  // ── Edit an existing session ──────────────────────────────────────────────
+  if (form.id) {
+    const { data: updated, error } = await supabase
+      .from('practice_sessions')
+      .update(fields)
+      .eq('id', form.id)
+      .select()
+      .single()
+    if (error) { console.error('Error updating session:', error); toast.error('Could not save changes.'); return }
+    const idx = sessions.value.findIndex(s => s.id === form.id)
+    if (idx !== -1) sessions.value.splice(idx, 1, updated)
+    sessions.value = [...sessions.value].sort((a, b) => new Date(a.session_date) - new Date(b.session_date))
+
+    // Replace this session's shot placements (delete old, insert new).
+    if (Array.isArray(form.placements)) {
+      const { error: delErr } = await supabase.from('practice_shot_placements').delete().eq('session_id', form.id)
+      if (delErr) console.error('Error clearing old placements:', delErr)
+      placements.value = placements.value.filter(p => p.session_id !== form.id)
+      await savePlacements(form.id, user.id, form.placements)
+    }
+    showLogSession.value = false
+    editingSession.value = null
+    return
+  }
+
+  // ── Log a new session ─────────────────────────────────────────────────────
   const { data: sessionRow, error } = await supabase
     .from('practice_sessions')
-    .insert([payload])
+    .insert([{ user_id: user.id, drill_id: selectedDrill.value.id, ...fields }])
     .select()
     .single()
   if (error) { console.error('Error logging session:', error); toast.error('Could not log session.'); return }
   sessions.value = [...sessions.value, sessionRow].sort(
     (a, b) => new Date(a.session_date) - new Date(b.session_date)
   )
-
-  if (Array.isArray(form.placements) && form.placements.length > 0) {
-    const rows = form.placements.map(p => ({
-      session_id: sessionRow.id,
-      drill_id: selectedDrill.value.id,
-      user_id: user.id,
-      x_pct: p.x_pct,
-      y_pct: p.y_pct,
-      outcome: p.outcome,
-      foot: p.foot ?? null
-    }))
-    const { data: placementRows, error: placementError } = await supabase
-      .from('practice_shot_placements')
-      .insert(rows)
-      .select()
-    if (placementError) {
-      console.error('Error saving shot placements:', placementError)
-      toast.error('Session saved but shot placements failed to save.')
-    } else if (placementRows) {
-      placements.value = [...placements.value, ...placementRows]
-    }
-  }
-
+  await savePlacements(sessionRow.id, user.id, form.placements)
   showLogSession.value = false
 }
 

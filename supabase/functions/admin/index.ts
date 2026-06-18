@@ -57,7 +57,7 @@ const POSITIONS = [
 const PROFILE_COLS = [
   "player_name", "position", "preferred_foot", "jersey_number", "height_cm", "weight_kg",
   "date_of_birth", "nationality", "club_team", "bio", "is_public", "enable_heatmap_tracking",
-  "default_match_logger_view", "early_access", "accent_color", "secondary_color",
+  "default_match_logger_view", "early_access", "accent_color", "secondary_color", "is_test_account",
 ];
 
 const MATCH_COLS = [
@@ -97,46 +97,84 @@ Deno.serve(async (req) => {
       // ── Reads ────────────────────────────────────────────────────────────
       case "listUsers": {
         const { page = 0, pageSize = 25, search = "", filter = "all" } = payload;
-        const from = page * pageSize, to = from + pageSize - 1;
-        let q = admin.from("user_profiles").select(
-          "user_id, player_name, club_team, position, subscription_tier, subscription_ends_at, is_admin, is_public, banned_until, early_access, created_at",
-          { count: "exact" },
+
+        // Source of truth is auth.users — EVERY account that can log in, even one
+        // that never created a user_profiles row (rows are only written on profile
+        // setup, so sourcing from user_profiles silently hides fresh sign-ups).
+        // We enumerate all auth users, then left-join profile data. Fine for the
+        // current user volume; revisit with server-side paging if this grows into
+        // the tens of thousands.
+        const authUsers: any[] = [];
+        for (let pg = 1; pg <= 50; pg++) {
+          const { data: lu, error } = await admin.auth.admin.listUsers({ page: pg, perPage: 1000 });
+          if (error) return json({ error: error.message }, 400);
+          const batch = lu?.users || [];
+          authUsers.push(...batch);
+          if (batch.length < 1000) break;
+        }
+
+        // Pull every profile once and key by user_id for the join.
+        const { data: profiles } = await admin.from("user_profiles").select(
+          "user_id, player_name, club_team, position, subscription_tier, subscription_ends_at, is_admin, is_public, banned_until, early_access, is_test_account, created_at",
         );
-        if (filter === "pro") q = q.eq("subscription_tier", "pro");
-        else if (filter === "admin") q = q.eq("is_admin", true);
-        else if (filter === "banned") q = q.not("banned_until", "is", null);
+        const pmap: Record<string, any> = {};
+        (profiles || []).forEach((p: any) => { pmap[p.user_id] = p; });
 
-        // Email search needs the auth table: scan (capped) and constrain by id.
-        if (search && search.includes("@")) {
-          const ids: string[] = [];
-          for (let pg = 1; pg <= 10; pg++) {
-            const { data: lu } = await admin.auth.admin.listUsers({ page: pg, perPage: 1000 });
-            const users = lu?.users || [];
-            for (const u of users) if ((u.email || "").toLowerCase().includes(search.toLowerCase())) ids.push(u.id);
-            if (users.length < 1000) break;
-          }
-          q = q.in("user_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-        } else if (search) {
-          q = q.or(`player_name.ilike.%${search}%,club_team.ilike.%${search}%`);
+        // Merge into display rows. Profile fields fall back to sensible defaults so
+        // a profile-less account still renders (Unnamed / free / no club) and is
+        // flagged with has_profile:false for the UI.
+        let rows = authUsers.map((u: any) => {
+          const p = pmap[u.id] || {};
+          return {
+            user_id: u.id,
+            email: u.email || null,
+            last_sign_in_at: u.last_sign_in_at || null,
+            created_at: u.created_at || p.created_at || null,
+            player_name: p.player_name || null,
+            club_team: p.club_team || null,
+            position: p.position || null,
+            subscription_tier: p.subscription_tier || "free",
+            subscription_ends_at: p.subscription_ends_at || null,
+            is_admin: !!p.is_admin,
+            is_public: !!p.is_public,
+            early_access: !!p.early_access,
+            is_test_account: !!p.is_test_account,
+            banned_until: p.banned_until || null,
+            banned: !!u.banned_until || !!p.banned_until,
+            has_profile: !!pmap[u.id],
+          };
+        });
+
+        // Filters applied in-memory over the merged set.
+        if (filter === "pro") rows = rows.filter((r) => r.subscription_tier === "pro");
+        else if (filter === "admin") rows = rows.filter((r) => r.is_admin);
+        else if (filter === "banned") rows = rows.filter((r) => r.banned);
+        else if (filter === "no_profile") rows = rows.filter((r) => !r.has_profile);
+
+        // Search across name, club, and email.
+        if (search) {
+          const s = search.toLowerCase();
+          rows = rows.filter((r) =>
+            (r.player_name || "").toLowerCase().includes(s) ||
+            (r.club_team || "").toLowerCase().includes(s) ||
+            (r.email || "").toLowerCase().includes(s)
+          );
         }
 
-        const { data: profiles, count } = await q.order("created_at", { ascending: false }).range(from, to);
-        const rows = [];
-        for (const p of profiles || []) {
-          const { data: au } = await admin.auth.admin.getUserById(p.user_id);
-          rows.push({
-            ...p,
-            email: au?.user?.email || null,
-            last_sign_in_at: au?.user?.last_sign_in_at || null,
-            banned: !!au?.user?.banned_until || !!p.banned_until,
-          });
-        }
-        return json({ data: { rows, total: count || 0, page, pageSize } });
+        // Newest sign-ups first.
+        rows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+        const total = rows.length;
+        const from = page * pageSize;
+        const paged = rows.slice(from, from + pageSize);
+        return json({ data: { rows: paged, total, page, pageSize } });
       }
 
       case "getUser": {
         const { id } = payload;
-        const { data: profile } = await admin.from("user_profiles").select("*").eq("user_id", id).single();
+        // maybeSingle: a profile-less account (signed up, never set up a profile)
+        // must still open in the detail view rather than 500-ing.
+        const { data: profile } = await admin.from("user_profiles").select("*").eq("user_id", id).maybeSingle();
         const { data: au } = await admin.auth.admin.getUserById(id);
         const countOf = async (t: string) => {
           const { count } = await admin.from(t).select("*", { count: "exact", head: true }).eq("user_id", id);
@@ -147,7 +185,9 @@ Deno.serve(async (req) => {
         ]);
         return json({
           data: {
-            profile,
+            // Stub a minimal profile so a profile-less account still opens in the
+            // detail view (saving it upserts the real row — see updateProfile).
+            profile: profile || { user_id: id, subscription_tier: "free", is_admin: false },
             auth: {
               email: au?.user?.email || null,
               last_sign_in_at: au?.user?.last_sign_in_at || null,
@@ -160,7 +200,7 @@ Deno.serve(async (req) => {
       }
 
       case "listMatches": {
-        const { page = 0, pageSize = 25, userId = null, search = "", position = "all", onlyPosts = false } = payload;
+        const { page = 0, pageSize = 25, userId = null, search = "", position = "all", onlyPosts = false, includeTest = false } = payload;
         const from = page * pageSize, to = from + pageSize - 1;
         let q = admin.from("matches").select(
           "id, user_id, opponent, match_date, score_for, score_against, position_played, assists, created_at",
@@ -168,7 +208,18 @@ Deno.serve(async (req) => {
         );
         if (userId) q = q.eq("user_id", userId);
         if (position && position !== "all") q = q.eq("position_played", position);
-        
+
+        // Hide flagged test/seed accounts (e.g. "Admin 1") from the global browse
+        // list by default — they swamp the real player data. The toggle
+        // (includeTest) brings them back, and a user-scoped view (userId) always
+        // shows everything for that one account. Real admins are NOT test accounts,
+        // so their data shows normally.
+        if (!includeTest && !userId) {
+          const { data: tests } = await admin.from("user_profiles").select("user_id").eq("is_test_account", true);
+          const testIds = (tests || []).map((a: any) => a.user_id);
+          if (testIds.length) q = q.not("user_id", "in", `(${testIds.join(",")})`);
+        }
+
         let matchedUserIds: string[] = [];
         if (search) {
           const { data: matchedProfs } = await admin.from("user_profiles").select("user_id").ilike("player_name", `%${search}%`);
@@ -219,8 +270,68 @@ Deno.serve(async (req) => {
         });
       }
 
+      case "listDrills": {
+        // Drills-first view for the Training admin: one row per drill with its
+        // owner, how many sessions it has, and when it was last logged. Clicking
+        // a drill then loads its sessions via listPractice({ drillId }).
+        const { page = 0, pageSize = 25, search = "", includeTest = false } = payload;
+        const from = page * pageSize, to = from + pageSize - 1;
+
+        let dq = admin.from("practice_drills").select(
+          "id, user_id, name, metric_type, unit, lower_is_better, target_value, archived, created_at",
+          { count: "exact" },
+        );
+
+        if (!includeTest) {
+          const { data: tests } = await admin.from("user_profiles").select("user_id").eq("is_test_account", true);
+          const testIds = (tests || []).map((a: any) => a.user_id);
+          if (testIds.length) dq = dq.not("user_id", "in", `(${testIds.join(",")})`);
+        }
+
+        // Search matches either the drill name or the owner's player name.
+        if (search) {
+          const { data: matchedProfs } = await admin.from("user_profiles").select("user_id").ilike("player_name", `%${search}%`);
+          const matchedUserIds = (matchedProfs || []).map((p: any) => p.user_id);
+          if (matchedUserIds.length > 0) {
+            dq = dq.or(`name.ilike.%${search}%,user_id.in.(${matchedUserIds.join(",")})`);
+          } else {
+            dq = dq.ilike("name", `%${search}%`);
+          }
+        }
+
+        const { data: drills, count } = await dq.order("created_at", { ascending: false }).range(from, to);
+
+        // Session count + last-session date per drill (one read, folded in memory).
+        const drillIds = (drills || []).map((d: any) => d.id);
+        const sessCount: Record<string, number> = {};
+        const lastDate: Record<string, string> = {};
+        if (drillIds.length) {
+          const { data: sess } = await admin.from("practice_sessions").select("drill_id, session_date").in("drill_id", drillIds);
+          for (const s of sess || []) {
+            sessCount[s.drill_id] = (sessCount[s.drill_id] || 0) + 1;
+            if (!lastDate[s.drill_id] || s.session_date > lastDate[s.drill_id]) lastDate[s.drill_id] = s.session_date;
+          }
+        }
+
+        // Owner names.
+        const ownerIds = [...new Set((drills || []).map((d: any) => d.user_id))];
+        const { data: profs } = await admin.from("user_profiles").select("user_id, player_name, is_public")
+          .in("user_id", ownerIds.length ? ownerIds : ["00000000-0000-0000-0000-000000000000"]);
+        const pmap: Record<string, any> = {};
+        (profs || []).forEach((p: any) => { pmap[p.user_id] = p; });
+
+        const rows = (drills || []).map((d: any) => ({
+          ...d,
+          player_name: pmap[d.user_id]?.player_name || null,
+          owner_public: !!pmap[d.user_id]?.is_public,
+          session_count: sessCount[d.id] || 0,
+          last_session_date: lastDate[d.id] || null,
+        }));
+        return json({ data: { rows, total: count || 0, page, pageSize } });
+      }
+
       case "listPractice": {
-        const { userId = null, page = 0, pageSize = 25, search = "", drillId = "all" } = payload;
+        const { userId = null, page = 0, pageSize = 25, search = "", drillId = "all", includeTest = false } = payload;
         const from = page * pageSize, to = from + pageSize - 1;
 
         let sq = admin.from("practice_sessions").select(
@@ -229,6 +340,14 @@ Deno.serve(async (req) => {
         );
         if (userId) sq = sq.eq("user_id", userId);
         if (drillId && drillId !== "all") sq = sq.eq("drill_id", drillId);
+
+        // Same as listMatches: drop flagged test/seed sessions from the global
+        // list unless explicitly included or scoped to one user's detail view.
+        if (!includeTest && !userId) {
+          const { data: tests } = await admin.from("user_profiles").select("user_id").eq("is_test_account", true);
+          const testIds = (tests || []).map((a: any) => a.user_id);
+          if (testIds.length) sq = sq.not("user_id", "in", `(${testIds.join(",")})`);
+        }
 
         if (search) {
           const { data: matchedProfs } = await admin.from("user_profiles").select("user_id").ilike("player_name", `%${search}%`);
@@ -270,7 +389,46 @@ Deno.serve(async (req) => {
 
       case "getWaitlist": {
         const { data } = await admin.from("waitlist").select("*").order("created_at", { ascending: false });
-        return json({ data: data || [] });
+        const list = data || [];
+
+        // Enrich each sign-up with the player's name and whether they've since
+        // become Pro (so the admin can see who's still actually waiting).
+        const ids = [...new Set(list.map((r: any) => r.user_id).filter(Boolean))];
+        const pmap: Record<string, any> = {};
+        if (ids.length) {
+          const { data: profs } = await admin.from("user_profiles")
+            .select("user_id, player_name, subscription_tier").in("user_id", ids);
+          (profs || []).forEach((p: any) => { pmap[p.user_id] = p; });
+        }
+
+        // Collapse duplicate sign-ups (same user clicked "Notify me" more than
+        // once) to the earliest entry so the list is one row per person.
+        const seen = new Set<string>();
+        const rows = list
+          .slice()
+          .reverse() // oldest first so the kept row is the earliest sign-up
+          .filter((r: any) => {
+            const key = r.user_id || r.email;
+            if (!key) return true;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .reverse()
+          .map((r: any) => ({
+            ...r,
+            player_name: pmap[r.user_id]?.player_name || null,
+            is_pro: pmap[r.user_id]?.subscription_tier === "pro",
+          }));
+        return json({ data: rows });
+      }
+
+      case "deleteWaitlist": {
+        const { id } = payload;
+        const { error } = await admin.from("waitlist").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("deleteWaitlist", null, String(id), {});
+        return json({ data: { ok: true } });
       }
 
       case "getAuditLog": {
@@ -278,7 +436,29 @@ Deno.serve(async (req) => {
         const from = page * pageSize, to = from + pageSize - 1;
         const { data, count } = await admin.from("admin_audit_log")
           .select("*", { count: "exact" }).order("created_at", { ascending: false }).range(from, to);
-        return json({ data: { rows: data || [], total: count || 0, page, pageSize } });
+        const logRows = data || [];
+
+        // Resolve both the acting admin and the target to display names so the log
+        // is readable ("Alex banned Jordan") instead of bare UUIDs. Name first,
+        // email as fallback, truncated id as last resort.
+        const ids = [...new Set(logRows.flatMap((r: any) => [r.admin_user_id, r.target_user_id]).filter(Boolean))];
+        const nameById: Record<string, string> = {};
+        if (ids.length) {
+          const { data: profs } = await admin.from("user_profiles").select("user_id, player_name").in("user_id", ids);
+          (profs || []).forEach((p: any) => { if (p.player_name) nameById[p.user_id] = p.player_name; });
+          for (const id of ids) {
+            if (!nameById[id]) {
+              const { data: au } = await admin.auth.admin.getUserById(id);
+              nameById[id] = au?.user?.email || (String(id).slice(0, 8) + "…");
+            }
+          }
+        }
+        const rows = logRows.map((r: any) => ({
+          ...r,
+          admin_name: r.admin_user_id ? (nameById[r.admin_user_id] || null) : null,
+          target_name: r.target_user_id ? (nameById[r.target_user_id] || null) : null,
+        }));
+        return json({ data: { rows, total: count || 0, page, pageSize } });
       }
 
       // ── Mutations ──────────────────────────────────────────────────────────
@@ -286,14 +466,26 @@ Deno.serve(async (req) => {
         const { id, patch = {} } = payload;
         const clean: Record<string, any> = {};
         for (const k of PROFILE_COLS) if (k in patch) clean[k] = patch[k];
-        if ("position" in clean) {
-          if (clean.position === "") clean.position = null;
-          else if (clean.position && !POSITIONS.includes(clean.position)) return json({ error: "Invalid position" }, 400);
+        // Cleared fields arrive as "" from the form. Postgres rejects "" for date
+        // and enum/CHECK columns (date_of_birth, position, preferred_foot, …), and
+        // null is the real "unset" everywhere here — so coerce every "" to null.
+        for (const k of Object.keys(clean)) if (clean[k] === "") clean[k] = null;
+        if (clean.position && !POSITIONS.includes(clean.position)) return json({ error: "Invalid position" }, 400);
+        // Snapshot the prior values of the columns we're about to change so the
+        // audit log can show before→after, not just which keys changed.
+        const changedKeys = Object.keys(clean);
+        let prevP: Record<string, any> = {};
+        if (changedKeys.length) {
+          const { data } = await admin.from("user_profiles").select(changedKeys.join(",")).eq("user_id", id).maybeSingle();
+          prevP = data || {};
         }
-        if (clean.preferred_foot === "") clean.preferred_foot = null;
-        const { error } = await admin.from("user_profiles").update(clean).eq("user_id", id);
+        // upsert (not update) so editing a profile-less account creates its row
+        // rather than silently no-op'ing. onConflict merges onto the existing row.
+        const { error } = await admin.from("user_profiles").upsert({ user_id: id, ...clean }, { onConflict: "user_id" });
         if (error) return json({ error: error.message }, 400);
-        await logAction("updateProfile", id, id, { keys: Object.keys(clean) });
+        const profChanges: Record<string, any> = {};
+        for (const k of changedKeys) if (prevP[k] !== clean[k]) profChanges[k] = { from: prevP[k] ?? null, to: clean[k] ?? null };
+        await logAction("updateProfile", id, id, { changes: profChanges });
         return json({ data: { ok: true } });
       }
 
@@ -301,10 +493,54 @@ Deno.serve(async (req) => {
         const { id, patch = {} } = payload;
         const clean: Record<string, any> = {};
         for (const k of MATCH_COLS) if (k in patch) clean[k] = patch[k];
-        const { data: m } = await admin.from("matches").select("user_id").eq("id", id).single();
+        const changedKeys = Object.keys(clean);
+        // Fetch owner + prior values of the changed columns in one read.
+        const { data: m } = await admin.from("matches").select(["user_id", ...changedKeys].join(",")).eq("id", id).single();
         const { error } = await admin.from("matches").update(clean).eq("id", id);
         if (error) return json({ error: error.message }, 400);
-        await logAction("updateMatchStats", m?.user_id || null, String(id), { keys: Object.keys(clean) });
+        const matchChanges: Record<string, any> = {};
+        for (const k of changedKeys) if (m && m[k] !== clean[k]) matchChanges[k] = { from: m[k] ?? null, to: clean[k] ?? null };
+        await logAction("updateMatchStats", m?.user_id || null, String(id), { changes: matchChanges });
+        return json({ data: { ok: true } });
+      }
+
+      case "updateGoal": {
+        const { id, patch = {} } = payload;
+        const clean: Record<string, any> = {};
+        for (const k of ["goal_type", "quadrant"]) if (k in patch) clean[k] = patch[k] === "" ? null : patch[k];
+        const { data: g } = await admin.from("goals").select("user_id, match_id").eq("id", id).maybeSingle();
+        const { error } = await admin.from("goals").update(clean).eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("updateGoal", g?.user_id || null, String(id), { match_id: g?.match_id ?? null, changes: clean });
+        return json({ data: { ok: true } });
+      }
+
+      case "deleteGoal": {
+        const { id } = payload;
+        const { data: g } = await admin.from("goals").select("user_id, match_id").eq("id", id).maybeSingle();
+        const { error } = await admin.from("goals").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("deleteGoal", g?.user_id || null, String(id), { match_id: g?.match_id ?? null });
+        return json({ data: { ok: true } });
+      }
+
+      case "updateShot": {
+        const { id, patch = {} } = payload;
+        const clean: Record<string, any> = {};
+        for (const k of ["on_target", "quadrant"]) if (k in patch) clean[k] = patch[k] === "" ? null : patch[k];
+        const { data: s } = await admin.from("shots").select("user_id, match_id").eq("id", id).maybeSingle();
+        const { error } = await admin.from("shots").update(clean).eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("updateShot", s?.user_id || null, String(id), { match_id: s?.match_id ?? null, changes: clean });
+        return json({ data: { ok: true } });
+      }
+
+      case "deleteShot": {
+        const { id } = payload;
+        const { data: s } = await admin.from("shots").select("user_id, match_id").eq("id", id).maybeSingle();
+        const { error } = await admin.from("shots").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("deleteShot", s?.user_id || null, String(id), { match_id: s?.match_id ?? null });
         return json({ data: { ok: true } });
       }
 
@@ -319,6 +555,26 @@ Deno.serve(async (req) => {
         const { error } = await admin.from("matches").delete().eq("id", id);
         if (error) return json({ error: error.message }, 400);
         await logAction("deleteMatch", m?.user_id || null, String(id), {});
+        return json({ data: { ok: true } });
+      }
+
+      case "deleteSession": {
+        const { id } = payload;
+        const { data: s } = await admin.from("practice_sessions").select("user_id, drill_id").eq("id", id).maybeSingle();
+        const { error } = await admin.from("practice_sessions").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("deleteSession", s?.user_id || null, String(id), { drill_id: s?.drill_id ?? null });
+        return json({ data: { ok: true } });
+      }
+
+      case "deleteDrill": {
+        const { id, confirm } = payload;
+        if (!confirm) return json({ error: "Confirmation required" }, 400);
+        const { data: d } = await admin.from("practice_drills").select("user_id, name").eq("id", id).maybeSingle();
+        // practice_sessions has ON DELETE CASCADE on drill_id, so its rows go too.
+        const { error } = await admin.from("practice_drills").delete().eq("id", id);
+        if (error) return json({ error: error.message }, 400);
+        await logAction("deleteDrill", d?.user_id || null, String(id), { name: d?.name ?? null });
         return json({ data: { ok: true } });
       }
 

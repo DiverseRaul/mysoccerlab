@@ -45,6 +45,8 @@
             :loading="dataLoading"
             @go-to-matches="activeTab = 'matches'"
             @clear-season="activeSeason = null"
+            @go-to-drills="goToDrills"
+            @open-match="openMatch"
           />
 
           <MatchManager
@@ -52,7 +54,9 @@
             :matches="filteredMatches"
             :activeSeason="activeSeason"
             :seasons="seasons"
+            :openMatchId="pendingMatchId"
             @match-updated="loadData"
+            @match-opened="pendingMatchId = null"
           />
         </template>
 
@@ -83,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '../lib/supabase'
 import { toast } from '../lib/toast'
@@ -136,14 +140,41 @@ const currentUserId = ref(null)
 // ones regardless of async resolution order: explicit (query/localStorage/
 // onboarding choice) > heuristic (no matches → training) > none (default).
 let modeSource = 'none'
+// True once we've restored the last-used mode from localStorage, so the
+// onboarding default (primary_focus) doesn't clobber the user's last choice on
+// refresh — that was sending people back to Matches > Overview every reload.
+let savedModeRestored = false
 
 const dashboardTabItems = computed(() => TABS_BY_MODE[dashboardMode.value])
+
+// Persist the active tab per user so a refresh restores where you were instead
+// of dumping you back on Overview.
+watch(activeTab, (tab) => {
+  if (currentUserId.value) {
+    try { localStorage.setItem(`msl-dash-tab:${currentUserId.value}`, tab) } catch { /* ignore */ }
+  }
+})
 
 const seedMode = (mode, source) => {
   if (mode !== 'matches' && mode !== 'training') return
   if (source !== 'explicit' && modeSource === 'explicit') return
   dashboardMode.value = mode
   modeSource = source
+}
+
+// Jump straight to the Practice tracker from an Overview tile (different mode
+// + tab). setMode resets the tab to 'overview', so set 'drills' afterwards.
+const goToDrills = () => {
+  setMode('training')
+  activeTab.value = 'drills'
+}
+
+// Open a specific match from an Overview chart: switch to the Matches tab and
+// hand the id to MatchManager, which opens it on mount.
+const pendingMatchId = ref(null)
+const openMatch = (matchId) => {
+  pendingMatchId.value = matchId
+  activeTab.value = 'matches'
 }
 
 // User-driven switch from the ModeSwitcher — always wins, persists, deep-links.
@@ -233,12 +264,21 @@ onMounted(async () => {
   const queryMode = route.query.mode
   if (queryMode === 'matches' || queryMode === 'training') {
     seedMode(queryMode, 'explicit')
+    savedModeRestored = true
   } else {
     try {
       const saved = localStorage.getItem(`msl-dash-mode:${session.user.id}`)
-      if (saved === 'matches' || saved === 'training') seedMode(saved, 'explicit')
+      if (saved === 'matches' || saved === 'training') { seedMode(saved, 'explicit'); savedModeRestored = true }
     } catch { /* storage unavailable */ }
   }
+
+  // Restore the last tab for whatever mode we landed in (validated against that
+  // mode's tab set, since the two modes have different tabs).
+  try {
+    const savedTab = localStorage.getItem(`msl-dash-tab:${session.user.id}`)
+    const validKeys = (TABS_BY_MODE[dashboardMode.value] || []).map(t => t.Key)
+    if (savedTab && validKeys.includes(savedTab)) activeTab.value = savedTab
+  } catch { /* storage unavailable */ }
 
   // Seasons + dashboard data are independent — load them in parallel, and
   // reuse the resolved user so we don't fire extra getUser() round-trips.
@@ -351,6 +391,9 @@ const loadData = async (passedUser) => {
     .eq('user_id', user.id).single()
     .then(({ data, error }) => {
       if (error || !data?.primary_focus) return
+      // Don't override the user's last-used mode on refresh — onboarding default
+      // is only for first arrival, before any saved choice exists.
+      if (savedModeRestored) return
       seedMode(data.primary_focus === 'training' ? 'training' : 'matches', 'explicit')
     })
     .catch(() => { /* column not present yet — ignore */ })

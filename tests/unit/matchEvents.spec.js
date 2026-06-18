@@ -21,9 +21,9 @@ describe('EventActions', () => {
     expect(EventActions.filter((Action) => Action.Key === 'pass')).toHaveLength(1)
   })
 
-  it('marks goal, shot, pass and chance as follow-up actions and the rest as instant', () => {
+  it('marks goal, assist, shot, pass and chance as follow-up actions and the rest as instant', () => {
     const FollowUps = EventActions.filter((Action) => Action.FollowUp).map((Action) => Action.Key)
-    expect(FollowUps).toEqual(['goal', 'shot', 'pass', 'created_chances'])
+    expect(FollowUps).toEqual(['goal', 'assists', 'shot', 'pass', 'created_chances'])
   })
 })
 

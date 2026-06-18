@@ -175,6 +175,40 @@ export function practiceStreak(sessions, today = new Date()) {
   return streak
 }
 
+// Monday-based week key for a date string/Date (local), e.g. '2026-06-15'.
+function weekStartKey(value) {
+  const d = value instanceof Date ? new Date(value) : new Date(`${value}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return null
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)) // back to Monday
+  return toDayKey(d)
+}
+
+// Current streak of consecutive CALENDAR WEEKS (Mon–Sun) with at least one
+// session, ending this week or last week. Weekly (not daily) because most people
+// don't train every single day — a week with any session keeps the streak alive.
+export function practiceWeekStreak(sessions, today = new Date()) {
+  if (!sessions || sessions.length === 0) return 0
+  const weeks = new Set(sessions.map(s => weekStartKey(s.session_date)).filter(Boolean))
+  if (weeks.size === 0) return 0
+
+  const thisMonday = new Date(today)
+  thisMonday.setHours(0, 0, 0, 0)
+  thisMonday.setDate(thisMonday.getDate() - ((thisMonday.getDay() + 6) % 7))
+
+  let cursor
+  if (weeks.has(weekStartKey(thisMonday))) cursor = thisMonday
+  else if (weeks.has(weekStartKey(addDays(thisMonday, -7)))) cursor = addDays(thisMonday, -7)
+  else return 0
+
+  let streak = 0
+  while (weeks.has(weekStartKey(cursor))) {
+    streak++
+    cursor = addDays(cursor, -7)
+  }
+  return streak
+}
+
 // Headline counters for the Training Overview. `pbDrills` counts drills whose
 // most recent session is also their personal best (i.e. currently peaking) —
 // needs ≥2 sessions to be meaningful.

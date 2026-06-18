@@ -23,6 +23,7 @@
         >{{ trendIcon }}</span>
       </div>
       <div v-if="pb" class="pb-line">PB {{ formatValue(pb, latestDrill) }}</div>
+      <a class="cta-link cta-link--footer" href="#" @click.prevent="goPractice">Open practice →</a>
     </div>
   </BentoItem>
 </template>
@@ -37,6 +38,8 @@ import {
   personalBest,
   latestSession
 } from '../../../lib/practiceFormat'
+
+const emit = defineEmits(['go-to-drills'])
 
 const drills = ref([])
 const sessions = ref([])
@@ -68,9 +71,9 @@ const formatDate = (iso) => {
 }
 
 const goPractice = () => {
-  // The Practice tab is just a tab in the dashboard; navigating in-page
-  // requires lifting state. Easiest UX: scroll up and click the tab.
-  document.querySelector('.tab-btn:nth-child(3)')?.click()
+  // Navigate to the Practice tracker (a different dashboard mode + tab). The
+  // dashboard owns that state, so bubble an event up rather than poking the DOM.
+  emit('go-to-drills')
 }
 
 onMounted(async () => {
@@ -128,6 +131,7 @@ onMounted(async () => {
   margin-top: 6px;
 }
 .cta-link:hover { text-decoration: underline; }
+.cta-link--footer { margin-top: auto; padding-top: 8px; font-size: var(--font-size-sm); }
 
 .drill-name {
   font-size: var(--font-size-sm);

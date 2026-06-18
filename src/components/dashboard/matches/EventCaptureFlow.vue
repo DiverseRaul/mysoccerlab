@@ -106,7 +106,7 @@
   <div v-if="showPassDestModal" class="modal-overlay" @click.self="cancel">
     <div class="modal modal--field" @click.stop>
       <div class="modal-header">
-        <h3>{{ fieldContext === 'chance' ? 'Where did the chance go?' : 'Where did the pass go?' }}</h3>
+        <h3>{{ fieldContext === 'chance' ? 'Where did the chance go?' : fieldContext === 'assist' ? 'Where did the assist go?' : 'Where did the pass go?' }}</h3>
         <button @click="cancel" class="close-btn" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
@@ -224,7 +224,7 @@ const triggerFromMap = ({ context, eventType, label, fieldPosition }) => {
   pendingEventLabel.value = label || 'event'
   if (context === 'shot') showOutcomeModal.value = true
   else if (context === 'goal') showQuadrantModal.value = true
-  else if (context === 'pass' || context === 'chance') showPassDestModal.value = true
+  else if (context === 'pass' || context === 'chance' || context === 'assist') showPassDestModal.value = true
 }
 
 defineExpose({ triggerShot, triggerGoal, triggerEvent, triggerFromMap })
@@ -354,9 +354,10 @@ const skipGoalType = () => {
   reset()
 }
 
-const emitChance = () => {
+// A chance / assist is a pass with a destination but no good/bad step.
+const emitChanceOrAssist = () => {
   emit('event-captured', {
-    eventType: 'created_chances',
+    eventType: fieldContext.value === 'assist' ? 'assists' : 'created_chances',
     fieldPosition: pendingFieldPosition.value,
     destination: pendingDestination.value
   })
@@ -366,15 +367,14 @@ const emitChance = () => {
 const onPassDest = ({ XPct, YPct }) => {
   pendingDestination.value = `${Math.round(XPct)},${Math.round(YPct)}`
   showPassDestModal.value = false
-  // A chance is just a pass that created a shot — no good/bad step.
-  if (fieldContext.value === 'chance') emitChance()
+  if (fieldContext.value === 'chance' || fieldContext.value === 'assist') emitChanceOrAssist()
   else showPassQualityModal.value = true
 }
 
 const skipPassDest = () => {
   pendingDestination.value = null
   showPassDestModal.value = false
-  if (fieldContext.value === 'chance') emitChance()
+  if (fieldContext.value === 'chance' || fieldContext.value === 'assist') emitChanceOrAssist()
   else showPassQualityModal.value = true
 }
 

@@ -65,8 +65,10 @@
   --color-brand-fg:       color-mix(in srgb, var(--color-accent) 58%, white);    /* Text on brand (~#89f8c1) */
 
   /* ── Semantic ────────────────────────────────────────────────── */
-  --color-success:        var(--color-accent);
-  --color-success-bg:     color-mix(in srgb, var(--color-accent) 12%, transparent);
+  /* Success/goals are a fixed semantic green (like danger is red) so a Pro
+     user's custom accent never makes goals blend with on-target / misses. */
+  --color-success:        #22c55e;
+  --color-success-bg:     rgba(34, 197, 94, 0.12);
   --color-warning:        #ffb74d;
   --color-warning-bg:     rgba(255, 183, 77, 0.1);
   --color-danger:         #ef5350;

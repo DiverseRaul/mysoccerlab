@@ -1,20 +1,30 @@
 <template>
   <div v-if="modelValue && drill" class="modal-overlay" @click.self="close">
     <div
-      class="modal"
-      :class="{ 'modal--shot-map': isShotMap, 'modal--mobile-full': isShotMap }"
+      class="modal modal--popup"
+      :class="{ 'modal--shot-map': isShotMap }"
       @click.stop
       data-testid="practice-log-session-modal"
     >
-      <div class="modal-header">
-        <h3>{{ isShotMap ? 'Log shots' : 'Log session' }} — {{ drill.name }}</h3>
-        <button @click="close" class="close-btn" aria-label="Close">&times;</button>
-      </div>
+      <button @click="close" class="ls-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <line x1="6" y1="6" x2="18" y2="18" /><line x1="18" y1="6" x2="6" y2="18" />
+        </svg>
+      </button>
+
+      <header class="ls-hero">
+        <div class="ls-hero__icon" aria-hidden="true">{{ metricIcon }}</div>
+        <div class="ls-hero__text">
+          <span class="ls-hero__eyebrow">{{ titleText }}</span>
+          <h3 class="ls-hero__title">{{ drill.name }}</h3>
+          <span class="ls-hero__type">{{ metricTypeLabel(drill.metric_type) }}<template v-if="drill.unit"> · {{ drill.unit }}</template></span>
+        </div>
+      </header>
 
       <form @submit.prevent="submit">
-        <div class="form-group form-group--inline">
-          <label>Date</label>
-          <input v-model="form.session_date" type="date" required class="date-input" />
+        <div class="ls-date">
+          <label for="ls-date-input">Session date</label>
+          <input id="ls-date-input" v-model="form.session_date" type="date" required class="ls-date__input" />
         </div>
 
         <!-- shot_map: placements are the primary mode; manual mode is a fallback -->
@@ -22,19 +32,28 @@
           <PracticeGoalMap
             :placements="placements"
             :interactive="true"
-            :next-outcome="nextOutcome"
-            :next-foot="nextFoot"
+            :show-counter="false"
             @add-placement="onAddPlacement"
             @remove-placement="onRemovePlacement"
             @undo="onUndo"
-            @update:nextOutcome="nextOutcome = $event"
-            @update:nextFoot="nextFoot = $event"
           />
 
-          <p class="derived-hint">
-            <strong>{{ derivedGoals }}</strong> goals · <strong>{{ placements.length }}</strong> total ·
-            <strong>{{ derivedAccuracy }}%</strong> accuracy
-          </p>
+          <div class="ls-stats">
+            <div class="ls-stat"><span class="ls-stat__val">{{ placements.length }}</span><span class="ls-stat__lbl">Shots</span></div>
+            <div class="ls-stat"><span class="ls-stat__val">{{ counts.goal }}</span><span class="ls-stat__lbl">Goals</span></div>
+            <div class="ls-stat"><span class="ls-stat__val">{{ counts.post }}</span><span class="ls-stat__lbl">Posts</span></div>
+            <div class="ls-stat"><span class="ls-stat__val">{{ counts.miss }}</span><span class="ls-stat__lbl">Misses</span></div>
+            <div class="ls-stat"><span class="ls-stat__val">{{ counts.save }}</span><span class="ls-stat__lbl">Saves</span></div>
+          </div>
+
+          <!-- Timeline of placed shots — delete any individual one -->
+          <ul v-if="placements.length" class="shot-list" data-testid="shot-timeline">
+            <li v-for="(p, i) in placements" :key="i" class="shot-list__item">
+              <span class="shot-list__dot" :class="`is-${p.outcome}`"></span>
+              <span class="shot-list__label">#{{ i + 1 }} · {{ outcomeLabel(p.outcome) }}<span v-if="p.foot" class="shot-list__foot"> · {{ p.foot === 'left' ? 'Left' : 'Right' }}</span></span>
+              <button type="button" class="shot-list__del" :data-testid="`shot-delete-${i}`" aria-label="Delete shot" @click="removeAt(i)">×</button>
+            </li>
+          </ul>
 
           <button
             type="button"
@@ -126,7 +145,7 @@
             class="btn btn-primary"
             :disabled="submitDisabled"
             data-testid="session-submit-btn"
-          >Log session</button>
+          >{{ isEditing ? 'Save changes' : 'Log session' }}</button>
         </div>
       </form>
     </div>
@@ -136,10 +155,14 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import PracticeGoalMap from './PracticeGoalMap.vue'
+import { metricTypeLabel } from '../../../lib/practiceFormat'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  drill: { type: Object, default: null }
+  drill: { type: Object, default: null },
+  // When set, the modal edits this session instead of logging a new one.
+  editSession: { type: Object, default: null },
+  editPlacements: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['update:modelValue', 'submit'])
@@ -154,18 +177,34 @@ const blankForm = () => ({
 const form = ref(blankForm())
 const manualMode = ref(false)
 const placements = ref([])
-const nextOutcome = ref('goal')
-const nextFoot = ref(null)
 
 const isShotMap = computed(() => props.drill?.metric_type === 'shot_map')
+const isEditing = computed(() => !!props.editSession)
+const titleText = computed(() =>
+  isEditing.value ? 'Edit session' : (isShotMap.value ? 'Log shots' : 'Log session')
+)
+
+const metricIcon = computed(() => ({
+  shot_map: '⚽', time: '⏱️', distance: '📏', speed: '⚡', count: '🔢', ratio: '🎯'
+}[props.drill?.metric_type] || '🎯'))
 
 watch(() => props.modelValue, (open) => {
-  if (open) {
+  if (!open) return
+  manualMode.value = false
+  if (props.editSession) {
+    const s = props.editSession
+    form.value = {
+      session_date: s.session_date || new Date().toISOString().split('T')[0],
+      primary_value: s.primary_value ?? '',
+      secondary_value: s.secondary_value ?? '',
+      notes: s.notes || ''
+    }
+    placements.value = (props.editPlacements || []).map((p) => ({
+      x_pct: p.x_pct, y_pct: p.y_pct, outcome: p.outcome, foot: p.foot ?? null
+    }))
+  } else {
     form.value = blankForm()
-    manualMode.value = false
     placements.value = []
-    nextOutcome.value = 'goal'
-    nextFoot.value = null
   }
 })
 
@@ -184,6 +223,13 @@ const derivedGoals = computed(() => placements.value.filter(p => p.outcome === '
 const derivedAccuracy = computed(() => {
   if (placements.value.length === 0) return 0
   return Math.round((derivedGoals.value / placements.value.length) * 100)
+})
+
+// One count per outcome for the stat boxes (Shots is just placements.length).
+const counts = computed(() => {
+  const c = { goal: 0, save: 0, post: 0, miss: 0 }
+  for (const p of placements.value) if (c[p.outcome] !== undefined) c[p.outcome]++
+  return c
 })
 
 const submitDisabled = computed(() => {
@@ -206,10 +252,15 @@ const onUndo = () => {
   placements.value = placements.value.slice(0, -1)
 }
 
+const removeAt = (i) => { placements.value = placements.value.filter((_, idx) => idx !== i) }
+
+const outcomeLabel = (o) => ({ goal: 'Goal', save: 'Save', post: 'Post', miss: 'Miss' }[o] || o)
+
 const close = () => emit('update:modelValue', false)
 
 const submit = () => {
   const payload = { ...form.value }
+  if (props.editSession) payload.id = props.editSession.id
   if (isShotMap.value && !manualMode.value) {
     payload.primary_value = derivedGoals.value
     payload.secondary_value = placements.value.length
@@ -227,37 +278,184 @@ const submit = () => {
 <style scoped>
 @import './modal-shared.css';
 
-.modal--shot-map { max-width: 620px; }
+/* Popup entrance: the overlay fades, the card scales/springs up so it reads as
+   a modern dialog rather than a flat panel. Runs on mount (v-if remounts it). */
+.modal-overlay { animation: ls-overlay-in 0.18s ease both; }
+.modal--popup {
+  position: relative;
+  /* Defined here (not the @import'd file) so HMR reliably reloads it. Border-box
+     stops the padding/border from being added to width:100% and overflowing. */
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-border-soft);
+  animation: ls-modal-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  transform-origin: center;
+}
+@keyframes ls-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ls-modal-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-/* Save room for the canvas: the date + accuracy line + map fill the screen. */
-.form-group--inline {
+/* Mobile grab handle (only shown in bottom-sheet mode) */
+.ls-grab { display: none; }
+
+/* Circular icon close button — replaces the bare “×”. */
+.ls-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-bg-surface-2);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.ls-close:hover { background: var(--color-bg-surface-3); color: var(--color-text-primary); border-color: var(--color-accent-border); }
+
+.modal--shot-map { max-width: 410px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay, .modal--popup { animation: none; }
+}
+
+/* ── Hero header ─────────────────────────────────────────────────────── */
+.ls-hero {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border-soft);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent), transparent 60%),
+    var(--color-bg-surface-2);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
-.form-group--inline label {
+.ls-hero__icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  border-radius: 50%;
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-accent-border);
+}
+.ls-hero__text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.ls-hero__eyebrow {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+.ls-hero__title {
   margin: 0;
-  min-width: 48px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-heavy);
+  color: var(--color-text-primary);
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.date-input {
-  flex: 1;
-  max-width: 200px;
-  width: auto;
+.ls-hero__type { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.ls-hero__close {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
 }
+.ls-hero__close:hover { color: var(--color-text-primary); }
 
-.derived-hint {
-  margin: var(--space-3) 0;
-  padding: var(--space-3);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  text-align: center;
-  background: var(--color-bg-surface-2);
-  border-radius: var(--radius-sm);
+/* ── Date field ──────────────────────────────────────────────────────── */
+.ls-date { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+.ls-date label {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+.ls-date__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
 }
+.ls-date__input:focus { outline: none; border-color: var(--color-accent-border); box-shadow: 0 0 0 3px var(--color-accent-soft); }
 
-.derived-hint strong { color: var(--color-accent); font-weight: var(--font-weight-bold); font-size: var(--font-size-base); }
+.ls-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin: var(--space-3) 0;
+}
+.ls-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-sm);
+}
+.ls-stat__val { font-size: var(--font-size-md); font-weight: var(--font-weight-heavy); color: var(--color-text-primary); line-height: 1; font-variant-numeric: tabular-nums; }
+.ls-stat__lbl { font-size: 0.62rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+
+.shot-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2);
+  max-height: 132px;
+  overflow-y: auto;
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.shot-list__item { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--radius-sm); }
+.shot-list__item:hover { background: var(--color-bg-surface-3); }
+.shot-list__dot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; border: 1.5px solid rgba(255,255,255,0.6); }
+.shot-list__dot.is-goal { background: var(--color-success); }
+.shot-list__dot.is-save { background: var(--color-info); }
+.shot-list__dot.is-post { background: var(--color-warning); }
+.shot-list__dot.is-miss { background: var(--color-danger); }
+.shot-list__label { flex: 1; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.shot-list__foot { color: var(--color-text-muted); }
+.shot-list__del {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 6px;
+  flex: 0 0 auto;
+}
+.shot-list__del:hover { color: var(--color-danger); }
 
 .link-toggle {
   background: transparent;

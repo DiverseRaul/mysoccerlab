@@ -160,10 +160,18 @@ const fillPct = computed(() => ((months.value - 1) / 23) * 100)
 // ── Waitlist (no real purchase) ────────────────────────────────────
 const notified = ref(false)
 const notify = async () => {
-  notified.value = true
-  if (props.previewMode) return
+  if (props.previewMode) { notified.value = true; return }
   const { data: { user } } = await supabase.auth.getUser()
-  if (user) await supabase.from('waitlist').insert({ user_id: user.id, email: user.email })
+  if (!user) { router.push('/login'); return }
+  // Idempotent: don't stack a new row every click — only add if not already on
+  // the list. Mark as notified only after the write actually succeeds.
+  const { data: existing } = await supabase
+    .from('waitlist').select('id').eq('user_id', user.id).limit(1)
+  if (!existing || existing.length === 0) {
+    const { error } = await supabase.from('waitlist').insert({ user_id: user.id, email: user.email })
+    if (error) { console.error('Waitlist insert failed:', error); return }
+  }
+  notified.value = true
 }
 
 onMounted(async () => {

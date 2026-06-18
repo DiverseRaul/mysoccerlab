@@ -34,16 +34,18 @@
       class="afield__control"
       :type="type"
       :step="type === 'number' ? 'any' : undefined"
+      :min="type === 'number' && min !== null ? min : undefined"
+      :max="type === 'number' && max !== null ? max : undefined"
       :value="modelValue"
       :placeholder="placeholder"
-      @input="$emit('update:modelValue', type === 'number' ? Number($event.target.value) : $event.target.value)"
+      @input="onInput($event.target.value)"
     />
     <span v-if="helper" class="afield__helper">{{ helper }}</span>
   </label>
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   label: { type: String, default: '' },
   modelValue: { type: [String, Number, Boolean], default: '' },
   type: { type: String, default: 'text' },
@@ -51,9 +53,18 @@ defineProps({
   rows: { type: Number, default: 2 },
   placeholder: { type: String, default: '' },
   helper: { type: String, default: '' },
-  options: { type: Array, default: () => [] }
+  options: { type: Array, default: () => [] },
+  min: { type: Number, default: null },
+  max: { type: Number, default: null }
 })
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
+
+// For numbers, emit null on empty (so "cleared" isn't silently coerced to 0) and
+// a real Number otherwise; text passes through unchanged.
+const onInput = (raw) => {
+  if (props.type !== 'number') return emit('update:modelValue', raw)
+  emit('update:modelValue', raw === '' ? null : Number(raw))
+}
 </script>
 
 <style scoped>

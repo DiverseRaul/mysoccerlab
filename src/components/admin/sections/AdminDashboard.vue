@@ -7,9 +7,19 @@
 
     <div class="acard">
       <div class="tile-list">
-        <div v-for="(tile, index) in draft.tiles" :key="tile.id" class="tile-item">
+        <div
+          v-for="(tile, index) in draft.tiles"
+          :key="tile.id"
+          class="tile-item"
+          :class="{ 'is-dragging': dragIndex === index, 'is-drop-target': dragOverIndex === index && dragIndex !== index }"
+          draggable="true"
+          @dragstart="onDragStart(index, $event)"
+          @dragover="onDragOver(index, $event)"
+          @dragend="onDragEnd"
+          @drop="onDragEnd"
+        >
           <div class="tile-item__details">
-            <span class="tile-item__drag-handle">☰</span>
+            <span class="tile-item__drag-handle" title="Drag to reorder">☰</span>
             <div class="tile-item__info">
               <span class="tile-item__label">{{ tile.label }}</span>
               <span class="tile-item__id">{{ tile.id }}</span>
@@ -97,13 +107,34 @@ const draft = ref({ tiles: [] })
 const saving = ref(false)
 const saved = ref(false)
 
+// Arrow-button reorder (the reliable path on touch, where HTML5 drag doesn't fire).
 const moveTile = (index, direction) => {
   const newIndex = index + direction
   if (newIndex < 0 || newIndex >= draft.value.tiles.length) return
-  const temp = draft.value.tiles[index]
-  draft.value.tiles[index] = draft.value.tiles[newIndex]
-  draft.value.tiles[newIndex] = temp
+  const tiles = draft.value.tiles
+  const [moved] = tiles.splice(index, 1)
+  tiles.splice(newIndex, 0, moved)
 }
+
+// HTML5 drag-and-drop via the ☰ handle (desktop). Reorders live as you hover so
+// the list previews the new position; dropping just clears the drag state.
+const dragIndex = ref(null)
+const dragOverIndex = ref(null)
+const onDragStart = (index, e) => {
+  dragIndex.value = index
+  if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index)) }
+}
+const onDragOver = (index, e) => {
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+  dragOverIndex.value = index
+  if (dragIndex.value === null || dragIndex.value === index) return
+  const tiles = draft.value.tiles
+  const [moved] = tiles.splice(dragIndex.value, 1)
+  tiles.splice(index, 0, moved)
+  dragIndex.value = index
+}
+const onDragEnd = () => { dragIndex.value = null; dragOverIndex.value = null }
 
 const reset = () => {
   const base = content.value.dashboard?.tiles ? content.value.dashboard : DEFAULTS.dashboard
@@ -178,6 +209,15 @@ onMounted(async () => {
 .tile-item:hover {
   background: var(--color-bg-surface-3);
   border-color: var(--color-border-strong);
+}
+
+.tile-item.is-dragging {
+  opacity: 0.45;
+}
+
+.tile-item.is-drop-target {
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 0 2px var(--color-accent-soft);
 }
 
 .tile-item__details {

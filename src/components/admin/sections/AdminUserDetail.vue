@@ -40,10 +40,10 @@
           <AdminField v-model="form.club_team" label="Club team" />
           <AdminField v-model="form.position" label="Position" type="select" :options="positionOptions" />
           <AdminField v-model="form.preferred_foot" label="Preferred foot" type="select" :options="footOptions" />
-          <AdminField v-model="form.jersey_number" label="Jersey number" type="number" />
+          <AdminField v-model="form.jersey_number" label="Jersey number" type="number" :min="1" :max="99" />
           <AdminField v-model="form.nationality" label="Nationality" />
-          <AdminField v-model="form.height_cm" label="Height (cm)" type="number" />
-          <AdminField v-model="form.weight_kg" label="Weight (kg)" type="number" />
+          <AdminField v-model="form.height_cm" label="Height (cm)" type="number" :min="100" :max="250" />
+          <AdminField v-model="form.weight_kg" label="Weight (kg)" type="number" :min="30" :max="200" />
           <AdminField v-model="form.date_of_birth" label="Birthday" type="date" />
         </div>
         <AdminField v-model="form.bio" label="Bio" multiline :rows="3" />
@@ -51,6 +51,7 @@
           <AdminField v-model="form.is_public" label="Public profile" type="checkbox" />
           <AdminField v-model="form.early_access" label="Early access" type="checkbox" />
           <AdminField v-model="form.enable_heatmap_tracking" label="Heatmap tracking" type="checkbox" />
+          <AdminField v-model="form.is_test_account" label="Test account (hidden from feed & lists)" type="checkbox" />
         </div>
         <div class="ud__actions">
           <button type="button" class="btn btn-primary" :disabled="busy" @click="saveProfile">Save profile</button>
@@ -110,15 +111,48 @@
         </AdminTable>
       </div>
 
-      <!-- Practice -->
+      <!-- Practice — grouped by drill so each drill's sessions read as a unit -->
       <div v-show="tab === 'Practice'" class="ud__panel">
-        <AdminTable
-          :columns="practiceCols" :rows="sessions" :loading="loadingPractice"
-          empty-text="No practice sessions." :page="0" :page-size="25" :total="sessions.length"
-        >
-          <template #cell-session_date="{ value }">{{ fmtDate(value) }}</template>
-          <template #cell-drill="{ row }">{{ drillName(row.drill_id) }}</template>
-        </AdminTable>
+        <div v-if="loadingPractice" class="asec__loading">Loading…</div>
+        <p v-else-if="!practiceGroups.length" class="ud__muted">No practice sessions logged.</p>
+        <div v-else class="ud__drills">
+          <div v-for="g in practiceGroups" :key="g.drill.id" class="ud__drill">
+            <div class="ud__drill-head">
+              <div class="ud__drill-id">
+                <strong class="ud__drill-name">{{ g.drill.name }}</strong>
+                <span class="ud__drill-type">{{ metricTypeLabel(g.drill.metric_type) }}<template v-if="g.drill.unit"> · {{ g.drill.unit }}</template></span>
+              </div>
+              <div class="ud__drill-meta">
+                <span>{{ g.sessions.length }} session{{ g.sessions.length === 1 ? '' : 's' }}</span>
+                <span v-if="g.best">· best <strong>{{ formatValue(g.best, g.drill) }}</strong></span>
+              </div>
+            </div>
+            <table class="ud__stable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <template v-if="g.isShots">
+                    <th>Goals</th><th>Shots</th><th>Accuracy</th>
+                  </template>
+                  <th v-else>{{ g.unitLabel }}</th>
+                  <th class="ud__notes-col">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in g.sessions" :key="s.id" :class="{ 'is-best': g.best && s.id === g.best.id }">
+                  <td>{{ fmtDate(s.session_date) }}</td>
+                  <template v-if="g.isShots">
+                    <td>{{ s.primary_value ?? '—' }}</td>
+                    <td>{{ s.secondary_value ?? '—' }}</td>
+                    <td>{{ accuracyPct(s) !== null ? accuracyPct(s) + '%' : '—' }}</td>
+                  </template>
+                  <td v-else>{{ formatValue(s, g.drill) }}</td>
+                  <td class="ud__notes">{{ s.notes || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Coach usage -->
@@ -141,6 +175,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import * as api from '../../../lib/adminApi'
 import { BAN_DURATIONS } from '../../../lib/proDuration'
+import { formatValue, accuracyPct, metricTypeLabel, personalBest } from '../../../lib/practiceFormat'
 import AdminField from '../AdminField.vue'
 import AdminTable from '../AdminTable.vue'
 import AdminConfirm from '../AdminConfirm.vue'
@@ -165,11 +200,6 @@ const matchCols = [
   { key: 'score', label: 'Score' },
   { key: 'position_played', label: 'Position' }
 ]
-const practiceCols = [
-  { key: 'session_date', label: 'Date' },
-  { key: 'drill', label: 'Drill' },
-  { key: 'primary_value', label: 'Value' }
-]
 
 const profile = ref(null)
 const auth = ref({})
@@ -187,7 +217,31 @@ const confirm = ref({ open: false, title: '', message: '', label: 'Confirm', onY
 
 const isBanned = computed(() => !!(profile.value?.banned_until) && new Date(profile.value.banned_until) > new Date())
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
-const drillName = (id) => drills.value.find((d) => d.id === id)?.name || '—'
+
+// Group practice sessions under their drill so each drill reads as a block, with
+// the drill's metric type driving how values render (shot drills get a
+// goals/shots/accuracy breakdown; everything else uses the shared formatValue).
+const practiceGroups = computed(() => {
+  const byDrill = {}
+  for (const s of sessions.value) {
+    if (!byDrill[s.drill_id]) byDrill[s.drill_id] = []
+    byDrill[s.drill_id].push(s)
+  }
+  const groups = []
+  for (const [drillId, list] of Object.entries(byDrill)) {
+    const drill = drills.value.find((d) => String(d.id) === String(drillId)) || { id: drillId, name: 'Unknown drill', metric_type: 'count' }
+    const sorted = [...list].sort((a, b) => new Date(b.session_date) - new Date(a.session_date) || (b.id || 0) - (a.id || 0))
+    groups.push({
+      drill,
+      sessions: sorted,
+      best: personalBest(list, drill),
+      isShots: drill.metric_type === 'shot_map',
+      unitLabel: metricTypeLabel(drill.metric_type)
+    })
+  }
+  groups.sort((a, b) => new Date(b.sessions[0].session_date) - new Date(a.sessions[0].session_date))
+  return groups
+})
 
 const flash = (msg, kind = 'ok') => { toast.value = { msg, kind }; setTimeout(() => { toast.value = null }, 2600) }
 
@@ -198,7 +252,8 @@ const buildForm = () => {
     preferred_foot: p.preferred_foot || '', jersey_number: p.jersey_number || null,
     nationality: p.nationality || '', height_cm: p.height_cm || null, weight_kg: p.weight_kg || null,
     date_of_birth: p.date_of_birth || '', bio: p.bio || '',
-    is_public: !!p.is_public, early_access: !!p.early_access, enable_heatmap_tracking: p.enable_heatmap_tracking !== false
+    is_public: !!p.is_public, early_access: !!p.early_access, enable_heatmap_tracking: p.enable_heatmap_tracking !== false,
+    is_test_account: !!p.is_test_account
   }
 }
 
@@ -242,13 +297,31 @@ const loadPractice = async () => {
   if (props.previewMode) { sessions.value = [{ id: 's1', session_date: '2026-05-20', drill_id: 'd1', primary_value: 18 }]; drills.value = [{ id: 'd1', name: 'Finishing reps' }]; practiceLoaded = true; return }
   loadingPractice.value = true
   try {
-    const data = await api.listPractice({ userId: userId.value })
+    const data = await api.listPractice({ userId: userId.value, pageSize: 500 })
     sessions.value = data.sessions; drills.value = data.drills; practiceLoaded = true
   } catch (e) { flash(e.message, 'err') } finally { loadingPractice.value = false }
 }
 
+// Match the user_profiles CHECK constraints so we surface a friendly message
+// instead of letting the DB reject the save with a raw constraint error.
+const validateProfile = () => {
+  const f = form.value
+  const ranges = [
+    ['jersey_number', 1, 99, 'Jersey number must be between 1 and 99.'],
+    ['height_cm', 100, 250, 'Height must be between 100 and 250 cm.'],
+    ['weight_kg', 30, 200, 'Weight must be between 30 and 200 kg.']
+  ]
+  for (const [key, min, max, msg] of ranges) {
+    const v = f[key]
+    if (v !== null && v !== '' && v !== undefined && (Number(v) < min || Number(v) > max)) return msg
+  }
+  return null
+}
+
 const saveProfile = async () => {
   if (props.previewMode) { flash('Saved (preview)'); return }
+  const err = validateProfile()
+  if (err) { flash(err, 'err'); return }
   busy.value = true
   try { await api.updateProfile(userId.value, form.value); flash('Profile saved'); await load() }
   catch (e) { flash(e.message, 'err') } finally { busy.value = false }
@@ -340,6 +413,23 @@ onMounted(load)
 .ud__field span { font-size: var(--font-size-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .ud__field select { padding: 10px 12px; background: var(--color-bg-field); border: 1px solid var(--color-border-soft); border-radius: var(--radius-md); color: var(--color-text-primary); font-family: inherit; font-size: var(--font-size-base); }
 .ud__muted { color: var(--color-text-muted); font-size: var(--font-size-sm); }
+
+/* Practice — one card per drill */
+.ud__drills { display: flex; flex-direction: column; gap: var(--space-4); }
+.ud__drill { border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md); background: var(--color-bg-surface-2); overflow: hidden; }
+.ud__drill-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border-subtle); }
+.ud__drill-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ud__drill-name { color: var(--color-text-primary); font-size: var(--font-size-md); }
+.ud__drill-type { font-size: var(--font-size-xs); color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.ud__drill-meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--font-size-sm); color: var(--color-text-muted); }
+.ud__drill-meta strong { color: var(--color-accent); }
+
+.ud__stable { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
+.ud__stable th { text-align: left; padding: 8px 14px; background: var(--color-bg-surface); color: var(--color-text-muted); font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: 0.04em; font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.ud__stable td { padding: 9px 14px; color: var(--color-text-secondary); border-top: 1px solid var(--color-border-subtle); vertical-align: middle; }
+.ud__stable tr.is-best td { background: var(--color-success-bg); color: var(--color-text-primary); }
+.ud__notes-col { width: 40%; }
+.ud__notes { color: var(--color-text-muted); }
 
 @media (min-width: 620px) {
   .ud__grid { grid-template-columns: 1fr 1fr; }

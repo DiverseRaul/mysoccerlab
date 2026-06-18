@@ -262,13 +262,13 @@ const loadFeed = async () => {
     query = following ? query.in('user_id', followedIds) : query.neq('user_id', currentUser.value.id)
 
     // Matches + practice activity load in parallel; RLS gates cross-user reads.
-    const [{ data: matchesData, error: matchesError }, practiceItems] = await Promise.all([
+    let [{ data: matchesData, error: matchesError }, practiceItems] = await Promise.all([
       query,
       loadPracticeActivity(following, followedIds)
     ])
     if (matchesError) throw matchesError
 
-    const safeMatches = matchesData || []
+    let safeMatches = matchesData || []
 
     // Profiles for everyone appearing in the feed (match or practice authors).
     const userIds = [...new Set([
@@ -279,9 +279,19 @@ const loadFeed = async () => {
     if (userIds.length) {
       const { data: profiles } = await supabase
         .from('user_profiles')
-        .select('user_id, player_name, position, is_public, subscription_tier')
+        .select('user_id, player_name, position, is_public, subscription_tier, is_test_account')
         .in('user_id', userIds)
       for (const p of profiles || []) profileMap[p.user_id] = p
+    }
+
+    // Hide flagged test/seed accounts (e.g. "Admin 1") from Explore so they don't
+    // swamp the community feed. Real players — including real admins — show
+    // normally. The Following tab is left untouched: if you chose to follow one,
+    // that's intentional and should still show.
+    const isTestAuthor = (uid) => !!profileMap[uid]?.is_test_account
+    if (!following) {
+      safeMatches = safeMatches.filter((m) => !isTestAuthor(m.user_id))
+      practiceItems = practiceItems.filter((p) => !isTestAuthor(p.user_id))
     }
 
     matches.value = safeMatches.map(match => ({
@@ -435,14 +445,14 @@ const searchUsers = async () => {
     // Search in user_profiles
     const { data, error } = await supabase
       .from('user_profiles')
-      .select('user_id, player_name, position, avatar_url')
+      .select('user_id, player_name, position, avatar_url, is_test_account')
       .ilike('player_name', `%${searchQuery.value}%`)
       .limit(20)
 
     if (error) throw error
-    
-    // Filter out current user
-    const filtered = data.filter(u => u.user_id !== currentUser.value.id)
+
+    // Filter out the current user and any flagged test/seed accounts
+    const filtered = data.filter(u => u.user_id !== currentUser.value.id && !u.is_test_account)
     
     // Add isFollowing status
     searchResults.value = filtered.map(u => ({

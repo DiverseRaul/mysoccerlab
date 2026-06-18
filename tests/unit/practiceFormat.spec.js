@@ -10,6 +10,7 @@ import {
   metricTypeDescription,
   targetLabel,
   practiceStreak,
+  practiceWeekStreak,
   practiceTotals,
   recentSessions
 } from '../../src/lib/practiceFormat.js'
@@ -293,6 +294,45 @@ describe('practiceStreak', () => {
       session({ session_date: '2026-06-11' })
     ]
     expect(practiceStreak(s, today)).toBe(2)
+  })
+})
+
+describe('practiceWeekStreak', () => {
+  // 2026-06-12 is a Saturday; its Mon–Sun week is 2026-06-07 … 2026-06-13.
+  const today = new Date('2026-06-12T12:00:00')
+
+  it('returns 0 with no sessions', () => {
+    expect(practiceWeekStreak([], today)).toBe(0)
+  })
+
+  it('counts consecutive weeks ending this week', () => {
+    const s = [
+      session({ session_date: '2026-06-10' }), // this week (Jun 7–13)
+      session({ session_date: '2026-06-03' }), // last week (May 31–Jun 6)
+      session({ session_date: '2026-05-27' })  // week before (May 24–30)
+    ]
+    expect(practiceWeekStreak(s, today)).toBe(3)
+  })
+
+  it('still counts when the most recent session was last week (not yet this week)', () => {
+    const s = [
+      session({ session_date: '2026-06-03' }),
+      session({ session_date: '2026-05-27' })
+    ]
+    expect(practiceWeekStreak(s, today)).toBe(2)
+  })
+
+  it('returns 0 when the last session is older than last week (lapsed)', () => {
+    const s = [session({ session_date: '2026-05-20' })]
+    expect(practiceWeekStreak(s, today)).toBe(0)
+  })
+
+  it('treats multiple sessions in the same week as one', () => {
+    const s = [
+      session({ session_date: '2026-06-10' }),
+      session({ session_date: '2026-06-11' })
+    ]
+    expect(practiceWeekStreak(s, today)).toBe(1)
   })
 })
 

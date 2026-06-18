@@ -13,7 +13,9 @@
         empty-text="No admin actions recorded yet." :page="page" :page-size="pageSize" :total="total"
         @page="reload"
       >
+        <template #cell-admin_name="{ row }"><span class="al-admin">{{ row.admin_name || '—' }}</span></template>
         <template #cell-action="{ value }"><span class="al-action">{{ pretty(value) }}</span></template>
+        <template #cell-target_name="{ row }">{{ row.target_name || (row.target_user_id ? String(row.target_user_id).slice(0, 8) + '…' : '—') }}</template>
         <template #cell-detail="{ row }"><code class="al-detail">{{ summarize(row.detail) }}</code></template>
         <template #cell-created_at="{ value }">{{ fmtDate(value) }}</template>
       </AdminTable>
@@ -30,8 +32,9 @@ const props = defineProps({ previewMode: { type: Boolean, default: false } })
 
 const columns = [
   { key: 'created_at', label: 'When' },
+  { key: 'admin_name', label: 'Admin' },
   { key: 'action', label: 'Action' },
-  { key: 'target_user_id', label: 'Target', format: (v) => v ? String(v).slice(0, 8) + '…' : '—' },
+  { key: 'target_name', label: 'Target' },
   { key: 'detail', label: 'Detail' }
 ]
 
@@ -48,10 +51,18 @@ const LABELS = {
 }
 const pretty = (a) => LABELS[a] || a
 const fmtDate = (d) => d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+const fmtVal = (v) => (v === null || v === undefined || v === '') ? '∅' : String(v)
 const summarize = (detail) => {
   if (!detail || typeof detail !== 'object') return ''
+  // New shape: { changes: { field: { from, to } } } → "field: a → b".
+  if (detail.changes && typeof detail.changes === 'object') {
+    const parts = Object.entries(detail.changes).map(([k, v]) =>
+      v && typeof v === 'object' && 'to' in v ? `${k}: ${fmtVal(v.from)} → ${fmtVal(v.to)}` : `${k}: ${fmtVal(v)}`)
+    return parts.length ? parts.join(' · ') : 'no change'
+  }
+  // Legacy shapes still in the log.
   if (Array.isArray(detail.keys)) return detail.keys.join(', ')
-  return Object.entries(detail).map(([k, v]) => `${k}: ${v}`).join(', ')
+  return Object.entries(detail).map(([k, v]) => `${k}: ${fmtVal(v)}`).join(', ')
 }
 
 const reload = async (p = 0) => {
@@ -69,9 +80,9 @@ const reload = async (p = 0) => {
 onMounted(() => {
   if (props.previewMode) {
     rows.value = [
-      { id: 3, created_at: '2026-06-12T10:02:00Z', action: 'setTier', target_user_id: 'u2abc1234', detail: { tier: 'pro', duration: '1w' } },
-      { id: 2, created_at: '2026-06-11T16:40:00Z', action: 'banUser', target_user_id: 'u3def5678', detail: { duration: 'permanent' } },
-      { id: 1, created_at: '2026-06-10T09:11:00Z', action: 'updateProfile', target_user_id: 'u1aaa0001', detail: { keys: ['player_name', 'club_team'] } }
+      { id: 3, created_at: '2026-06-12T10:02:00Z', admin_name: 'You', action: 'setTier', target_user_id: 'u2abc1234', target_name: 'Jordan Keeper', detail: { tier: 'pro', duration: '1w' } },
+      { id: 2, created_at: '2026-06-11T16:40:00Z', admin_name: 'You', action: 'banUser', target_user_id: 'u3def5678', target_name: 'Sam Winger', detail: { duration: 'permanent' } },
+      { id: 1, created_at: '2026-06-10T09:11:00Z', admin_name: 'You', action: 'updateProfile', target_user_id: 'u1aaa0001', target_name: 'Alex Striker', detail: { changes: { player_name: { from: 'Alex', to: 'Alex Striker' }, club_team: { from: null, to: 'FC Demo' } } } }
     ]
     total.value = 3
     return
@@ -85,6 +96,7 @@ onMounted(() => {
 .asec__hint { margin: 0 0 var(--space-4); color: var(--color-text-muted); font-size: var(--font-size-sm); }
 .asec__notice { padding: var(--space-4); background: var(--color-warning-bg); border: 1px solid rgba(255,183,77,0.35); border-radius: var(--radius-md); color: var(--color-text-secondary); line-height: 1.6; font-size: var(--font-size-sm); }
 .asec__notice code { color: var(--color-warning); background: rgba(255,183,77,0.12); padding: 1px 5px; border-radius: 4px; }
+.al-admin { color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
 .al-action { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 .al-detail { font-size: var(--font-size-xs); color: var(--color-text-muted); }
 </style>

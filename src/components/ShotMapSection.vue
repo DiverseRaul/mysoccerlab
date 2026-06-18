@@ -145,7 +145,7 @@
                 :x1="getCoords(shot).x"
                 :y1="getCoords(shot).y"
                 :x2="getGoalTargetX(shot)"
-                y2="0"
+                y2="1.5"
                 class="trajectory trajectory--shot"
               />
               <line
@@ -154,7 +154,7 @@
                 :x1="getCoords(goal).x"
                 :y1="getCoords(goal).y"
                 :x2="getGoalTargetX(goal)"
-                y2="0"
+                y2="1.5"
                 class="trajectory trajectory--goal"
               />
             </svg>
@@ -343,9 +343,19 @@ const hasOriginData  = computed(
 )
 
 // ── Coordinate helpers ──────────────────────────────────────
+// Matches logged before the full-pitch switch (origins_full_field !== true)
+// recorded origins over the attacking HALF only, so on the full pitch they
+// bunch near the halfway line. Compress those to the top half (y × 0.5).
+const fullFieldByMatch = computed(() => {
+  const map = {}
+  for (const m of props.matches) map[m.id] = m.origins_full_field === true
+  return map
+})
 const getCoords = (item) => {
   const [x, y] = item.field_position.split(',').map(Number)
-  return { x: Number.isFinite(x) ? x : 50, y: Number.isFinite(y) ? y : 50 }
+  let yy = Number.isFinite(y) ? y : 50
+  if (!fullFieldByMatch.value[item.match_id]) yy = yy * 0.5
+  return { x: Number.isFinite(x) ? x : 50, y: yy }
 }
 
 const markerStyle = (item) => {
@@ -353,11 +363,23 @@ const markerStyle = (item) => {
   return { left: `${x}%`, top: `${y}%` }
 }
 
+// Where the trajectory should point on the pitch's goal line. The goal mouth in
+// PitchSurface spans x 44–56, so target inside it (a column at 37/63 used to
+// point outside the posts — the "line to nothing" bug). Prefer the precise
+// placement (0–100 across the goal); fall back to the legacy quadrant column.
+const GOAL_LEFT = 44
+const GOAL_WIDTH = 12
 const getGoalTargetX = (item) => {
-  if (!item.quadrant) return 50
-  const column = ((item.quadrant - 1) % 3) + 1
-  if (column === 1) return 37
-  if (column === 3) return 63
+  if (typeof item.placement === 'string' && item.placement.includes(',')) {
+    const px = Number(item.placement.split(',')[0])
+    if (Number.isFinite(px)) return GOAL_LEFT + (Math.min(100, Math.max(0, px)) / 100) * GOAL_WIDTH
+  }
+  if (item.quadrant) {
+    const column = ((item.quadrant - 1) % 3) + 1
+    if (column === 1) return GOAL_LEFT + GOAL_WIDTH * 0.25   // 47
+    if (column === 3) return GOAL_LEFT + GOAL_WIDTH * 0.75   // 53
+    return 50
+  }
   return 50
 }
 

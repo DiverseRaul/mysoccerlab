@@ -1,529 +1,467 @@
 <template>
   <div class="goal-map" data-testid="practice-goal-map">
-    <div v-if="interactive" class="controls">
-      <div class="control-row">
-        <span class="control-label">Outcome:</span>
+    <!-- Interactive logging controls -->
+    <div v-if="interactive" class="gm-controls">
+      <div class="gm-modes" role="tablist" aria-label="Shot or save">
         <button
-          v-for="opt in OUTCOMES"
-          :key="opt.value"
           type="button"
-          class="pill"
-          :class="[`pill--${opt.value}`, { active: nextOutcome === opt.value }]"
-          :data-testid="`outcome-pill-${opt.value}`"
-          @click="$emit('update:nextOutcome', opt.value)"
-        >
-          <span class="pill__dot" :class="`pill__dot--${opt.value}`"></span>
-          {{ opt.label }}
-        </button>
+          class="gm-mode"
+          :class="{ 'is-active': mode === 'shot' }"
+          data-testid="goal-mode-shot"
+          @click="mode = 'shot'"
+        ><span>⚽</span> Shot</button>
+        <button
+          type="button"
+          class="gm-mode"
+          :class="{ 'is-active': mode === 'save' }"
+          data-testid="goal-mode-save"
+          @click="mode = 'save'"
+        ><span>🧤</span> Save</button>
       </div>
 
-      <div class="control-row">
-        <span class="control-label">Foot:</span>
+      <div class="gm-feet">
+        <span class="gm-feet__label">Foot</span>
         <button
-          v-for="opt in FEET"
-          :key="opt.value ?? 'none'"
+          v-for="f in FEET"
+          :key="f.value ?? 'none'"
           type="button"
-          class="pill pill--foot"
-          :class="{ active: nextFoot === opt.value }"
-          :data-testid="`foot-pill-${opt.value ?? 'none'}`"
-          @click="$emit('update:nextFoot', opt.value)"
-        >{{ opt.label }}</button>
-
+          class="gm-foot"
+          :class="{ 'is-active': foot === f.value }"
+          :data-testid="`foot-pill-${f.value ?? 'none'}`"
+          @click="foot = f.value"
+        >{{ f.label }}</button>
         <button
           v-if="placements.length > 0"
           type="button"
-          class="undo-btn"
+          class="gm-undo"
           data-testid="goal-map-undo"
           @click="$emit('undo')"
-        >Undo last</button>
+        >Undo</button>
       </div>
 
-      <p class="hint">{{ outcomeHint }}</p>
-
-      <div class="live-counter" data-testid="goal-map-live-counter">
-        <span class="live-chip live-chip--goal">⚽ {{ counts.outcome.goal }}</span>
-        <span class="live-chip live-chip--save">🧤 {{ counts.outcome.save }}</span>
-        <span class="live-chip live-chip--post">🥅 {{ counts.outcome.post }}</span>
-        <span class="live-chip live-chip--miss">❌ {{ counts.outcome.miss }}</span>
-      </div>
+      <p class="gm-hint">{{ hint }}</p>
     </div>
 
-    <div v-if="!interactive && placements.length > 0" class="view-toggles">
+    <!-- Display view toggles -->
+    <div v-if="!interactive && placements.length > 0" class="gm-view-toggles">
       <button
         type="button"
-        class="view-pill"
-        :class="{ active: showHeatmap }"
+        class="gm-view"
+        :class="{ 'is-active': showHeatmap }"
         data-testid="heatmap-toggle"
         @click="$emit('update:showHeatmap', !showHeatmap)"
       >Heatmap</button>
       <button
         type="button"
-        class="view-pill"
-        :class="{ active: showMarkers }"
+        class="gm-view"
+        :class="{ 'is-active': showMarkers }"
         data-testid="markers-toggle"
         @click="$emit('update:showMarkers', !showMarkers)"
       >Markers</button>
     </div>
 
+    <!-- Zoom controls -->
+    <div class="gm-zoombar">
+      <button type="button" class="gm-zoombtn" :disabled="zoom <= ZOOM_MIN" aria-label="Zoom out" @click="zoomBy(-ZOOM_STEP)">−</button>
+      <span class="gm-zoomval">{{ Math.round(zoom * 100) }}%</span>
+      <button type="button" class="gm-zoombtn" :disabled="zoom >= ZOOM_MAX" aria-label="Zoom in" @click="zoomBy(ZOOM_STEP)">+</button>
+      <button v-if="zoom !== 1" type="button" class="gm-zoomreset" @click="zoom = 1">Reset</button>
+    </div>
+
+    <!-- Zoom viewport: the goal scales inside this fixed window; pan by scrolling -->
+    <div class="gm-zoom" ref="zoomWrap">
+    <!-- Tappable surface: centred goal with a miss margin all around -->
     <div
-      class="goal-canvas"
-      :class="{ 'goal-canvas--interactive': interactive }"
+      class="goal-canvas gm-area"
+      :class="{ 'gm-area--interactive': interactive, 'gm-area--zoomed': zoom > 1 }"
+      :style="{ width: `${zoom * 100}%` }"
       role="img"
       :aria-label="`Goal area with ${placements.length} shot${placements.length === 1 ? '' : 's'} marked`"
-      @click="onCanvasClick"
+      @click="onTap"
     >
-      <svg class="goal-svg" viewBox="0 0 100 75" preserveAspectRatio="none">
-        <defs>
-          <!-- Soft halo gradients for the heatmap layer, one per outcome -->
-          <radialGradient id="halo-goal" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"  stop-color="var(--color-accent)" stop-opacity="0.65" />
-            <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="halo-save" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"  stop-color="#3b82f6" stop-opacity="0.6" />
-            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="halo-miss" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"  stop-color="#ef5350" stop-opacity="0.55" />
-            <stop offset="100%" stop-color="#ef5350" stop-opacity="0" />
-          </radialGradient>
-          <radialGradient id="halo-post" cx="50%" cy="50%" r="50%">
-            <stop offset="0%"  stop-color="#ffb74d" stop-opacity="0.6" />
-            <stop offset="100%" stop-color="#ffb74d" stop-opacity="0" />
-          </radialGradient>
-        </defs>
+      <div class="gm-goal">
+        <GoalFrame3D fill />
+      </div>
 
-        <!-- Miss zone (entire canvas) — faint pitch background -->
-        <rect x="0" y="0" width="100" height="75" fill="rgba(34, 80, 50, 0.18)" />
+      <GoalHeatmap v-if="heatmapOn" :points="displayPlacements" class="gm-heat" />
 
-        <!-- Goal mouth (inner box, the only place a goal/save can happen) -->
-        <rect
-          :x="GOAL_X1" :y="GOAL_Y1"
-          :width="GOAL_X2 - GOAL_X1" :height="GOAL_Y2 - GOAL_Y1"
-          fill="rgba(0,0,0,0.55)"
-          stroke="#fff"
-          stroke-width="1.6"
-        />
-
-        <!-- Net hatching, very faint -->
-        <g v-if="true" stroke="rgba(255,255,255,0.08)" stroke-width="0.25">
-          <line v-for="n in 7" :key="`v-${n}`"
-            :x1="GOAL_X1 + ((GOAL_X2 - GOAL_X1) * n) / 8"
-            :y1="GOAL_Y1"
-            :x2="GOAL_X1 + ((GOAL_X2 - GOAL_X1) * n) / 8"
-            :y2="GOAL_Y2" />
-          <line v-for="n in 4" :key="`h-${n}`"
-            :x1="GOAL_X1"
-            :y1="GOAL_Y1 + ((GOAL_Y2 - GOAL_Y1) * n) / 5"
-            :x2="GOAL_X2"
-            :y2="GOAL_Y1 + ((GOAL_Y2 - GOAL_Y1) * n) / 5" />
-        </g>
-
-        <!-- Penalty spot for orientation -->
-        <circle :cx="50" :cy="68" r="0.5" fill="rgba(255,255,255,0.5)" />
-
-        <!-- Heatmap layer -->
-        <g v-if="showHeatmap" style="mix-blend-mode: screen;">
-          <circle
-            v-for="(p, idx) in placements"
-            :key="`h-${p.id ?? idx}`"
-            :cx="p.x_pct"
-            :cy="p.y_pct * (75 / 100)"
-            r="8"
-            :fill="`url(#halo-${p.outcome})`"
-          />
-        </g>
-      </svg>
-
-      <!-- Markers as positioned buttons -->
-      <template v-if="showMarkers">
+      <template v-if="markersOn">
         <button
-          v-for="(p, idx) in placements"
-          :key="p.id ?? `tmp-${idx}`"
+          v-for="m in displayPlacements"
+          :key="m.id ?? `tmp-${m._i}`"
           type="button"
           class="marker"
-          :class="[`marker--${p.outcome}`, p.foot ? `marker--foot-${p.foot}` : '']"
-          :style="{ left: `${p.x_pct}%`, top: `${p.y_pct}%` }"
-          :title="markerTitle(p)"
+          :class="[`marker--${m.outcome}`, m.foot ? `marker--foot-${m.foot}` : '']"
+          :style="{ left: `${m.x_pct}%`, top: `${m.y_pct}%` }"
+          :title="markerTitle(m)"
           :disabled="!interactive"
-          :data-testid="`goal-marker-${idx}`"
-          @click.stop="onMarkerClick(p, idx)"
+          :data-testid="`goal-marker-${m._i}`"
+          @click.stop="onMarkerClick(m)"
         >
-          <span v-if="p.foot" class="marker__foot">{{ p.foot[0].toUpperCase() }}</span>
+          <span v-if="m.foot" class="marker__foot">{{ m.foot[0].toUpperCase() }}</span>
         </button>
       </template>
 
-      <div v-if="placements.length === 0 && !interactive" class="overlay">No placements logged</div>
-      <div v-else-if="placements.length === 0 && interactive" class="overlay overlay--hint">Tap to mark a shot</div>
+      <div v-if="placements.length === 0 && !interactive" class="gm-overlay">No placements logged</div>
+      <div v-else-if="placements.length === 0 && interactive" class="gm-overlay gm-overlay--hint">Tap where the shot ended up</div>
+    </div>
     </div>
 
-    <div v-if="placements.length > 0" class="legend">
-      <span class="legend__item">
-        <span class="legend__dot legend__dot--goal"></span>Goal ({{ counts.outcome.goal }})
-      </span>
-      <span class="legend__item">
-        <span class="legend__dot legend__dot--save"></span>Save ({{ counts.outcome.save }})
-      </span>
-      <span class="legend__item">
-        <span class="legend__dot legend__dot--post"></span>Post ({{ counts.outcome.post }})
-      </span>
-      <span class="legend__item">
-        <span class="legend__dot legend__dot--miss"></span>Miss ({{ counts.outcome.miss }})
-      </span>
-      <span v-if="counts.foot.left + counts.foot.right > 0" class="legend__sep">·</span>
-      <span v-if="counts.foot.left > 0" class="legend__item">L {{ counts.foot.left }}</span>
-      <span v-if="counts.foot.right > 0" class="legend__item">R {{ counts.foot.right }}</span>
+    <!-- Live counter (interactive) -->
+    <div v-if="interactive && showCounter" class="gm-counter" data-testid="goal-map-live-counter">
+      <span class="gm-chip gm-chip--goal">⚽ {{ counts.goal }}</span>
+      <span class="gm-chip gm-chip--save">🧤 {{ counts.save }}</span>
+      <span class="gm-chip gm-chip--post">🥅 {{ counts.post }}</span>
+      <span class="gm-chip gm-chip--miss">❌ {{ counts.miss }}</span>
+    </div>
+
+    <!-- Legend (display) -->
+    <div v-if="!interactive && placements.length > 0" class="legend">
+      <span class="legend__item"><span class="legend__dot legend__dot--goal"></span>Goal ({{ counts.goal }})</span>
+      <span class="legend__item"><span class="legend__dot legend__dot--save"></span>Save ({{ counts.save }})</span>
+      <span class="legend__item"><span class="legend__dot legend__dot--post"></span>Post ({{ counts.post }})</span>
+      <span class="legend__item"><span class="legend__dot legend__dot--miss"></span>Miss ({{ counts.miss }})</span>
+      <span v-if="counts.left + counts.right > 0" class="legend__sep">·</span>
+      <span v-if="counts.left > 0" class="legend__item">L {{ counts.left }}</span>
+      <span v-if="counts.right > 0" class="legend__item">R {{ counts.right }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
+import GoalFrame3D from '../../ui/GoalFrame3D.vue'
+import GoalHeatmap from './GoalHeatmap.vue'
 
-// Goal mouth occupies this region of the canvas. The area outside is the
-// "miss zone" — players placing a miss can tap anywhere that isn't the goal.
-const GOAL_X1 = 12
-const GOAL_X2 = 88
-const GOAL_Y1 = 16
-const GOAL_Y2 = 50
-
-const OUTCOMES = [
-  { value: 'goal', label: 'Goal' },
-  { value: 'save', label: 'Save' },
-  { value: 'post', label: 'Post' },
-  { value: 'miss', label: 'Miss' }
-]
+// ── Geometry (container %). The goal sits low in the frame: you can miss OVER
+//    the bar (top band) or WIDE of the posts (side bands) — not "under" it. The
+//    net is inside the posts; the band between net and outer is the post zone
+//    (crossbar + two posts, no bottom bar). ──────────────────────────────────
+const NET = { x1: 18, x2: 82, y1: 31, y2: 98 }
+const OUTER = { x1: 14, x2: 86, y1: 27, y2: 98 }
 
 const FEET = [
-  { value: null,    label: '—' },
-  { value: 'left',  label: 'L' },
+  { value: null, label: '—' },
+  { value: 'left', label: 'L' },
   { value: 'right', label: 'R' }
 ]
 
 const props = defineProps({
   placements: { type: Array, default: () => [] },
   interactive: { type: Boolean, default: false },
-  nextOutcome: { type: String, default: 'goal' },
-  nextFoot: { type: [String, null], default: null },
   showHeatmap: { type: Boolean, default: true },
-  showMarkers: { type: Boolean, default: true }
+  showMarkers: { type: Boolean, default: true },
+  // Lets the consumer hide the built-in chip counter (e.g. the log modal shows
+  // its own stat boxes, so we don't want a duplicate count).
+  showCounter: { type: Boolean, default: true }
 })
 
-const emit = defineEmits([
-  'add-placement', 'remove-placement', 'undo',
-  'update:nextOutcome', 'update:nextFoot',
-  'update:showHeatmap', 'update:showMarkers'
-])
+const emit = defineEmits(['add-placement', 'remove-placement', 'undo', 'update:showHeatmap', 'update:showMarkers'])
 
-const outcomeHint = computed(() => {
-  switch (props.nextOutcome) {
-    case 'goal': return 'Tap inside the goal frame where the ball ended up.'
-    case 'save': return 'Tap inside the goal frame — the keeper got there first.'
-    case 'post': return 'Tap on the post or crossbar.'
-    case 'miss': return 'Tap outside the goal — wide, over, or off-target.'
-    default: return ''
+const mode = ref('shot')
+const foot = ref(null)
+
+// Zoom: scales the goal inside a fixed viewport; pan by scrolling. Tap math uses
+// getBoundingClientRect (which reflects the scaled size), so logging stays exact.
+const ZOOM_MIN = 1
+const ZOOM_MAX = 3
+const ZOOM_STEP = 0.5
+const zoom = ref(1)
+const zoomWrap = ref(null)
+// Keep the centre of the goal in view when zooming (scroll the viewport to the
+// middle), so it reads as zooming toward the centre rather than the top-left.
+const recenter = () => {
+  const el = zoomWrap.value
+  if (!el) return
+  el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2
+  el.scrollTop = (el.scrollHeight - el.clientHeight) / 2
+}
+const zoomBy = (delta) => {
+  zoom.value = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round((zoom.value + delta) * 10) / 10))
+  nextTick(recenter)
+}
+
+const heatmapOn = computed(() => !props.interactive && props.showHeatmap && props.placements.length > 0)
+const markersOn = computed(() => props.interactive || props.showMarkers)
+
+const hint = computed(() =>
+  mode.value === 'save'
+    ? 'Tap the net for a save · the frame for a post · outside for a miss'
+    : 'Tap the net for a goal · the frame for a post · outside for a miss'
+)
+
+const inRect = (x, y, r) => x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
+
+// Outcome from where the tap landed + the selected mode.
+const outcomeFor = (x, y) => {
+  if (inRect(x, y, NET)) return mode.value === 'save' ? 'save' : 'goal'
+  if (inRect(x, y, OUTER)) return 'post'
+  return 'miss'
+}
+
+// Re-place a stored point so it reads correctly for its outcome (fixes old data
+// where posts/misses were saved inside the goal). Goals/saves clamp into the
+// net, posts onto the frame ring, misses outside the goal.
+const placeForOutcome = (x, y, outcome) => {
+  if (outcome === 'goal' || outcome === 'save') {
+    return { x: clamp(x, NET.x1 + 1, NET.x2 - 1), y: clamp(y, NET.y1 + 1, NET.y2 - 1) }
   }
-})
+  if (outcome === 'post') {
+    let px = clamp(x, OUTER.x1, OUTER.x2)
+    let py = clamp(y, OUTER.y1, OUTER.y2)
+    if (inRect(px, py, NET)) {
+      // Snap to the nearest bar: crossbar (top), left post, or right post.
+      const dl = px - NET.x1, dr = NET.x2 - px, dt = py - NET.y1
+      const m = Math.min(dl, dr, dt)
+      if (m === dt) py = (OUTER.y1 + NET.y1) / 2
+      else if (m === dl) px = (OUTER.x1 + NET.x1) / 2
+      else px = (OUTER.x2 + NET.x2) / 2
+    }
+    return { x: px, y: py }
+  }
+  // miss: if it sits inside the goal frame, push it "over" the bar
+  if (inRect(x, y, OUTER)) return { x: clamp(x, 6, 94), y: 14 }
+  return { x: clamp(x, 3, 97), y: clamp(y, 3, 97) }
+}
+
+// Placements with display-corrected positions + a stable original index.
+const displayPlacements = computed(() =>
+  props.placements.map((p, i) => {
+    const pos = placeForOutcome(Number(p.x_pct), Number(p.y_pct), p.outcome)
+    return { ...p, x_pct: pos.x, y_pct: pos.y, _i: i }
+  })
+)
 
 const counts = computed(() => {
-  const c = {
-    outcome: { goal: 0, save: 0, miss: 0, post: 0 },
-    foot: { left: 0, right: 0 }
-  }
+  const c = { goal: 0, save: 0, post: 0, miss: 0, left: 0, right: 0 }
   for (const p of props.placements) {
-    if (c.outcome[p.outcome] !== undefined) c.outcome[p.outcome]++
-    if (p.foot === 'left' || p.foot === 'right') c.foot[p.foot]++
+    if (c[p.outcome] !== undefined) c[p.outcome]++
+    if (p.foot === 'left' || p.foot === 'right') c[p.foot]++
   }
   return c
 })
 
-const onCanvasClick = (event) => {
+const onTap = (event) => {
   if (!props.interactive) return
-  if (event.target.closest('.marker')) return
   const rect = event.currentTarget.getBoundingClientRect()
   const x = ((event.clientX - rect.left) / rect.width) * 100
   const y = ((event.clientY - rect.top) / rect.height) * 100
   if (x < 0 || x > 100 || y < 0 || y > 100) return
+  // Every tap adds a marker (stacking in the same spot is fine) — remove with Undo.
   emit('add-placement', {
     x_pct: Math.round(x * 100) / 100,
     y_pct: Math.round(y * 100) / 100,
-    outcome: props.nextOutcome,
-    foot: props.nextFoot ?? null
+    outcome: outcomeFor(x, y),
+    foot: foot.value ?? null
   })
 }
 
-const onMarkerClick = (placement, idx) => {
+const onMarkerClick = (m) => {
   if (!props.interactive) return
-  emit('remove-placement', { placement, idx })
+  emit('remove-placement', { placement: m, idx: m._i })
 }
 
-const markerTitle = (p) => {
-  const foot = p.foot ? ` (${p.foot})` : ''
-  return `${p.outcome}${foot} @ ${Math.round(p.x_pct)},${Math.round(p.y_pct)}`
-}
+const markerTitle = (m) => `${m.outcome}${m.foot ? ` (${m.foot})` : ''}`
 </script>
 
 <style scoped>
-.goal-map {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-}
+.goal-map { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; }
 
-.controls { display: flex; flex-direction: column; gap: var(--space-2); }
+/* ── Interactive controls ─────────────────────────────────────── */
+.gm-controls { display: flex; flex-direction: column; gap: var(--space-3); }
 
-.control-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.control-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  min-width: 56px;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.gm-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
   background: var(--color-bg-surface-2);
   border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-pill);
+}
+.gm-mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  padding: 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.gm-mode.is-active { background: var(--color-accent); color: var(--color-on-accent); box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent-deep) 35%, transparent); }
+
+.gm-feet { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gm-feet__label { font-size: var(--font-size-xs); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.gm-foot {
+  min-width: 40px;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-soft);
+  background: var(--color-bg-surface-2);
   color: var(--color-text-secondary);
-  padding: 6px 12px;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.gm-foot.is-active { background: var(--color-accent-soft); border-color: var(--color-accent-border); color: var(--color-accent); }
+.gm-undo {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-muted);
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.gm-undo:hover { color: var(--color-text-primary); background: var(--color-bg-surface-2); }
+
+.gm-hint { margin: 0; font-size: var(--font-size-xs); color: var(--color-text-muted); text-align: center; }
+
+.gm-view-toggles { display: flex; gap: var(--space-2); justify-content: flex-end; }
+.gm-view {
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text-muted);
+  padding: 5px 14px;
   border-radius: var(--radius-pill);
   font-family: inherit;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
 }
+.gm-view.is-active { background: var(--color-accent-soft); border-color: var(--color-accent-border); color: var(--color-accent); }
 
-.pill:hover { background: var(--color-bg-surface-3); }
-.pill.active { border-color: var(--color-accent-border); color: var(--color-text-primary); background: var(--color-accent-soft); }
-
-.pill__dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-}
-.pill__dot--goal { background: var(--color-success); }
-.pill__dot--save { background: var(--color-info); }
-.pill__dot--miss { background: var(--color-danger); }
-.pill__dot--post { background: var(--color-warning); }
-
-.pill--foot { min-width: 36px; justify-content: center; }
-
-.undo-btn {
-  background: transparent;
-  border: 1px solid var(--color-border-soft);
-  color: var(--color-text-muted);
-  padding: 6px 12px;
-  border-radius: var(--radius-pill);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  margin-left: auto;
-}
-.undo-btn:hover { color: var(--color-text-primary); background: var(--color-bg-surface-2); }
-
-.hint {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  font-style: italic;
-}
-
-.view-toggles {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-}
-
-.view-pill {
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border-soft);
-  color: var(--color-text-muted);
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  font-family: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-.view-pill.active {
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent-border);
-  color: var(--color-text-primary);
-}
-
-.goal-canvas {
+/* ── Tappable goal area ───────────────────────────────────────── */
+/* Zoom viewport: a fixed 2:1 window; the goal inside scales and is panned by
+   scrolling. */
+.gm-zoom {
   position: relative;
   width: 100%;
-  max-width: 520px;
-  aspect-ratio: 4 / 3;
+  max-width: 460px;
   margin: 0 auto;
-  background: var(--color-bg-field);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
+  aspect-ratio: 2 / 1;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  -webkit-overflow-scrolling: touch;
 }
 
-.goal-canvas--interactive { cursor: crosshair; }
+.gm-zoombar { display: flex; align-items: center; justify-content: center; gap: var(--space-2); }
+.gm-zoombtn {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--color-border-soft); background: var(--color-bg-surface-2);
+  color: var(--color-text-primary); border-radius: var(--radius-sm);
+  font-size: var(--font-size-md); font-family: inherit; cursor: pointer; line-height: 1;
+}
+.gm-zoombtn:disabled { opacity: 0.4; cursor: default; }
+.gm-zoomval { font-size: var(--font-size-xs); color: var(--color-text-muted); min-width: 38px; text-align: center; font-variant-numeric: tabular-nums; }
+.gm-zoomreset { background: none; border: none; color: var(--color-accent); font-family: inherit; font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); cursor: pointer; }
 
-.goal-svg {
-  position: absolute;
-  inset: 0;
+.gm-area {
+  position: relative;
   width: 100%;
-  height: 100%;
-  pointer-events: none;
+  /* Wider, shorter frame so the goal reads like a real goal (≈ wide rectangle)
+     rather than a tall box. Markers/heatmap are positioned in %, so they scale
+     with this automatically — no geometry/hit-testing change needed. */
+  aspect-ratio: 2 / 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 18%, rgba(60, 120, 78, 0.30), transparent 60%),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.018) 0 14px, transparent 14px 28px),
+    linear-gradient(180deg, #11241a, #0c1813);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
 }
+.gm-area--interactive { cursor: crosshair; }
+
+/* The premium 3D goal — low in the frame, with room OVER (top) and WIDE
+   (sides) for misses, no "under" area. Matches the OUTER geometry above. */
+.gm-goal { position: absolute; left: 14%; top: 27%; width: 72%; height: 71%; }
+
+.gm-heat { position: absolute; inset: 0; }
 
 .marker {
   position: absolute;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #fff;
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   padding: 0;
   cursor: pointer;
-  z-index: 2;
+  z-index: 5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 9px;
+  font-size: 7px;
   font-weight: var(--font-weight-bold);
   font-family: inherit;
 }
-
+/* While logging, markers don't intercept taps — every tap adds a new one
+   (stacking is fine); removal is via Undo. They're a touch bigger for clarity. */
+.gm-area--interactive .marker { width: 16px; height: 16px; font-size: 8px; pointer-events: none; }
 .marker:disabled { cursor: default; }
-.marker--goal { background: var(--color-success); box-shadow: 0 0 6px color-mix(in srgb, var(--color-accent) 60%, transparent); }
-.marker--save { background: var(--color-info);    box-shadow: 0 0 6px rgba(59,130,246,0.6); }
-.marker--miss { background: var(--color-danger);  box-shadow: 0 0 6px rgba(239,83,80,0.6); }
-.marker--post { background: var(--color-warning); box-shadow: 0 0 6px rgba(255,183,77,0.6); }
-
-.marker--foot-left::before,
-.marker--foot-right::before {
-  content: '';
-  position: absolute;
-  top: -3px;
-  width: 6px;
-  height: 6px;
-  background: #fff;
-  border-radius: 1px;
-}
-.marker--foot-left::before  { left: -3px; }
-.marker--foot-right::before { right: -3px; }
+.marker--goal { background: var(--color-success); box-shadow: 0 0 7px color-mix(in srgb, var(--color-accent) 65%, transparent); }
+.marker--save { background: var(--color-info);    box-shadow: 0 0 7px rgba(59,130,246,0.6); }
+.marker--miss { background: var(--color-danger);  box-shadow: 0 0 7px rgba(239,83,80,0.6); }
+.marker--post { background: var(--color-warning); box-shadow: 0 0 7px rgba(255,183,77,0.6); }
 
 .marker__foot { line-height: 1; }
 
-.overlay {
+.gm-overlay {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-faint);
+  color: rgba(255, 255, 255, 0.6);
   font-size: var(--font-size-sm);
   pointer-events: none;
-  font-style: italic;
+  z-index: 4;
 }
 
-.legend {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: center;
-  flex-wrap: wrap;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+/* ── Counter / legend ─────────────────────────────────────────── */
+.gm-counter { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; }
+.gm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-surface-2);
+  border: 1px solid var(--color-border-soft);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
 }
+.gm-chip--goal { color: var(--color-success); border-color: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+.gm-chip--save { color: var(--color-info);    border-color: rgba(59,130,246,0.3); }
+.gm-chip--post { color: var(--color-warning); border-color: rgba(255,183,77,0.3); }
+.gm-chip--miss { color: var(--color-danger);  border-color: rgba(239,83,80,0.3); }
 
+.legend { display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap; font-size: var(--font-size-xs); color: var(--color-text-muted); }
 .legend__item { display: inline-flex; align-items: center; gap: 6px; }
 .legend__sep { color: var(--color-text-faint); }
-
-.legend__dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid #fff;
-}
+.legend__dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.6); }
 .legend__dot--goal { background: var(--color-success); }
 .legend__dot--save { background: var(--color-info); }
 .legend__dot--miss { background: var(--color-danger); }
 .legend__dot--post { background: var(--color-warning); }
 
-.live-counter {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.live-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border-soft);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-.live-chip--goal { color: var(--color-success); border-color: color-mix(in srgb, var(--color-accent) 30%, transparent); }
-.live-chip--save { color: var(--color-info);    border-color: rgba(59,130,246,0.3); }
-.live-chip--post { color: var(--color-warning); border-color: rgba(255,183,77,0.3); }
-.live-chip--miss { color: var(--color-danger);  border-color: rgba(239,83,80,0.3); }
-
-/* ── Mobile: bigger tap targets, no horizontal max so canvas fills the screen ── */
 @media (max-width: 600px) {
-  .goal-canvas { max-width: 100%; }
-
-  .pill {
-    padding: 10px 14px;
-    font-size: var(--font-size-sm);
-    min-height: 44px;
-  }
-
-  .pill__dot { width: 12px; height: 12px; }
-
-  .pill--foot { min-width: 44px; min-height: 44px; }
-
-  .undo-btn {
-    padding: 10px 14px;
-    min-height: 44px;
-    font-size: var(--font-size-sm);
-  }
-
-  .control-label { min-width: 0; }
-
-  .marker {
-    width: 26px;
-    height: 26px;
-    font-size: 11px;
-  }
-
-  .marker--foot-left::before,
-  .marker--foot-right::before {
-    width: 8px;
-    height: 8px;
-    top: -4px;
-  }
-  .marker--foot-left::before  { left: -4px; }
-  .marker--foot-right::before { right: -4px; }
-
-  .live-chip {
-    padding: 6px 12px;
-    font-size: var(--font-size-base);
-    min-height: 36px;
-  }
+  .gm-zoom { max-width: 100%; }
+  .gm-foot { min-width: 44px; min-height: 40px; }
+  .gm-area--interactive .marker { width: 22px; height: 22px; font-size: 10px; }
 }
 </style>

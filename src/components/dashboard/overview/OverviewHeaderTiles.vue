@@ -192,7 +192,7 @@ const lastMatchResult = computed(() => {
 .wdl-sep {
   width: 1px;
   height: 32px;
-  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.1) 80%, transparent);
+  background: linear-gradient(to bottom, transparent, var(--color-border-soft) 20%, var(--color-border-soft) 80%, transparent);
 }
 
 .win-rate-sub {
