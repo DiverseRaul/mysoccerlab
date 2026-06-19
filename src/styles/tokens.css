@@ -29,6 +29,11 @@
   --color-bg-surface-3:   rgba(255, 255, 255, 0.05);/* One step lighter */
   --color-bg-field:       #1a1d21;                  /* Soccer field grid bg */
 
+  /* Landing-page palette (Neo-Brutalist home): absolute black + one very subtle
+     desaturated cool navy used only for fine outlines / small data points. */
+  --color-navy-accent:    #28344a;
+  --font-family-display:  'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
   /* Shared page backdrop — a clean, dark surface (subtle neutral depth at the
      top, no colour glow) used across every page so they feel like one app. */
   --app-page-bg:
@@ -136,10 +141,8 @@
   --breakpoint-lg: 1024px;
 }
 
-/* Ease the accent recolour (skip for reduced-motion users). */
-@media (prefers-reduced-motion: no-preference) {
-  :root { transition: --color-accent 0.45s ease; }
-}
+/* Ease the accent recolour. */
+:root { transition: --color-accent 0.45s ease; }
 
 /* Native select options — Firefox respects these explicitly; Chromium
    already inherits from color-scheme: dark on :root. */

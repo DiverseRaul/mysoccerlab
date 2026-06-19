@@ -97,8 +97,4 @@ onMounted(() => loadKey('faq'))
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .faq__a-wrap, .faq__chevron { transition: none; }
-}
 </style>

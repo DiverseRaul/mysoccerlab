@@ -1072,10 +1072,6 @@ export default {
   50% { opacity: 0.3; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .save-status--saving .save-status__dot { animation: none; }
-}
-
 .field-grid {
   flex-grow: 1;
   display: grid;

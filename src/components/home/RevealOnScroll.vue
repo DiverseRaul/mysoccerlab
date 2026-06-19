@@ -14,8 +14,7 @@ const visible = ref(false)
 let observer = null
 
 onMounted(() => {
-  // Always reveal-on-scroll. Motion sensitivity is handled in CSS (reduced
-  // motion gets an opacity-only fade — no movement — rather than nothing).
+  // Always reveal-on-scroll (fade + slide-up plays for everyone).
   if (typeof IntersectionObserver === 'undefined') { visible.value = true; return }
   observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -41,11 +40,4 @@ onBeforeUnmount(() => observer && observer.disconnect())
   transform: none;
 }
 
-/* Reduced motion: still fade in on scroll, but no movement. */
-@media (prefers-reduced-motion: reduce) {
-  .reveal {
-    transform: none;
-    transition: opacity 0.5s ease;
-  }
-}
 </style>

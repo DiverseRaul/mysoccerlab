@@ -322,10 +322,6 @@ const submit = () => {
 
 .modal--shot-map { max-width: 410px; }
 
-@media (prefers-reduced-motion: reduce) {
-  .modal-overlay, .modal--popup { animation: none; }
-}
-
 /* ── Hero header ─────────────────────────────────────────────────────── */
 .ls-hero {
   display: flex;

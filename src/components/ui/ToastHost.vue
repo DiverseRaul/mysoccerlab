@@ -128,16 +128,4 @@ import { toasts, dismissToast } from '../../lib/toast'
   position: absolute;
   width: 100%;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .toast-enter-active,
-  .toast-leave-active,
-  .toast-move {
-    transition: opacity 0.15s ease;
-  }
-  .toast-enter-from,
-  .toast-leave-to {
-    transform: none;
-  }
-}
 </style>

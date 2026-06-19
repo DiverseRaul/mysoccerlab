@@ -42,8 +42,8 @@ test('dashboard tabs switch the active view', async ({ page }) => {
 test('AI Coach nav link opens the AI Coach screen', async ({ page, isMobile }) => {
   const authed = await gotoDashboard(page)
   test.skip(!authed, 'requires authenticated test user')
-  // On mobile the nav links live behind the hamburger menu.
-  if (isMobile) await page.getByRole('button', { name: /toggle menu/i }).click()
+  // AI Coach is a top-nav link on desktop and a bottom-nav tab on mobile —
+  // either way it's a directly visible link, no menu to open first.
   const link = page.getByRole('link', { name: /AI Coach/i }).first()
   await expect(link).toBeVisible()
   await link.click()

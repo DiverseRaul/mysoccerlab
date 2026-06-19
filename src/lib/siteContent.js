@@ -9,23 +9,43 @@ import { supabase } from './supabase'
 export const DEFAULTS = {
   home: {
     hero: {
-      eyebrow: 'My Soccer Lab',
-      title: 'Your game,',
+      title: 'Your season,',
       titleAccent: 'measured.',
-      sub: 'Track your matches and your training in one place — honest ratings, shot maps and xG on game day, drills, streaks and personal bests in between, with AI coaching across both.',
-      ctaPrimary: 'Start for free',
-      scrollHint: 'Scroll to see how it works ↓'
+      sub: 'Honest ratings, shot maps and xG on game day. Drills, streaks and AI coaching in between.',
+      ctaPrimary: 'Get started',
     },
-    showcase: { eyebrow: 'How it works', title: 'Two ways to get better.' },
+    // "What you get" bento tiles. `key` maps to an inline icon in Home.vue
+    // (BENTO_ICONS); `wide` makes a tile span two columns on desktop.
+    bento: [
+      { key: 'rating',   title: 'Position-aware ratings', text: 'A 1–10 score weighted for your exact role — striker to keeper.', wide: true },
+      { key: 'xg',       title: 'xG on every shot',        text: 'Know whether you’re finishing clinically or wasting good chances.' },
+      { key: 'heatmap',  title: 'Touch & shot heatmaps',   text: 'See exactly where you played, scored and defended over a season.' },
+      { key: 'training', title: 'Drills, streaks & PBs',   text: 'Track training between games and watch your trends climb.' },
+      { key: 'pitch',    title: 'The Pitch',               text: 'Follow other players and share your matches in a live feed.' },
+      { key: 'ai',       title: 'An AI coach that reads your numbers', text: 'Real plans built from your matches, training and position.', wide: true },
+      { key: 'free',     title: 'Free forever, private by default',    text: 'Every core feature stays free; your data stays yours.' }
+    ],
+    // 3-step "how it works" (zoom-on-scroll blocks).
+    steps: [
+      { n: '01', title: 'Log your match', text: 'Score, position, shots and key stats — about thirty seconds while the result is still fresh.' },
+      { n: '02', title: 'Get an honest rating', text: 'A position-aware engine turns it into a 1–10 rating, with heatmaps and xG on every shot.' },
+      { n: '03', title: 'Improve with AI', text: 'Your AI coach reads your real numbers and your position, then builds plans around your game.' }
+    ],
+    // Feature explainers (the carousel + bento tiles).
     features: [
       { key: 'heatmap', tag: 'Heatmap', title: 'Every touch, mapped.', text: 'Tap the pitch to log where it happened. Over a season it builds a heatmap of exactly where you played, scored, and defended.' },
       { key: 'training', tag: 'Training', title: 'Train, even without a match.', text: 'Track any drill — juggles, sprints, shooting accuracy — and watch streaks, personal bests and trends climb. No match needed to get value.' },
-      { key: 'rating', tag: 'Match rating', title: 'An honest 1–10 rating.', text: 'A position-aware engine weighs your goals, passing, defending and mistakes.' },
-      { key: 'xg', tag: 'Expected goals', title: 'xG on every shot.', text: 'See how likely each chance was to score, and whether you’re finishing clinically or leaving goals out.' },
+      { key: 'rating', tag: 'Match rating', title: 'An honest 1–10 rating.', text: 'A position-aware engine weighs your goals, passing, defending and mistakes — it is deliberately hard to max out.' },
+      { key: 'xg', tag: 'Expected goals', title: 'xG on every shot.', text: 'See how likely each chance was to score, and whether you’re finishing clinically or leaving goals out there.' },
       { key: 'ai', tag: 'AI coach', title: 'Coaching that reads your game.', text: 'The AI coach studies your real numbers — matches, training, or both — and your position, then builds plans around what you actually need.' },
       { key: 'feed', tag: 'The Pitch', title: 'Share it on The Pitch.', text: 'Follow other players and see their matches and training milestones roll into your feed.' }
     ],
-    ctaBand: { title: 'Built for game day and the days between.', sub: 'Log a match or track a drill — your ratings, progress, and AI coach are one tap away.' }
+    // Closing rich copy + final CTA.
+    closing: {
+      title: 'Built for game day and the days between.',
+      sub: 'Log a match or track a drill — your ratings, progress, and AI coach are one tap away.',
+      body: 'My Soccer Lab turns scattered match notes into a season-long story: where you play, how you finish, and what to work on next. Everything core stays free, forever — log as much or as little as you like and the picture sharpens every game.'
+    }
   },
 
   premium: {
@@ -33,25 +53,35 @@ export const DEFAULTS = {
       badge: 'LAB PRO',
       title: 'Train like you',
       titleAccent: 'mean it.',
-      sub: "Everything in My Soccer Lab stays free, forever. Lab Pro adds the deep stuff — an analyst-grade AI coach, clip breakdowns, and a few things that just make it yours."
+      sub: 'Everything stays free, forever. Pro goes deeper: analyst-grade AI coaching, clip breakdowns, and ways to make it yours.'
     },
     features: [
-      { id: 'coach', title: 'Advanced AI Coach', text: 'Deep, multi-angle tactical breakdowns and full multi-week periodized training plans — not just quick tips.' },
-      { id: 'clip', title: 'Clip & photo analysis', text: 'Upload match clips or screenshots and your coach breaks down your positioning, movement and decisions.' },
-      { id: 'badge', title: 'Pro badge', text: 'A PRO badge on your profile and your match cards in The Pitch — show you mean business.' },
-      { id: 'accent', title: 'Make it yours', text: 'Pick any accent colour and recolour the whole app to your taste.' },
-      { id: 'early', title: 'Early access', text: 'Get new features and experiments first, before anyone else.' }
+      { id: 'coach', title: 'Advanced AI Coach', text: 'Multi-week periodized plans and deep tactical reads, not just quick tips.' },
+      { id: 'clip', title: 'Clip & photo analysis', text: 'Upload clips or screenshots; your coach breaks down your movement and decisions.', soon: true },
+      { id: 'badge', title: 'Pro badge', text: 'A PRO badge on your profile and every match card on The Pitch.' },
+      { id: 'accent', title: 'Make it yours', text: 'Pick any accent colour and recolour the whole app.' },
+      { id: 'early', title: 'Early access', text: 'New features and experiments, before anyone else.' }
     ],
     examples: {
-      free: 'Solid game — 2 goals and your pass accuracy held up. Keep linking play.',
+      free: 'Solid game, 2 goals and your passing held up. Keep linking play.',
       pro: [
-        'Two goals, +0.9 xG overperformance — you’re finishing above your chances.',
-        'From your clip: you drift offside on the blind-side run. Delay the bend by half a second and you stay on.',
-        'This week: Mon — finishing under fatigue · Wed — timing runs vs a high line · Fri — weak-foot reps.'
+        'Two goals, +0.9 xG over your chances. You finished above expectation.',
+        'From your clip: you drift offside on the blind-side run. Delay the bend half a second.',
+        'This week: Mon finishing under fatigue · Wed timing runs vs a high line · Fri weak-foot reps.'
       ]
     },
-    pricing: { currency: '$', base: 3.99, year: 39.99, floor: 2.99, note: 'The longer you go, the cheaper each month gets.' },
-    cta: { label: 'Notify me at launch', fineprint: 'Lab Pro is launching soon — the free plan keeps every core feature, always.' }
+    pricing: {
+      currency: '$',
+      // Three fixed plans only. `total` is the up-front charge for the period;
+      // per-month is derived (total / months). Monthly is the baseline for savings.
+      plans: [
+        { id: 'monthly',   label: 'Monthly',   months: 1,  total: 4.99 },
+        { id: 'quarterly', label: 'Quarterly', months: 3,  total: 12.99 },
+        { id: 'yearly',    label: 'Yearly',    months: 12, total: 44.99 }
+      ],
+      note: 'Pick the cadence that suits you.'
+    },
+    cta: { label: 'Notify me at launch', fineprint: 'Launching soon. The free plan keeps every core feature, always.' }
   },
 
   coach: {

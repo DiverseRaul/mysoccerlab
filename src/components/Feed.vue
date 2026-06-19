@@ -844,7 +844,7 @@ const formatEmail = (email) => {
 
 @media (max-width: 480px) {
   .feed-page {
-    padding: 108px 16px 40px;
+    padding: 16px 16px 40px;
   }
 }
 </style>

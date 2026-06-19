@@ -585,7 +585,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  padding-top: 92px; /* clear the floating navbar (top:1rem + ~60px tall) */
   background: var(--app-page-bg);
   color: var(--color-text-primary);
   overflow: hidden;
@@ -957,7 +956,6 @@ onMounted(async () => {
 .coach__typing span:nth-child(1) { animation-delay: -0.32s; }
 .coach__typing span:nth-child(2) { animation-delay: -0.16s; }
 @keyframes coach-bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .coach__typing span { animation: none; } }
 
 /* Markdown */
 .coach__markdown :deep(p) { margin: 0 0 10px; }

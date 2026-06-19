@@ -180,10 +180,6 @@ const SignInWithGoogle = async () => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .auth-card { animation: none; }
-}
-
 .auth-eyebrow {
   margin: 0 0 10px;
   font-size: var(--font-size-xs);

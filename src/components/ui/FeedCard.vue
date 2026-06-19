@@ -173,13 +173,6 @@ const RelativeDate = computed(() => {
   to { opacity: 1; translate: 0 0; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pitch-card {
-    opacity: 1;
-    animation: none;
-  }
-}
-
 /* ── Layer 1: result accent (thin top strip) ───────────────────────────── */
 .pitch-card::after {
   content: '';
@@ -385,12 +378,6 @@ const RelativeDate = computed(() => {
 
 @keyframes pitch-card-spin {
   to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pitch-card__accordion { transition: none; }
-  .pitch-card__toggle-icon { transition: none; }
-  .pitch-card__map-spinner { animation: none; }
 }
 
 @media (min-width: 768px) {

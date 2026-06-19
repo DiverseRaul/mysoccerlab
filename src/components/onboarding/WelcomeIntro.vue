@@ -384,14 +384,6 @@ const Skip = () => Emit('Done', null)
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .intro-overlay,
-  .intro-card,
-  .intro-art {
-    animation: none;
-  }
-}
-
 @media (max-width: 480px) {
   .intro-overlay {
     align-items: flex-end;

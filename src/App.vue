@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <nav class="navbar">
+    <nav class="navbar" @pointerdown="recordOrigin">
       <div class="nav-container">
         <h1 class="logo">my soccer lab</h1>
 
@@ -12,7 +12,7 @@
           <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
           <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
           <router-link to="/coach" class="nav-link nav-link--coach" v-if="user">
-            <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /></svg>AI Coach
+            <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>AI Coach
           </router-link>
           <router-link to="/premium" class="nav-link nav-link--pro" v-if="user">Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span></router-link>
           
@@ -27,7 +27,7 @@
               <router-link to="/profile" class="nav-dropdown-item" @click="isProfileDropdownOpen = false">My Profile</router-link>
               <router-link to="/admin" class="nav-dropdown-item" v-if="isAdmin" @click="isProfileDropdownOpen = false">Admin Portal</router-link>
               <div class="nav-dropdown-divider"></div>
-              <button @click="signOut" class="nav-dropdown-item logout-item">
+              <button @click="requestLogout" class="nav-dropdown-item logout-item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Logout
               </button>
@@ -35,65 +35,100 @@
           </div>
         </div>
 
-        <!-- Mobile Nav Toggle -->
-        <button @click="toggleMobileMenu" class="mobile-nav-toggle" :class="{ 'is-active': isMobileMenuOpen }" aria-label="Toggle menu">
-          <svg v-if="!isMobileMenuOpen" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-
-        <!-- Mobile Nav Dropdown -->
-        <Transition name="dropdown-fade">
-          <div class="mobile-dropdown" v-if="isMobileMenuOpen">
-            <router-link to="/" class="mobile-pill-link">Home</router-link>
-            <router-link to="/login" class="mobile-pill-link" v-if="!user">Login</router-link>
-            <router-link to="/signup" class="mobile-pill-link" v-if="!user">Sign Up</router-link>
-            <router-link to="/dashboard" class="mobile-pill-link" v-if="user">Dashboard</router-link>
-            <router-link to="/feed" class="mobile-pill-link" v-if="user">The Pitch</router-link>
-            <router-link to="/coach" class="mobile-pill-link mobile-pill-link--coach" v-if="user">
-              <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /></svg>AI Coach
-            </router-link>
-            <router-link to="/premium" class="mobile-pill-link mobile-pill-link--pro" v-if="user">
-              Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span>
-            </router-link>
-            
-            <!-- Profile Pill (clickable sub-menu dropdown) -->
-            <div class="mobile-profile-wrapper" v-if="user">
-              <button @click="isMobileProfileOpen = !isMobileProfileOpen" class="mobile-profile-card" :class="{ 'is-active': isMobileProfileOpen }">
-                <img v-if="userAvatar" :src="userAvatar" class="mobile-avatar" />
-                <span v-else class="mobile-avatar-placeholder">👤</span>
-                <span class="mobile-profile-name">{{ userName || 'Player' }}</span>
-                <span class="mobile-arrow" :class="{ 'is-open': isMobileProfileOpen }">▼</span>
-              </button>
-              <div class="mobile-sub-menu" v-if="isMobileProfileOpen">
-                <router-link to="/profile" class="mobile-sub-button">My Profile</router-link>
-                <router-link to="/admin" class="mobile-sub-button" v-if="isAdmin">Admin Portal</router-link>
-                <button @click="signOutAndCloseMenu" class="mobile-sub-button logout-sub-button">
-                  <svg class="logout-pill-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-
       </div>
     </nav>
 
-    <!-- Mobile Nav Blur Overlay -->
+    <!-- Transparent click-catcher to dismiss the account menu -->
     <Transition name="drawer-fade">
-      <div class="mobile-drawer-overlay" v-if="isMobileMenuOpen" @click="isMobileMenuOpen = false"></div>
+      <div class="account-scrim" v-if="user && isAccountOpen" @click="isAccountOpen = false"></div>
+    </Transition>
+
+    <!-- ── Mobile bottom nav: main pill + a separate account bubble ── -->
+    <div class="mobile-nav" @pointerdown="recordOrigin">
+      <nav class="bottom-nav" data-testid="bottom-nav" aria-label="Primary">
+        <template v-if="user">
+          <router-link to="/dashboard" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            <span>Dashboard</span>
+          </router-link>
+          <router-link to="/feed" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a14 14 0 0 0 0 18M12 3a14 14 0 0 1 0 18M3 12h18"/></svg>
+            <span>The Pitch</span>
+          </router-link>
+          <router-link to="/coach" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>
+            <span>AI Coach</span>
+          </router-link>
+        </template>
+        <template v-else>
+          <router-link to="/" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+            <span>Home</span>
+          </router-link>
+          <router-link to="/login" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            <span>Login</span>
+          </router-link>
+          <router-link to="/signup" class="bn-tab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M3 21a6 6 0 0 1 12 0"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+            <span>Sign Up</span>
+          </router-link>
+        </template>
+      </nav>
+
+      <!-- Separate account bubble; its menu stacks upward as floating buttons -->
+      <div class="account-dock" v-if="user">
+        <Transition name="acct">
+          <div class="account-menu" v-if="isAccountOpen">
+            <router-link to="/profile" class="account-menu__item">My Profile</router-link>
+            <router-link to="/premium" class="account-menu__item">Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span></router-link>
+            <router-link to="/admin" class="account-menu__item" v-if="isAdmin">Admin Portal</router-link>
+            <button type="button" class="account-menu__item account-menu__item--logout" @click="requestLogout">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Logout
+            </button>
+          </div>
+        </Transition>
+        <button type="button" class="account-bubble" :class="{ 'is-active': isAccountOpen }" @click="isAccountOpen = !isAccountOpen" aria-label="Account">
+          <img v-if="userAvatar" :src="userAvatar" class="account-bubble__avatar" />
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Log-out confirmation -->
+    <Transition name="confirm">
+      <div class="confirm-overlay" v-if="showLogoutConfirm" @click.self="cancelLogout">
+        <div class="confirm-card">
+          <h2 class="confirm-card__title">Log out?</h2>
+          <p class="confirm-card__text">Are you sure you want to log out of My Soccer Lab?</p>
+          <div class="confirm-card__actions">
+            <button type="button" class="confirm-btn confirm-btn--ghost" @click="cancelLogout">Cancel</button>
+            <button type="button" class="confirm-btn confirm-btn--danger" @click="confirmLogout">Log out</button>
+          </div>
+        </div>
+      </div>
     </Transition>
 
     <main class="main-content">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="page" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
+
+    <!-- Animated splash shown briefly between page navigations.
+         It grows from wherever the nav was tapped (clip-path circle). -->
+    <Transition name="splash">
+      <div v-if="routeLoading" class="route-splash" :style="splashStyle">
+        <div class="route-splash__art">
+          <span class="route-splash__ball"></span>
+          <span class="route-splash__ring"></span>
+        </div>
+        <span class="route-splash__brand">my soccer lab</span>
+      </div>
+    </Transition>
 
     <app-footer />
 
@@ -103,8 +138,8 @@
 </template>
 
 <script>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase } from './lib/supabase'
 import { ResolveSession } from './lib/authSession'
 import AppFooter from './components/Footer.vue'
@@ -122,7 +157,7 @@ export default {
     const userName = ref('')
     const userAvatar = ref('')
     const isProfileDropdownOpen = ref(false)
-    const isMobileProfileOpen = ref(false)
+    const isAccountOpen = ref(false)
     const profileDropdownRef = ref(null)
 
     const fetchUserProfile = async (uid) => {
@@ -191,27 +226,68 @@ export default {
     onMounted(() => document.addEventListener('click', handleOutsideClick))
     onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 
-    const isMobileMenuOpen = ref(false)
     const route = useRoute()
+    const router = useRouter()
 
-    const toggleMobileMenu = () => {
-      isMobileMenuOpen.value = !isMobileMenuOpen.value
+    // Animated splash between page navigations. Routes are mostly synchronous,
+    // so we hold the splash for a short minimum so the animation is always seen.
+    const routeLoading = ref(false)
+    let splashTimer = null
+    const SPLASH_MIN_MS = 650
+
+    // The splash grows from wherever the nav was last tapped. recordOrigin runs on
+    // pointerdown inside either nav (fires before the router-link navigates), so the
+    // clip-path circle can expand out of the exact tab the user pressed.
+    const splashOrigin = ref(null)
+    const recordOrigin = (e) => {
+      if (typeof e.clientX === 'number' && (e.clientX || e.clientY)) {
+        splashOrigin.value = { x: e.clientX, y: e.clientY }
+      }
     }
+    const splashStyle = computed(() => splashOrigin.value
+      ? { '--sx': splashOrigin.value.x + 'px', '--sy': splashOrigin.value.y + 'px' }
+      : {})
+
+    router.beforeEach((to, from, next) => {
+      // Skip the very first resolve and same-page navigations.
+      if (from.matched.length && to.path !== from.path) {
+        routeLoading.value = true
+      }
+      next()
+    })
+    router.afterEach(() => {
+      if (!routeLoading.value) return
+      clearTimeout(splashTimer)
+      splashTimer = setTimeout(() => {
+        routeLoading.value = false
+        // Reset so a navigation that didn't come from the nav (CTA, redirect)
+        // falls back to the default bottom-centre origin.
+        splashOrigin.value = null
+      }, SPLASH_MIN_MS)
+    })
+    onBeforeUnmount(() => clearTimeout(splashTimer))
 
     const signOut = async () => {
       await supabase.auth.signOut()
     }
 
-    const signOutAndCloseMenu = async () => {
-      await signOut();
-      isMobileMenuOpen.value = false;
+    // Logout is gated behind a confirm step.
+    const showLogoutConfirm = ref(false)
+    const requestLogout = () => {
+      isAccountOpen.value = false
+      isProfileDropdownOpen.value = false
+      showLogoutConfirm.value = true
+    }
+    const cancelLogout = () => { showLogoutConfirm.value = false }
+    const confirmLogout = async () => {
+      showLogoutConfirm.value = false
+      await signOut()
     }
 
-    // Watch for route changes to close the mobile menu
+    // Watch for route changes to close any open nav menus
     watch(() => route.path, () => {
-      isMobileMenuOpen.value = false
+      isAccountOpen.value = false
       isProfileDropdownOpen.value = false
-      isMobileProfileOpen.value = false
     })
 
     return {
@@ -221,12 +297,16 @@ export default {
       userName,
       userAvatar,
       isProfileDropdownOpen,
-      isMobileProfileOpen,
+      isAccountOpen,
       profileDropdownRef,
+      routeLoading,
+      splashStyle,
+      recordOrigin,
       signOut,
-      isMobileMenuOpen,
-      toggleMobileMenu,
-      signOutAndCloseMenu
+      showLogoutConfirm,
+      requestLogout,
+      cancelLogout,
+      confirmLogout
     }
   }
 }
@@ -242,7 +322,7 @@ export default {
 #app {
   min-height: 100vh;
   color: white;
-  background: #0a0a0a;
+  background: #050608;
 }
 
 .navbar {
@@ -300,7 +380,7 @@ export default {
   font-weight: 500;
   padding: 0.5rem 0.85rem;
   border-radius: 20px;
-  transition: all 0.3s ease;
+  transition: color 0.3s ease, background 0.3s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   white-space: nowrap;   /* labels like "The Pitch" / "Lab Pro" never wrap */
 }
@@ -309,6 +389,9 @@ export default {
   color: white;
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* Tap pop — snappy press-in, spring back out. */
+.nav-link:active { transform: scale(0.93); }
 
 .nav-link.router-link-active {
   color: white;
@@ -817,25 +900,304 @@ export default {
   }
 }
 
-/* Below 1024px the six desktop links cram and overflow, so collapse to the
-   hamburger menu rather than shrinking them into an unreadable single line. */
-@media (max-width: 1024px) {
-  .nav-container {
-    flex-wrap: wrap;
-  }
+/* ── Mobile bottom nav ─────────────────────────────────────────────
+   App-first: phones/tablets get a floating glassy nav pill plus a SEPARATE
+   account bubble; desktop keeps the top nav. */
+.mobile-nav { display: none; }
 
-  .desktop-links {
+.bottom-nav {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  height: 66px;
+  padding: 0 4px;
+  background: rgba(22, 22, 26, 0.55);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.bn-tab {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin: 7px 5px;
+  padding: 6px 4px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.bn-tab svg { width: 24px; height: 24px; transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+.bn-tab:hover { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.06); }
+
+/* Tap pop — the whole tab presses in and the icon dips a touch more. */
+.bn-tab:active { transform: scale(0.9); }
+.bn-tab:active svg { transform: scale(0.86); }
+
+/* Active tab: the WHOLE tab (icon + label) is highlighted. */
+.bn-tab.router-link-active,
+.bn-tab.is-active {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  background: var(--color-accent-soft);
+}
+
+/* Separate account bubble (its own glassy circle, beside the main pill). */
+.account-dock { position: relative; flex: 0 0 auto; }
+
+.account-bubble {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(22, 22, 26, 0.55);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+}
+.account-bubble svg { width: 25px; height: 25px; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.account-bubble:active { transform: scale(0.9); }
+.account-bubble.is-active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 22px color-mix(in srgb, var(--color-accent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: bubble-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.account-bubble.is-active svg { transform: rotate(180deg); }
+
+@keyframes bubble-pop {
+  0%   { transform: scale(0.9); }
+  45%  { transform: scale(1.14); }
+  70%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+.account-bubble__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border-strong);
+}
+
+/* Floating button stack above the bubble — no panel, just the buttons. */
+.account-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  display: flex;
+  flex-direction: column-reverse;   /* grows upward, first item nearest bubble */
+  align-items: flex-end;
+  gap: 10px;
+}
+.account-menu__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  white-space: nowrap;
+  border-radius: var(--radius-pill);
+  background: rgba(22, 22, 26, 0.6);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  animation: acct-rise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.account-menu__item:hover { color: #fff; border-color: var(--color-accent-border); }
+.account-menu__item--logout { color: var(--color-danger); }
+.account-menu__item:nth-child(1) { animation-delay: 0.02s; }
+.account-menu__item:nth-child(2) { animation-delay: 0.07s; }
+.account-menu__item:nth-child(3) { animation-delay: 0.12s; }
+.account-menu__item:nth-child(4) { animation-delay: 0.17s; }
+.account-menu__item:nth-child(5) { animation-delay: 0.22s; }
+
+@keyframes acct-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* Click-catcher with a light blur of the page behind the menu. */
+.account-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 199;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.acct-enter-active { transition: opacity 0.18s ease; }
+.acct-leave-active { transition: opacity 0.16s ease; }
+.acct-enter-from,
+.acct-leave-to { opacity: 0; }
+
+/* ── Log-out confirmation modal ── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.confirm-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(20, 20, 24, 0.92);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.confirm-card__title { margin: 0 0 8px; font-size: var(--font-size-lg); font-weight: var(--font-weight-heavy); }
+.confirm-card__text { margin: 0 0 20px; color: var(--color-text-muted); line-height: 1.5; font-size: var(--font-size-sm); }
+.confirm-card__actions { display: flex; gap: 10px; }
+.confirm-btn {
+  flex: 1 1 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.confirm-btn--ghost { background: transparent; border-color: var(--color-border-soft); color: var(--color-text-secondary); }
+.confirm-btn--ghost:hover { background: var(--color-bg-surface-2); color: #fff; }
+.confirm-btn--danger { background: var(--color-danger); color: #fff; }
+.confirm-btn--danger:hover { background: #ff6b6b; }
+
+.confirm-enter-active { transition: opacity 0.2s ease; }
+.confirm-leave-active { transition: opacity 0.18s ease; }
+.confirm-enter-from,
+.confirm-leave-to { opacity: 0; }
+.confirm-enter-active .confirm-card { transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1); }
+.confirm-enter-from .confirm-card { transform: scale(0.92) translateY(8px); }
+
+/* On mobile/tablet the top nav is removed entirely and replaced by a floating,
+   glassy bottom pill (same treatment as the desktop top nav, minus the logo). */
+@media (max-width: 1024px) {
+  .navbar {
     display: none;
   }
 
-  .mobile-nav-toggle {
+  .mobile-nav {
     display: flex;
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(0.9rem + env(safe-area-inset-bottom));
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 10px;
+    width: min(94%, 480px);
   }
 
-  .navbar {
-    width: 90%;
-    top: 1rem;
-    padding-bottom: 0.75rem;
-  }
 }
+
+/* ── Page-to-page transition (content cross-fade + slight rise) ── */
+.page-enter-active { transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1); transition-delay: 0.12s; }
+.page-leave-active { transition: opacity 0.22s ease, transform 0.22s ease; }
+.page-enter-from { opacity: 0; transform: translateY(14px); }
+.page-leave-to { opacity: 0; transform: translateY(-10px); }
+
+/* ── Route splash screen ── */
+.route-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background:
+    radial-gradient(120% 90% at 50% 40%, #0b1411 0%, #050608 60%);
+  /* Grows out of the tapped nav tab (--sx/--sy set in JS); default bottom-centre
+     matches the floating mobile nav when the origin is unknown. */
+  clip-path: circle(150% at var(--sx, 50%) var(--sy, 100%));
+}
+
+.route-splash__art {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+}
+
+/* spinning accent ring */
+.route-splash__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent-border);
+  border-top-color: var(--color-accent);
+  animation: splash-spin 0.8s linear infinite;
+}
+
+/* pulsing ball core */
+.route-splash__ball {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  animation: splash-pulse 0.8s ease-in-out infinite;
+}
+
+.route-splash__brand {
+  font-weight: var(--font-weight-heavy);
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  color: var(--color-accent);
+}
+
+/* Very subtle slide-in for the splash content on each navigation. */
+.route-splash__art { animation: splash-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.route-splash__brand { animation: splash-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+
+@keyframes splash-spin { to { transform: rotate(360deg); } }
+@keyframes splash-pulse { 0%, 100% { transform: scale(0.82); opacity: 0.85; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes splash-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+/* splash enter/leave — enter expands the clip-path circle out of the nav tap;
+   leave is a soft fade so the destination page is revealed underneath. */
+.splash-enter-active { transition: clip-path 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+.splash-enter-from { clip-path: circle(0% at var(--sx, 50%) var(--sy, 100%)); }
+.splash-leave-active { transition: opacity 0.45s ease; }
+.splash-leave-to { opacity: 0; }
 </style>

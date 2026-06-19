@@ -472,7 +472,7 @@ const loadData = async (passedUser) => {
 
 .dashboard-hero-wrap {
   max-width: 1280px;
-  margin: 3rem auto 24px;
+  margin: 0rem auto 24px;
 }
 
 .mode-row {
@@ -496,7 +496,6 @@ const loadData = async (passedUser) => {
 @media (max-width: 768px) {
   .dashboard-page {
     padding: 16px;
-    padding-top: 60px;
   }
 
   .dashboard-header h1 {

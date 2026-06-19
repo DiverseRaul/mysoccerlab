@@ -2509,11 +2509,6 @@ h4 {
   transform: translateX(-50%) translateY(10px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .msl-toast-enter-active,
-  .msl-toast-leave-active { transition: none; }
-}
-
 /* Controls — responsive auto-fill grid on desktop, single column on mobile */
 .live-match-controls {
   display: grid;

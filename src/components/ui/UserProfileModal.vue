@@ -333,10 +333,4 @@ watch(() => Props.userId, Load, { immediate: true })
 @keyframes profile-modal-spin {
   to { transform: rotate(360deg); }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-modal,
-  .profile-modal__card { animation: none; }
-  .profile-modal__spinner { animation: none; }
-}
 </style>
