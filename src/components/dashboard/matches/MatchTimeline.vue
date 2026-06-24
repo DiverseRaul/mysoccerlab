@@ -25,7 +25,7 @@
           data-testid="timeline-undo"
           @click="Emit('delete', Event)"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-9 0v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V7" /></svg>
+          <i class="ph ph-trash" aria-hidden="true"></i>
         </button>
       </li>
     </ul>
@@ -152,5 +152,5 @@ const Emit = defineEmits(['delete'])
   background: var(--color-danger-bg);
 }
 
-.match-timeline__undo svg { width: 16px; height: 16px; }
+.match-timeline__undo i { font-size: 16px; }
 </style>

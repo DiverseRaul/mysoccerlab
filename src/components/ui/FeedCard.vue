@@ -30,7 +30,7 @@
       data-testid="feed-shotmap-toggle"
       @click="ToggleMap"
     >
-      <svg class="pitch-card__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+      <i class="pitch-card__toggle-icon ph ph-caret-down" aria-hidden="true"></i>
       {{ Expanded ? 'Hide Heatmap & Shots' : 'View Heatmap & Shots' }}
     </button>
 
@@ -328,8 +328,8 @@ const RelativeDate = computed(() => {
 }
 
 .pitch-card__toggle-icon {
-  width: 16px;
-  height: 16px;
+  font-size: 16px;
+  line-height: 1;
   transition: transform 0.3s ease;
 }
 

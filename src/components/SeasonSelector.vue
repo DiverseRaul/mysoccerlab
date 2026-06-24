@@ -1,11 +1,12 @@
 <template>
   <div class="season-selector">
     <div class="season-pill" @click="toggleOpen" :class="{ open: isOpen }">
-      <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <i class="ph ph-calendar" style="font-size:13px" aria-hidden="true"></i>
       <span>{{ activeSeason ? activeSeason.name : 'All Time' }}</span>
-      <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      <i class="chevron ph ph-caret-down" style="font-size:12px" aria-hidden="true"></i>
     </div>
 
+    <Transition name="season-dd">
     <div v-if="isOpen" class="season-dropdown">
       <div
         class="season-option"
@@ -33,29 +34,30 @@
           @click.stop="openEdit(s)"
           title="Edit season"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <i class="ph ph-pencil-simple" style="font-size:12px" aria-hidden="true"></i>
         </button>
         <button
           class="delete-season-btn season-row-btn"
           @click.stop="deleteSeason(s)"
           title="Delete season"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          <i class="ph ph-trash" style="font-size:12px" aria-hidden="true"></i>
         </button>
       </div>
 
       <div class="season-divider"></div>
 
       <div class="assign-hint" v-if="seasons.length > 0">
-        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <i class="ph ph-info" style="font-size:11px" aria-hidden="true"></i>
         Go to Matches tab → tap the season pill on any match row to assign it
       </div>
 
       <button class="new-season-btn" @click="openCreate">
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <i class="ph ph-plus" style="font-size:13px" aria-hidden="true"></i>
         New Season
       </button>
     </div>
+    </Transition>
 
     <CreateSeasonModal
       v-if="showCreate"
@@ -145,10 +147,11 @@ const formatDate = (dateStr) => {
   gap: 8px;
   background: transparent;
   border: none;
-  border-radius: 12px;
-  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  padding: 14px 22px;
+  min-height: 54px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.0625rem;
   font-weight: 600;
   color: #89938d;
   transition: all 0.3s ease;
@@ -162,13 +165,15 @@ const formatDate = (dateStr) => {
   background: rgba(255, 255, 255, 0.05);
 }
 
+.season-pill:active { transform: scale(0.95); }
+
 .season-pill.open {
   background: var(--color-brand);
   color: var(--color-brand-fg);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent-deep) 30%, transparent);
 }
 
-.season-pill svg {
+.season-pill i {
   flex-shrink: 0;
 }
 
@@ -191,6 +196,30 @@ const formatDate = (dateStr) => {
   padding: 8px;
   z-index: 100;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  transform-origin: top left;
+}
+
+/* Dropdown springs out of the pill, and its rows stagger in. */
+.season-dd-enter-active { transition: opacity 0.2s ease, transform 0.34s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.season-dd-leave-active { transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.5, 0, 0.75, 0); }
+.season-dd-enter-from,
+.season-dd-leave-to { opacity: 0; transform: scale(0.82) translateY(-10px); }
+
+.season-dd-enter-active .season-option,
+.season-dd-enter-active .new-season-btn {
+  animation: season-row-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.season-dropdown > *:nth-child(1) { animation-delay: 0.04s; }
+.season-dropdown > *:nth-child(2) { animation-delay: 0.07s; }
+.season-dropdown > *:nth-child(3) { animation-delay: 0.10s; }
+.season-dropdown > *:nth-child(4) { animation-delay: 0.13s; }
+.season-dropdown > *:nth-child(5) { animation-delay: 0.16s; }
+.season-dropdown > *:nth-child(6) { animation-delay: 0.19s; }
+.season-dropdown > *:nth-child(7) { animation-delay: 0.22s; }
+
+@keyframes season-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
 }
 
 .season-option {
@@ -285,7 +314,7 @@ const formatDate = (dateStr) => {
   line-height: 1.4;
 }
 
-.assign-hint svg {
+.assign-hint i {
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -308,5 +337,42 @@ const formatDate = (dateStr) => {
 
 .new-season-btn:hover {
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+/* ── Compact (icon-only) trigger ──────────────────────────────────────
+   In the stacked control bar (tablet + phone) the season switch collapses to
+   just the calendar icon, sitting inline next to the Simple/Advanced toggle.
+   The dropdown anchors to the right edge so it never runs off-screen. */
+@media (max-width: 1023px) {
+  .season-pill {
+    width: 54px;
+    height: 54px;
+    min-height: 54px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    /* Same chrome as the tab/toggle switchers. */
+    background: var(--color-bg-surface-2);
+    border: 1px solid var(--color-border-subtle);
+  }
+
+  .season-pill:hover {
+    background: var(--color-bg-surface-2);
+  }
+
+  .season-pill > span,
+  .season-pill .chevron {
+    display: none;
+  }
+
+  .season-pill .ph-calendar {
+    font-size: 18px !important;
+  }
+
+  .season-dropdown {
+    left: auto;
+    right: 0;
+    transform-origin: top right;
+  }
 }
 </style>

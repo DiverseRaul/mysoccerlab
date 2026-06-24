@@ -109,8 +109,11 @@ const View = ref('heatmap')
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.13s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+.pitch-insights__tab:active { transform: scale(0.9); }
 
 .pitch-insights__tab.is-active {
   background: var(--color-accent-soft);
@@ -124,10 +127,20 @@ const View = ref('heatmap')
   gap: var(--space-3);
 }
 
+/* The pitch/heatmap are portrait, so they MUST be width-capped — left
+   unconstrained in a wide desktop tile they ballooned to ~1300px tall and blew
+   a huge hole in the grid. */
+.pitch-insights__body :deep(.heatmap-canvas) {
+  width: 100%;
+  max-width: 232px;
+  margin: 0 auto;
+}
+
 .pitch-insights__pitch {
   position: relative;
   width: 100%;
-  max-width: 440px;
+  max-width: 232px;
+  margin: 0 auto;
 }
 
 .pitch-insights__svg { position: absolute; inset: 0; width: 100%; height: 100%; }

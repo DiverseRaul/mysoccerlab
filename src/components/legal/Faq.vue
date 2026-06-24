@@ -4,7 +4,7 @@
       <li v-for="(item, i) in items" :key="i" class="faq__item" :class="{ 'is-open': open === i }">
         <button type="button" class="faq__q" :aria-expanded="open === i" @click="toggle(i)">
           <span>{{ item.q }}</span>
-          <svg class="faq__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          <i class="faq__chevron ph ph-caret-down" aria-hidden="true"></i>
         </button>
         <div class="faq__a-wrap" :class="{ 'is-open': open === i }">
           <div class="faq__a-inner">
@@ -69,8 +69,7 @@ onMounted(() => loadKey('faq'))
 
 .faq__chevron {
   flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
+  font-size: 18px;
   color: var(--color-text-muted);
   transition: transform 0.25s ease;
 }

@@ -1,0 +1,72 @@
+/* Scroll-reveal animation types — paired with src/lib/scrollReveal.js.
+   An element with [data-reveal] sits "armed" (offset / scaled / clipped /
+   flooded with colour) and animates to its natural state when .is-revealed is
+   added on scroll-in; the class is removed on scroll-out so the motion replays.
+
+   Bold by design — every type is clearly noticeable. No type uses horizontal
+   translate, so reveals can't widen the page. Other pages never set
+   data-reveal, so these rules are inert outside screens that opt in. */
+
+[data-reveal] {
+  --rv-ease: cubic-bezier(0.34, 1.42, 0.42, 1);
+  opacity: 0;
+  transition:
+    opacity 0.5s ease,
+    transform 0.72s var(--rv-ease),
+    filter 0.55s ease,
+    clip-path 0.72s var(--rv-ease),
+    box-shadow 0.6s ease;
+  transition-delay: calc(var(--rv-i, 0) * 65ms);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* ── Bold transform / filter variants ──────────────────────────────── */
+[data-reveal="rv-rise"]  { transform: translateY(60px); }
+[data-reveal="rv-pop"]   { transform: scale(0.6); }
+[data-reveal="rv-blur"]  { transform: scale(1.14); filter: blur(26px); }
+[data-reveal="rv-tilt"]  { transform: perspective(1000px) rotateX(52deg) translateY(34px); transform-origin: top center; }
+[data-reveal="rv-swing"] { transform: rotate(-7deg) translateY(54px) scale(0.9); transform-origin: bottom left; }
+
+/* ── Clip wipe — content uncovers top→bottom (overflow-x:clip ancestor keeps
+   the rounded corners tidy). Stays opaque so the clip does the hiding. ── */
+[data-reveal="rv-wipe"] {
+  opacity: 1;
+  clip-path: inset(0 0 100% 0 round 20px);
+}
+[data-reveal="rv-wipe"].is-revealed {
+  clip-path: inset(0 0 0 0 round 20px);
+}
+
+/* ── Accent flood ──────────────────────────────────────────────────
+   The whole tile washes brand-green (with a glow), then the colour drains
+   upward to uncover the content — the "tile goes green, then colours out"
+   reveal. Content stays opaque; the cover is the ::after (pointer-events:none
+   so the tile stays interactive throughout). */
+[data-reveal="rv-flood"] {
+  position: relative;
+  opacity: 1;
+  transform: translateY(26px) scale(0.985);
+}
+
+[data-reveal="rv-flood"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: inherit;
+  background: linear-gradient(150deg, var(--color-accent), var(--color-accent-strong));
+  box-shadow: 0 0 44px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  transform-origin: top;
+  pointer-events: none;
+  transition: transform 0.55s var(--rv-ease) 0.05s, opacity 0.4s ease 0.2s;
+}
+
+[data-reveal="rv-flood"].is-revealed::after {
+  transform: scaleY(0);
+  opacity: 0;
+}

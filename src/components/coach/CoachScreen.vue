@@ -6,17 +6,17 @@
         <button type="button" class="coach__picker-btn" :class="{ 'is-open': menuOpen }" @click="menuOpen = !menuOpen">
           <span class="coach__dot"></span>
           <span class="coach__picker-title">{{ currentTitle }}</span>
-          <svg class="coach__chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          <i class="coach__chevron ph ph-caret-down" aria-hidden="true" style="font-size:16px"></i>
         </button>
 
         <transition name="coach-dd">
           <div v-if="menuOpen" class="coach__dropdown">
             <button type="button" class="coach__new" @click="newConversation">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              <i class="ph ph-plus" aria-hidden="true" style="font-size:15px"></i>
               New chat
             </button>
             <div class="coach__search">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+              <i class="ph ph-magnifying-glass" aria-hidden="true" style="font-size:15px"></i>
               <input v-model="search" type="text" placeholder="Search chats" @click.stop />
             </div>
             <div class="coach__dd-list">
@@ -42,10 +42,10 @@
                 <span v-else class="coach__chat-title">{{ c.title }}</span>
                 <span v-if="editingId !== c.id" class="coach__chat-actions">
                   <button type="button" class="coach__chat-act" aria-label="Rename chat" @click.stop="startRename(c)">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" /></svg>
+                    <i class="ph ph-pencil-simple" aria-hidden="true" style="font-size:13px"></i>
                   </button>
                   <button type="button" class="coach__chat-act coach__chat-act--del" aria-label="Delete chat" @click.stop="removeConversation(c.id)">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    <i class="ph ph-x" aria-hidden="true" style="font-size:13px"></i>
                   </button>
                 </span>
               </div>
@@ -53,7 +53,7 @@
             </div>
             <div class="coach__dd-sep"></div>
             <button type="button" class="coach__advanced" :class="{ 'is-on': advancedMode }" @click="onAdvanced">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+              <i class="ph ph-lightning" aria-hidden="true" style="font-size:15px"></i>
               Advanced
               <span v-if="!isPro" class="coach__lock">Premium</span>
               <span v-else class="coach__lock coach__lock--on">{{ advancedMode ? 'On' : 'Off' }}</span>
@@ -63,7 +63,7 @@
       </div>
 
       <button class="coach__icon-btn" type="button" aria-label="New chat" @click="newConversation">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        <i class="ph ph-plus" aria-hidden="true" style="font-size:20px"></i>
       </button>
     </header>
 
@@ -86,17 +86,17 @@
 
           <div v-if="m.role === 'ai' && m.content" class="coach__actions">
             <button type="button" class="coach__act" :class="{ 'is-done': m.copied }" aria-label="Copy" @click="copyMessage(m)">
-              <svg v-if="m.copied" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-              <svg v-else viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <i v-if="m.copied" class="ph ph-check" aria-hidden="true" style="font-size:15px"></i>
+              <i v-else class="ph ph-copy" aria-hidden="true" style="font-size:15px"></i>
             </button>
             <button v-if="i === lastAiIndex && !isTyping" type="button" class="coach__act" aria-label="Regenerate" @click="regenerate">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+              <i class="ph ph-arrow-clockwise" aria-hidden="true" style="font-size:15px"></i>
             </button>
             <button type="button" class="coach__act" :class="{ 'is-on': m.feedback === 1 }" aria-label="Good response" @click="setFeedback(m, 1)">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" /></svg>
+              <i class="ph ph-thumbs-up" aria-hidden="true" style="font-size:15px"></i>
             </button>
             <button type="button" class="coach__act coach__act--down" :class="{ 'is-on': m.feedback === -1 }" aria-label="Bad response" @click="setFeedback(m, -1)">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" /></svg>
+              <i class="ph ph-thumbs-down" aria-hidden="true" style="font-size:15px"></i>
             </button>
           </div>
         </div>
@@ -127,7 +127,7 @@
           aria-label="Attach media with Lab Pro"
           @click="goPremium"
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+          <i class="ph ph-paperclip" aria-hidden="true" style="font-size:20px"></i>
           <span class="coach__attach-pro">PRO</span>
         </button>
         <button
@@ -137,10 +137,10 @@
           aria-label="Monthly upload limit reached"
           disabled
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+          <i class="ph ph-paperclip" aria-hidden="true" style="font-size:20px"></i>
         </button>
         <label v-else class="coach__attach-btn" :class="{ 'is-disabled': isTyping }" aria-label="Attach a photo or video" :title="`${mediaUsed}/${MONTHLY_LIMIT} Pro Vision uploads this month`">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+          <i class="ph ph-paperclip" aria-hidden="true" style="font-size:20px"></i>
           <input type="file" accept="image/*,video/*,.pdf" :disabled="isTyping" style="display:none" @change="handleFileUpload" />
         </label>
         <span v-if="visionUnlocked && !atLimit && mediaUsed > 0" class="coach__vision-meter">{{ mediaUsed }}/{{ MONTHLY_LIMIT }}</span>
@@ -155,10 +155,10 @@
           @keydown.enter.exact.prevent="sendMessage"
         ></textarea>
         <button v-if="!isTyping" type="submit" class="coach__send" :disabled="!newMessage.trim() && !attachedBase64" aria-label="Send">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+          <i class="ph ph-paper-plane-right" aria-hidden="true" style="font-size:20px"></i>
         </button>
         <button v-else type="button" class="coach__send coach__send--stop" aria-label="Stop generating" @click="stop">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+          <i class="ph-fill ph-stop" aria-hidden="true" style="font-size:16px"></i>
         </button>
       </form>
     </div>
@@ -174,6 +174,7 @@ import { getUsage, incrementUsage, MONTHLY_LIMIT } from '../../lib/proVision'
 import { ResolveSession } from '../../lib/authSession'
 import { marked } from 'marked'
 import { supabase } from '../../lib/supabase'
+import { selectByIds } from '../../lib/queryBatch'
 import { generateCoachResponse, fileToGenerativePart } from '../../lib/gemini'
 import { practiceCoachSummary } from '../../lib/practiceFormat'
 import { parseCalendar } from '../../lib/trainingPlan'
@@ -496,8 +497,8 @@ const loadMatches = async (uid) => {
   if (!rows || !rows.length) { matches.value = []; return }
   const ids = rows.map((m) => m.id)
   const [goalsRes, shotsRes] = await Promise.all([
-    supabase.from('goals').select('match_id').in('match_id', ids),
-    supabase.from('shots').select('match_id, on_target').in('match_id', ids)
+    selectByIds('goals', 'match_id', ids),
+    selectByIds('shots', 'match_id, on_target', ids)
   ])
   const goalCount = {}
   for (const g of goalsRes.data || []) goalCount[g.match_id] = (goalCount[g.match_id] || 0) + 1

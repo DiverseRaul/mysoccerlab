@@ -2,6 +2,17 @@
   <BentoItem :delay="0" extra-class="header-stat-tile">
     <StatTile label="Matches" :value="matchesCount">
       <template #icon>⚽</template>
+      <template #footer>
+        <div v-if="recentForm.length" class="hs-form" aria-label="Recent form">
+          <span
+            v-for="(r, i) in recentForm"
+            :key="i"
+            class="hs-form__dot"
+            :class="'hs-form__dot--' + r"
+            :title="r.toUpperCase()"
+          ></span>
+        </div>
+      </template>
     </StatTile>
   </BentoItem>
 
@@ -32,6 +43,11 @@
   <BentoItem :delay="200" extra-class="header-stat-tile">
     <StatTile label="Avg Rating" :value="averageRating" :accent="ratingAccent">
       <template #icon>⭐</template>
+      <template #footer>
+        <svg v-if="ratingSpark" class="hs-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+          <polyline class="hs-spark__line" :points="ratingSpark" />
+        </svg>
+      </template>
     </StatTile>
   </BentoItem>
 
@@ -96,6 +112,39 @@ const averageRating = computed(() => {
 
 const ratingAccent = computed(() => getRatingColor(parseFloat(averageRating.value)))
 
+// Last 5 results (oldest → newest, left to right) as W/D/L for the form dots.
+const recentForm = computed(() =>
+  props.matches
+    .slice(0, 5)
+    .map((m) => {
+      const sf = m.score_for ?? 0
+      const sa = m.score_against ?? 0
+      return sf > sa ? 'w' : sf < sa ? 'l' : 'd'
+    })
+    .reverse()
+)
+
+// Mini sparkline of the last (up to) 8 match ratings, normalised to a 0–100 ×
+// 0–26 viewBox. Needs ≥2 points to draw a line.
+const ratingSpark = computed(() => {
+  const ratings = props.matches
+    .slice(0, 8)
+    .map((m) => parseFloat(calculateMatchRating(m)))
+    .reverse()
+  if (ratings.length < 2) return ''
+  const min = Math.min(...ratings)
+  const max = Math.max(...ratings)
+  const span = max - min || 1
+  const stepX = 100 / (ratings.length - 1)
+  return ratings
+    .map((r, i) => {
+      const x = i * stepX
+      const y = 24 - ((r - min) / span) * 22 - 1
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+})
+
 const lastMatch = computed(() => props.matches[0] || null)
 
 const lastMatchRating = computed(() => {
@@ -125,6 +174,13 @@ const lastMatchResult = computed(() => {
 </script>
 
 <style scoped>
+/* The header tiles share one compact layout — the BentoItem (.header-stat-tile)
+   provides the padding now, so the inner content is paddingless and tight. */
+:deep(.stat-tile) {
+  padding: 0;
+  gap: var(--space-2);
+}
+
 /* ── Win Record tile ──────────────────────────────────────────── */
 .record-tile,
 .last-match-tile {
@@ -133,23 +189,24 @@ const lastMatchResult = computed(() => {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-3);
-  padding: var(--space-7) var(--space-5);
+  gap: var(--space-2);
+  padding: 0;
   height: 100%;
 }
 
 .record-icon,
-.last-match-icon {
-  font-size: 2rem;
-  width: 56px;
-  height: 56px;
+.last-match-icon,
+:deep(.stat-tile__icon) {
+  font-size: 1.4rem;
+  width: 42px;
+  height: 42px;
   background: var(--color-bg-surface-3);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.3s ease, background 0.3s ease;
-  margin-bottom: var(--space-1);
+  margin-bottom: 2px;
 }
 
 .record-tile:hover .record-icon,
@@ -255,4 +312,38 @@ const lastMatchResult = computed(() => {
 .badge-W { background: var(--color-success-bg); color: var(--color-success); border: 1px solid var(--color-accent-border); }
 .badge-D { background: var(--color-neutral-bg); color: var(--color-neutral); border: 1px solid rgba(189, 189, 189, 0.4); }
 .badge-L { background: var(--color-danger-bg);  color: var(--color-danger);  border: 1px solid rgba(239, 83, 80, 0.4); }
+
+/* ── Footer micro-viz (Matches form dots / Avg Rating sparkline) ──────── */
+.hs-form {
+  display: flex;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.hs-form__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-faint);
+}
+
+.hs-form__dot--w { background: var(--color-success); }
+.hs-form__dot--d { background: var(--color-neutral); }
+.hs-form__dot--l { background: var(--color-danger); }
+
+.hs-spark {
+  width: 72px;
+  height: 22px;
+  margin-top: 8px;
+  overflow: visible;
+}
+
+.hs-spark__line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
 </style>

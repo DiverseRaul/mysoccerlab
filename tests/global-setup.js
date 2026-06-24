@@ -41,7 +41,7 @@ export default async function globalSetup() {
   const browser = await chromium.launch()
   const context = await browser.newContext()
   const page = await context.newPage()
-  await page.goto('http://localhost:5173/login')
+  await page.goto('http://localhost:5174/login')
   await page.locator('input[type="email"], input[name="email"]').first().fill(email)
   await page.locator('input[type="password"], input[name="password"]').first().fill(password)
   await page.getByRole('button', { name: /sign in|log ?in/i }).first().click()

@@ -8,16 +8,13 @@
         :class="`toast--${t.type}`"
       >
         <span class="toast-icon" aria-hidden="true">
-          <!-- success -->
-          <svg v-if="t.type === 'success'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          <!-- error -->
-          <svg v-else-if="t.type === 'error'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="16.5" x2="12" y2="16.5"/></svg>
-          <!-- info -->
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="7.5" x2="12" y2="7.5"/></svg>
+          <i v-if="t.type === 'success'" class="ph-fill ph-check-circle" aria-hidden="true"></i>
+          <i v-else-if="t.type === 'error'" class="ph-fill ph-warning-circle" aria-hidden="true"></i>
+          <i v-else class="ph-fill ph-info" aria-hidden="true"></i>
         </span>
         <span class="toast-message">{{ t.message }}</span>
         <button class="toast-dismiss" type="button" aria-label="Dismiss notification" @click="dismissToast(t.id)">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <i class="ph ph-x" style="font-size:14px" aria-hidden="true"></i>
         </button>
       </div>
     </transition-group>
@@ -74,7 +71,7 @@ import { toasts, dismissToast } from '../../lib/toast'
   align-items: center;
   justify-content: center;
 }
-.toast-icon svg { width: 18px; height: 18px; }
+.toast-icon i { font-size: 18px; line-height: 1; }
 .toast--success .toast-icon { color: var(--color-success); }
 .toast--error   .toast-icon { color: var(--color-danger); }
 .toast--info    .toast-icon { color: var(--color-info); }

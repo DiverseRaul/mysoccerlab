@@ -5,14 +5,15 @@
         <h1 class="logo">my soccer lab</h1>
 
         <!-- Desktop Nav -->
-        <div class="nav-links desktop-links">
+        <div class="nav-links desktop-links" ref="navLinksRef">
+          <span class="nav-indicator" ref="navIndicatorRef" aria-hidden="true"></span>
           <router-link to="/" class="nav-link">Home</router-link>
           <router-link to="/login" class="nav-link" v-if="!user">Login</router-link>
           <router-link to="/signup" class="nav-link" v-if="!user">Sign Up</router-link>
           <router-link to="/dashboard" class="nav-link" v-if="user">Dashboard</router-link>
           <router-link to="/feed" class="nav-link" v-if="user">The Pitch</router-link>
           <router-link to="/coach" class="nav-link nav-link--coach" v-if="user">
-            <svg class="nav-coach-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>AI Coach
+            <i class="nav-coach-icon ph-fill ph-sparkle" aria-hidden="true"></i>AI Coach
           </router-link>
           <router-link to="/premium" class="nav-link nav-link--pro" v-if="user">Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span></router-link>
           
@@ -28,7 +29,7 @@
               <router-link to="/admin" class="nav-dropdown-item" v-if="isAdmin" @click="isProfileDropdownOpen = false">Admin Portal</router-link>
               <div class="nav-dropdown-divider"></div>
               <button @click="requestLogout" class="nav-dropdown-item logout-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <i class="ph ph-sign-out" aria-hidden="true"></i>
                 Logout
               </button>
             </div>
@@ -45,32 +46,39 @@
 
     <!-- ── Mobile bottom nav: main pill + a separate account bubble ── -->
     <div class="mobile-nav" @pointerdown="recordOrigin">
-      <nav class="bottom-nav" data-testid="bottom-nav" aria-label="Primary">
+      <nav class="bottom-nav" data-testid="bottom-nav" aria-label="Primary" ref="bottomNavRef">
+        <span class="bn-indicator" ref="bnIndicatorRef" aria-hidden="true"></span>
         <template v-if="user">
           <router-link to="/dashboard" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            <i class="bn-ico ph-light ph-squares-four" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-squares-four" aria-hidden="true"></i>
             <span>Dashboard</span>
           </router-link>
           <router-link to="/feed" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a14 14 0 0 0 0 18M12 3a14 14 0 0 1 0 18M3 12h18"/></svg>
+            <i class="bn-ico ph-light ph-users-three" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-users-three" aria-hidden="true"></i>
             <span>The Pitch</span>
           </router-link>
           <router-link to="/coach" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>
+            <i class="bn-ico ph-light ph-sparkle" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-sparkle" aria-hidden="true"></i>
             <span>AI Coach</span>
           </router-link>
         </template>
         <template v-else>
           <router-link to="/" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+            <i class="bn-ico ph-light ph-house" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-house" aria-hidden="true"></i>
             <span>Home</span>
           </router-link>
           <router-link to="/login" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            <i class="bn-ico ph-light ph-sign-in" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-sign-in" aria-hidden="true"></i>
             <span>Login</span>
           </router-link>
           <router-link to="/signup" class="bn-tab">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M3 21a6 6 0 0 1 12 0"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+            <i class="bn-ico ph-light ph-user-plus" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-user-plus" aria-hidden="true"></i>
             <span>Sign Up</span>
           </router-link>
         </template>
@@ -84,14 +92,17 @@
             <router-link to="/premium" class="account-menu__item">Lab Pro<span v-if="isPro" class="nav-pro-chip">PRO</span></router-link>
             <router-link to="/admin" class="account-menu__item" v-if="isAdmin">Admin Portal</router-link>
             <button type="button" class="account-menu__item account-menu__item--logout" @click="requestLogout">
-              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <i class="ph ph-sign-out" style="font-size:15px" aria-hidden="true"></i>
               Logout
             </button>
           </div>
         </Transition>
         <button type="button" class="account-bubble" :class="{ 'is-active': isAccountOpen }" @click="isAccountOpen = !isAccountOpen" aria-label="Account">
           <img v-if="userAvatar" :src="userAvatar" class="account-bubble__avatar" />
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+          <template v-else>
+            <i class="bn-ico ph-light ph-user-circle" aria-hidden="true"></i>
+            <i class="bn-ico bn-ico--fill ph-fill ph-user-circle" aria-hidden="true"></i>
+          </template>
         </button>
       </div>
     </div>
@@ -111,7 +122,19 @@
     </Transition>
 
     <main class="main-content">
-      <router-view v-slot="{ Component }">
+      <!-- Error boundary fallback: a recoverable panel instead of a white screen. -->
+      <div v-if="fatalError" class="app-error" role="alert">
+        <div class="app-error__inner">
+          <p class="app-error__code">Oops</p>
+          <h1 class="app-error__title">Something went wrong</h1>
+          <p class="app-error__msg">An unexpected error interrupted this page. Reloading usually fixes it — your data is safe.</p>
+          <div class="app-error__actions">
+            <button type="button" class="btn btn-primary" @click="reloadApp">Reload</button>
+            <button type="button" class="btn btn-ghost" @click="dismissError">Try again</button>
+          </div>
+        </div>
+      </div>
+      <router-view v-else v-slot="{ Component }">
         <transition name="page" mode="out-in">
           <component :is="Component" />
         </transition>
@@ -122,11 +145,26 @@
          It grows from wherever the nav was tapped (clip-path circle). -->
     <Transition name="splash">
       <div v-if="routeLoading" class="route-splash" :style="splashStyle">
+        <!-- Water splash: an organic blob floods out of the tapped nav point with
+             a wobbling edge, plus a few droplets spraying off it. -->
+        <span class="route-splash__wave" aria-hidden="true"></span>
+        <span class="route-splash__drop route-splash__drop--1" aria-hidden="true"></span>
+        <span class="route-splash__drop route-splash__drop--2" aria-hidden="true"></span>
+        <span class="route-splash__drop route-splash__drop--3" aria-hidden="true"></span>
         <div class="route-splash__art">
           <span class="route-splash__ball"></span>
           <span class="route-splash__ring"></span>
         </div>
         <span class="route-splash__brand">my soccer lab</span>
+      </div>
+    </Transition>
+
+    <!-- First-load / refresh splash — distinct from the in-app route splash:
+         a brand wordmark that blurs in with a sweeping underline, then zooms out. -->
+    <Transition name="intro">
+      <div v-if="showIntro" class="app-intro">
+        <span class="app-intro__brand">my soccer lab</span>
+        <span class="app-intro__tag">analyse · rate · improve</span>
       </div>
     </Transition>
 
@@ -138,7 +176,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick, onErrorCaptured } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from './lib/supabase'
 import { ResolveSession } from './lib/authSession'
@@ -159,6 +197,21 @@ export default {
     const isProfileDropdownOpen = ref(false)
     const isAccountOpen = ref(false)
     const profileDropdownRef = ref(null)
+    // First-load splash (full page load / refresh only — App mounts once per load).
+    const showIntro = ref(true)
+
+    // ── App-level error boundary ──────────────────────────────────────────
+    // A render/lifecycle crash in any page would otherwise blank the whole SPA
+    // (white screen, no nav). Catch it, show a friendly recoverable panel, and
+    // keep the navbar so the user can move on instead of leaving the app.
+    const fatalError = ref(false)
+    onErrorCaptured((err) => {
+      console.error('App error boundary caught:', err)
+      fatalError.value = true
+      return false // stop the error from propagating / tearing down the app
+    })
+    const reloadApp = () => window.location.reload()
+    const dismissError = () => { fatalError.value = false }
 
     const fetchUserProfile = async (uid) => {
       if (!uid) {
@@ -226,6 +279,11 @@ export default {
     onMounted(() => document.addEventListener('click', handleOutsideClick))
     onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 
+    // Hold the intro splash briefly, then dismiss it (revealing the app underneath).
+    let introTimer = null
+    onMounted(() => { introTimer = setTimeout(() => { showIntro.value = false }, 1300) })
+    onBeforeUnmount(() => clearTimeout(introTimer))
+
     const route = useRoute()
     const router = useRouter()
 
@@ -251,6 +309,9 @@ export default {
     router.beforeEach((to, from, next) => {
       // Skip the very first resolve and same-page navigations.
       if (from.matched.length && to.path !== from.path) {
+        // Cooldown: while a transition splash is already playing, swallow further
+        // navigations so you can't stack or flip between splash screens.
+        if (routeLoading.value) { next(false); return }
         routeLoading.value = true
       }
       next()
@@ -290,7 +351,69 @@ export default {
       isProfileDropdownOpen.value = false
     })
 
+    // ── Liquid-glass active indicator ────────────────────────────────────────
+    // A single frosted pill per nav slides + morphs to sit behind the active
+    // item, so moving between pages reads as one continuous glass highlight
+    // travelling across the bar (instead of a static box snapping on/off).
+    const navLinksRef = ref(null)
+    const navIndicatorRef = ref(null)
+    const bottomNavRef = ref(null)
+    const bnIndicatorRef = ref(null)
+
+    const placeIndicator = (container, indicator) => {
+      if (!container || !indicator) return
+      const active = container.querySelector('.router-link-active')
+      // No active item on this nav (e.g. a route not in the bar) → tuck it away.
+      if (!active) { indicator.style.opacity = '0'; return }
+      const c = container.getBoundingClientRect()
+      const a = active.getBoundingClientRect()
+      const firstPlace = !indicator.dataset.placed
+      // Snap into place on first paint (don't slide in from the corner); enable
+      // the sliding transition only for subsequent moves.
+      if (firstPlace) indicator.style.transition = 'none'
+      indicator.style.width = `${a.width}px`
+      indicator.style.height = `${a.height}px`
+      indicator.style.transform = `translate(${a.left - c.left}px, ${a.top - c.top}px)`
+      indicator.style.opacity = '1'
+      if (firstPlace) {
+        indicator.dataset.placed = '1'
+        requestAnimationFrame(() => { indicator.style.transition = '' })
+      } else {
+        indicator.classList.add('is-sliding')
+        clearTimeout(indicator._gooTimer)
+        indicator._gooTimer = setTimeout(() => indicator.classList.remove('is-sliding'), 460)
+      }
+    }
+
+    const updateIndicators = () => {
+      placeIndicator(navLinksRef.value, navIndicatorRef.value)
+      placeIndicator(bottomNavRef.value, bnIndicatorRef.value)
+    }
+    // Re-measure after the DOM updates, then again once fonts / the route splash
+    // have settled (link widths can shift slightly).
+    const scheduleIndicatorUpdate = () => nextTick(() => {
+      updateIndicators()
+      setTimeout(updateIndicators, 160)
+    })
+
+    onMounted(() => {
+      scheduleIndicatorUpdate()
+      window.addEventListener('resize', updateIndicators)
+      // Re-measure once webfonts land — link widths grow when Archivo/Phosphor
+      // swap in, and the first measurement (pre-font) left the pill too tight.
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateIndicators)
+    })
+    onBeforeUnmount(() => window.removeEventListener('resize', updateIndicators))
+    watch(() => route.path, scheduleIndicatorUpdate)
+    watch(user, scheduleIndicatorUpdate)
+    // Navigating away clears a captured error so the new page renders normally.
+    watch(() => route.path, () => { fatalError.value = false })
+
     return {
+      navLinksRef,
+      navIndicatorRef,
+      bottomNavRef,
+      bnIndicatorRef,
       user,
       isPro,
       isAdmin,
@@ -300,8 +423,12 @@ export default {
       isAccountOpen,
       profileDropdownRef,
       routeLoading,
+      showIntro,
       splashStyle,
       recordOrigin,
+      fatalError,
+      reloadApp,
+      dismissError,
       signOut,
       showLogoutConfirm,
       requestLogout,
@@ -313,6 +440,49 @@ export default {
 </script>
 
 <style>
+/* App-level error-boundary panel (see onErrorCaptured in setup). */
+.app-error {
+  min-height: 70vh;
+  min-height: 70dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.app-error__inner { max-width: 460px; }
+.app-error__code {
+  margin: 0 0 8px;
+  font-family: var(--font-family-display, inherit);
+  font-weight: 900;
+  font-size: clamp(2.4rem, 9vw, 4rem);
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--color-warning, #ffb74d);
+  text-stroke: 2px var(--color-warning, #ffb74d);
+}
+.app-error__title {
+  margin: 0 0 12px;
+  font-family: var(--font-family-display, inherit);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  color: var(--color-text-primary, #fff);
+}
+.app-error__msg {
+  margin: 0 auto 24px;
+  max-width: 40ch;
+  color: var(--color-text-muted, #89938d);
+  line-height: 1.6;
+}
+.app-error__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -334,13 +504,15 @@ export default {
      they overflowed until the window was very wide. */
   width: 90%;
   max-width: 1200px;
-  background: rgba(18, 18, 18, 0.7);
-  backdrop-filter: blur(20px);
-  padding: 0.75rem 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
-  z-index: 100;
+  background: rgba(16, 17, 20, 0.72);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  padding: 0.7rem 0;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Above the route splash (2000) so the bar stays put through navigations. */
+  z-index: 2100;
   border-radius: 50px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: top 0.3s ease, width 0.3s ease;
 }
 
@@ -369,6 +541,47 @@ export default {
   display: flex;
   gap: 1rem;
   align-items: center;
+  position: relative;   /* anchors the liquid indicator */
+}
+
+/* ── Liquid-glass active indicator (shared by top + bottom nav) ──────────
+   A single frosted pill that JS slides/morphs to sit behind the active item.
+   Its position/size are set inline; the elastic transition + filter pulse give
+   the "liquid glass" travel between items. */
+.nav-indicator,
+.bn-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--color-accent) 18%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
+  backdrop-filter: blur(10px) saturate(150%);
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 16px color-mix(in srgb, var(--color-accent) 18%, transparent),
+    0 6px 20px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  transition:
+    transform 0.5s cubic-bezier(0.5, 1.5, 0.4, 1),
+    width 0.5s cubic-bezier(0.5, 1.5, 0.4, 1),
+    height 0.35s ease,
+    opacity 0.25s ease;
+  will-change: transform, width;
+}
+
+/* Gooey blur smear while travelling — reads as a liquid stretch. */
+.nav-indicator.is-sliding,
+.bn-indicator.is-sliding {
+  animation: nav-goo 0.46s ease;
+}
+
+@keyframes nav-goo {
+  0%, 100% { filter: blur(0); }
+  45% { filter: blur(1.8px); }
 }
 
 .nav-link {
@@ -382,21 +595,43 @@ export default {
   border-radius: 20px;
   transition: color 0.3s ease, background 0.3s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
+  z-index: 1;            /* sits above the liquid indicator */
   white-space: nowrap;   /* labels like "The Pitch" / "Lab Pro" never wrap */
 }
 
-.nav-link:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.1);
+/* Animated active/hover indicator — a centred accent underline that scales in
+   (cleaner state cue than the old filled pill). */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0.26rem;
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  opacity: 0;
+  transform: translateX(-50%) scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.25s ease;
 }
+
+.nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.nav-link:hover::after { opacity: 0.5; transform: translateX(-50%) scaleX(1); }
 
 /* Tap pop — snappy press-in, spring back out. */
 .nav-link:active { transform: scale(0.93); }
 
 .nav-link.router-link-active {
-  color: white;
-  background: var(--color-accent-soft);
+  color: #fff;
+  background: transparent;
 }
+/* The liquid pill is the active highlight now — drop the underline so they
+   don't double up. */
+.nav-link.router-link-active::after { opacity: 0; }
 
 .nav-link--pro {
   gap: 6px;
@@ -409,8 +644,8 @@ export default {
   gap: 6px;
 }
 .nav-coach-icon {
-  width: 15px;
-  height: 15px;
+  font-size: 15px;
+  line-height: 1;
   flex: 0 0 auto;
   color: var(--color-accent);
 }
@@ -532,7 +767,7 @@ export default {
   gap: 8px;
   color: var(--color-danger);
 }
-.logout-item svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.logout-item i { font-size: 15px; line-height: 1; flex: 0 0 auto; }
 .logout-item:hover {
   background: var(--color-danger-bg);
   color: #ff6b78;
@@ -909,14 +1144,20 @@ export default {
   display: flex;
   flex: 1 1 auto;
   align-items: stretch;
-  height: 66px;
-  padding: 0 4px;
-  background: rgba(22, 22, 26, 0.55);
-  backdrop-filter: blur(30px) saturate(150%);
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  height: 70px;
+  padding: 0 5px;
+  position: relative;   /* anchors the liquid indicator */
+  /* Dark frosted glass — flat translucent tint (no gradient sheen) + heavy blur
+     so the page shows through, with a thin bright top edge as the glass rim. */
+  background: rgba(18, 20, 24, 0.4);
+  backdrop-filter: blur(50px) saturate(180%);
+  -webkit-backdrop-filter: blur(50px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius-pill);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
 }
 
 .bn-tab {
@@ -925,67 +1166,105 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   margin: 7px 5px;
-  padding: 6px 4px;
+  padding: 5px 4px;
   border-radius: var(--radius-pill);
   background: transparent;
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.64rem;
+  font-size: 0.66rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.015em;
+  color: rgba(255, 255, 255, 0.72);
   text-decoration: none;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 1;            /* sits above the liquid indicator */
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.28s cubic-bezier(0.34, 1.3, 0.64, 1), color 0.22s ease, box-shadow 0.28s ease, transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.bn-tab svg { width: 24px; height: 24px; transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1); }
+/* Remix Icon glyphs. Each tab carries a `-line` (outline) and a `-fill` (solid)
+   variant; the line shows by default, the fill is hidden until the tab is active. */
+.bn-ico { font-size: 24px; line-height: 1; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.bn-ico--fill { display: none; }
 
-.bn-tab:hover { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.06); }
+/* Only on pointer devices — on touch, :hover sticks after a tap and showed a
+   second highlight on top of the liquid pill until you tapped elsewhere. */
+@media (hover: hover) {
+  .bn-tab:hover { color: rgba(255, 255, 255, 0.92); background: rgba(255, 255, 255, 0.06); }
+}
 
 /* Tap pop — the whole tab presses in and the icon dips a touch more. */
 .bn-tab:active { transform: scale(0.9); }
-.bn-tab:active svg { transform: scale(0.86); }
+.bn-tab:active .bn-ico { transform: scale(0.86); }
 
-/* Active tab: the WHOLE tab (icon + label) is highlighted. */
+/* Active tab: icon + label turn the app accent color and pop. The accent-tinted
+   "box" is now the shared liquid-glass pill (.bn-indicator) that slides between
+   tabs, so the tab itself stays transparent. */
 .bn-tab.router-link-active,
 .bn-tab.is-active {
   color: var(--color-accent);
   font-weight: var(--font-weight-bold);
-  background: var(--color-accent-soft);
+  animation: bn-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Active icon is the genuine SOLID (filled) Remix glyph — swap line → fill and
+   lift it slightly. */
+.bn-tab.router-link-active .bn-ico:not(.bn-ico--fill),
+.bn-tab.is-active .bn-ico:not(.bn-ico--fill) { display: none; }
+.bn-tab.router-link-active .bn-ico--fill,
+.bn-tab.is-active .bn-ico--fill {
+  display: inline-block;
+  transform: translateY(-1px) scale(1.04);
+}
+
+@keyframes bn-pop {
+  0%   { transform: scale(0.86); }
+  55%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
 }
 
 /* Separate account bubble (its own glassy circle, beside the main pill). */
 .account-dock { position: relative; flex: 0 0 auto; }
 
 .account-bubble {
-  width: 66px;
-  height: 66px;
+  width: 70px;
+  height: 70px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(22, 22, 26, 0.55);
-  backdrop-filter: blur(30px) saturate(150%);
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  color: rgba(255, 255, 255, 0.82);
+  /* Dark frosted glass to match the bar — flat translucent tint, no gradient. */
+  background: rgba(18, 20, 24, 0.4);
+  backdrop-filter: blur(50px) saturate(180%);
+  -webkit-backdrop-filter: blur(50px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transition: color 0.2s ease, border-color 0.2s ease, background 0.28s ease, box-shadow 0.2s ease, transform 0.12s ease;
 }
-.account-bubble svg { width: 25px; height: 25px; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.account-bubble .bn-ico { font-size: 31px; }
 .account-bubble:active { transform: scale(0.9); }
+/* Active bubble matches the tabs: solid (filled) accent glyph inside a faint
+   accent box, no glow. */
 .account-bubble.is-active {
   color: var(--color-accent);
-  border-color: var(--color-accent);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45), 0 0 22px color-mix(in srgb, var(--color-accent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, rgba(18, 20, 24, 0.4));
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   animation: bubble-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.account-bubble.is-active svg { transform: rotate(180deg); }
+.account-bubble.is-active .bn-ico:not(.bn-ico--fill) { display: none; }
+.account-bubble.is-active .bn-ico--fill { display: inline-block; }
 
 @keyframes bubble-pop {
   0%   { transform: scale(0.9); }
@@ -994,8 +1273,8 @@ export default {
   100% { transform: scale(1); }
 }
 .account-bubble__avatar {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--color-border-strong);
@@ -1051,10 +1330,18 @@ export default {
   -webkit-backdrop-filter: blur(4px);
 }
 
-.acct-enter-active { transition: opacity 0.18s ease; }
-.acct-leave-active { transition: opacity 0.16s ease; }
-.acct-enter-from,
-.acct-leave-to { opacity: 0; }
+/* The menu bursts out of the bubble on open and collapses back into it on close
+   (clicking out) — a springy bubble effect anchored at the bubble corner. */
+.acct-enter-active {
+  transition: opacity 0.22s ease, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform-origin: bottom right;
+}
+.acct-leave-active {
+  transition: opacity 0.26s ease, transform 0.32s cubic-bezier(0.5, 0, 0.75, 0);
+  transform-origin: bottom right;
+}
+.acct-enter-from { opacity: 0; transform: scale(0.4) translateY(26px); }
+.acct-leave-to { opacity: 0; transform: scale(0.35) translateY(30px); }
 
 /* ── Log-out confirmation modal ── */
 .confirm-overlay {
@@ -1119,7 +1406,8 @@ export default {
     left: 50%;
     transform: translateX(-50%);
     bottom: calc(0.9rem + env(safe-area-inset-bottom));
-    z-index: 200;
+    /* Above the route splash (2000) so the bar stays put through navigations. */
+    z-index: 2100;
     align-items: flex-end;
     justify-content: center;
     gap: 10px;
@@ -1144,12 +1432,50 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 22px;
-  background:
-    radial-gradient(120% 90% at 50% 40%, #0b1411 0%, #050608 60%);
-  /* Grows out of the tapped nav tab (--sx/--sy set in JS); default bottom-centre
-     matches the floating mobile nav when the origin is unknown. */
-  clip-path: circle(150% at var(--sx, 50%) var(--sy, 100%));
+  overflow: hidden;        /* contain the oversized water blob */
+  background: transparent; /* the blob does the covering */
 }
+
+/* The water blob — grows out of the tapped nav point (--sx/--sy) and floods the
+   screen with an organic, wobbling edge. A dark, slightly-deeper centre reads as
+   water depth (no accent glow). Default origin = bottom-centre (mobile nav). */
+.route-splash__wave {
+  position: absolute;
+  left: var(--sx, 50%);
+  top: var(--sy, 100%);
+  width: 320vmax;
+  height: 320vmax;
+  /* Resting state = fully covering. The enter animation grows it from scale(0);
+     keeping the base at scale(1) means it stays covering after the enter class
+     is removed (otherwise the splash went transparent mid-transition). */
+  transform: translate(-50%, -50%) scale(1);
+  /* Neutral charcoal — matches the app background (coal/charcoal), no colour tint. */
+  background: radial-gradient(circle at center, #17181b 0%, #0a0a0c 72%);
+  border-radius: 47% 53% 45% 55% / 52% 46% 54% 48%;
+  /* Faint rim so the leading edge reads as a water surface as it sweeps across
+     (a neutral highlight, not a coloured glow). */
+  border: 2px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 50px 6px rgba(0, 0, 0, 0.45);
+  z-index: 0;
+}
+
+/* Droplets flung off the splash. */
+.route-splash__drop {
+  position: absolute;
+  left: var(--sx, 50%);
+  top: var(--sy, 100%);
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  background: #17181b;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  z-index: 0;
+}
+
+.route-splash__art,
+.route-splash__brand { position: relative; z-index: 1; }
 
 .route-splash__art {
   position: relative;
@@ -1186,18 +1512,95 @@ export default {
   color: var(--color-accent);
 }
 
-/* Very subtle slide-in for the splash content on each navigation. */
-.route-splash__art { animation: splash-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
-.route-splash__brand { animation: splash-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both; }
+/* Loader fades in only after the blob has covered the screen (~0.3s), so it
+   never floats over the outgoing page. */
+.route-splash__art { animation: splash-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+.route-splash__brand { animation: splash-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.38s both; }
 
 @keyframes splash-spin { to { transform: rotate(360deg); } }
 @keyframes splash-pulse { 0%, 100% { transform: scale(0.82); opacity: 0.85; } 50% { transform: scale(1); opacity: 1; } }
 @keyframes splash-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-/* splash enter/leave — enter expands the clip-path circle out of the nav tap;
-   leave is a soft fade so the destination page is revealed underneath. */
-.splash-enter-active { transition: clip-path 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
-.splash-enter-from { clip-path: circle(0% at var(--sx, 50%) var(--sy, 100%)); }
+/* ── Splash enter: the water blob grows from the nav with a wobbling edge and
+   droplets spray off it. Leave: a soft fade revealing the destination. ── */
+.splash-enter-active .route-splash__wave {
+  animation: splash-wave 0.66s cubic-bezier(0.45, 0.85, 0.3, 1) forwards;
+}
+@keyframes splash-wave {
+  0%   { transform: translate(-50%, -50%) scale(0); border-radius: 50%; }
+  45%  { border-radius: 42% 58% 52% 48% / 57% 43% 58% 42%; }
+  70%  { border-radius: 51% 49% 43% 57% / 47% 52% 48% 53%; }
+  100% { transform: translate(-50%, -50%) scale(1); border-radius: 47% 53% 45% 55% / 52% 46% 54% 48%; }
+}
+
+.splash-enter-active .route-splash__drop--1 { animation: splash-drop1 0.6s cubic-bezier(0.3, 0.7, 0.4, 1) 0.02s; }
+.splash-enter-active .route-splash__drop--2 { animation: splash-drop2 0.66s cubic-bezier(0.3, 0.7, 0.4, 1) 0.06s; }
+.splash-enter-active .route-splash__drop--3 { animation: splash-drop3 0.54s cubic-bezier(0.3, 0.7, 0.4, 1); }
+@keyframes splash-drop1 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(160px, -190px) scale(1.7); }
+}
+@keyframes splash-drop2 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(-180px, -150px) scale(1.4); }
+}
+@keyframes splash-drop3 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  30%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) translate(30px, -240px) scale(1.3); }
+}
+
 .splash-leave-active { transition: opacity 0.45s ease; }
 .splash-leave-to { opacity: 0; }
+
+/* ── First-load intro splash — distinct from the route splash above ──
+   Brand wordmark blurs in with a sweeping underline + tagline, then zooms out. */
+.app-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: radial-gradient(120% 90% at 50% 45%, #0c1512 0%, #050608 62%);
+}
+.app-intro__brand {
+  position: relative;
+  font-weight: 800;
+  font-size: clamp(1.7rem, 7vw, 2.8rem);
+  letter-spacing: -0.01em;
+  color: var(--color-accent);
+  animation: intro-brand 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.app-intro__brand::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: intro-line 0.7s 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.app-intro__tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  opacity: 0;
+  animation: intro-tag 0.6s 0.52s ease forwards;
+}
+@keyframes intro-brand { from { opacity: 0; transform: translateY(14px); filter: blur(10px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes intro-line { to { transform: scaleX(1); } }
+@keyframes intro-tag { to { opacity: 1; } }
+.intro-leave-active { transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.4, 0, 0.2, 1); }
+.intro-leave-to { opacity: 0; transform: scale(1.06); }
 </style>

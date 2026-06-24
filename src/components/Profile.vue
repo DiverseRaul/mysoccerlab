@@ -236,7 +236,7 @@
         <div class="pro-hero">
           <div class="pro-hero__brand">
             <span class="pro-hero__spark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" /></svg>
+              <i class="ph-fill ph-sparkle" aria-hidden="true"></i>
             </span>
             <div>
               <h3 class="pro-hero__title">Lab Pro</h3>
@@ -1426,7 +1426,7 @@ input:disabled + .slider {
   color: var(--color-accent);
   box-shadow: 0 0 26px color-mix(in srgb, var(--color-accent) 32%, transparent);
 }
-.pro-hero__spark svg { width: 24px; height: 24px; }
+.pro-hero__spark i { font-size: 24px; line-height: 1; }
 .pro-hero__title { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
 .pro-hero__tag { margin: 2px 0 0; color: #89938d; font-size: 0.85rem; }
 

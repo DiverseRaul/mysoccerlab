@@ -122,7 +122,7 @@
     <section v-if="isPro" class="section">
       <div class="prem-active zoom-on-scroll">
         <span class="prem-active__check" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 13 10 18 19 6" /></svg>
+          <i class="ph ph-check" aria-hidden="true" style="font-size:30px"></i>
         </span>
         <h2 class="prem-active__title">You're on Lab Pro.</h2>
         <p class="prem-active__text">Every feature above is unlocked and yours to use. Thanks for backing the Lab.</p>
@@ -208,11 +208,11 @@ const heroSub = computed(() => isPro.value
 
 // Inline icons per Pro feature (v-html, trusted static SVG) — mirrors Home's bento.
 const FEATURE_ICONS = {
-  coach: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20.5l1.7-5.2A8.5 8.5 0 1 1 21 11.5z"/><circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/></svg>',
-  clip: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="3"/><polygon points="10 9 15.5 12 10 15" fill="currentColor" stroke="none"/></svg>',
-  badge: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><polyline points="9 12 11.5 14.5 15.5 9.5"/></svg>',
-  accent: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 5.6 6 10a6 6 0 0 1-12 0c0-4.4 6-10 6-10z"/></svg>',
-  early: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 4 14 11 14 10 22 19 9 12 9 13 2"/></svg>'
+  coach: '<i class="ph ph-chat-dots" aria-hidden="true" style="font-size:26px"></i>',
+  clip: '<i class="ph ph-play-circle" aria-hidden="true" style="font-size:26px"></i>',
+  badge: '<i class="ph ph-shield-check" aria-hidden="true" style="font-size:26px"></i>',
+  accent: '<i class="ph ph-map-pin" aria-hidden="true" style="font-size:26px"></i>',
+  early: '<i class="ph ph-lightning" aria-hidden="true" style="font-size:26px"></i>'
 }
 const featureIcon = (id) => FEATURE_ICONS[id] || FEATURE_ICONS.early
 
