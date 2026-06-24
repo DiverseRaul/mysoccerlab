@@ -1,571 +1,146 @@
 <template>
   <div class="matches-section">
-        <MatchList
-          v-if="!activeMatch"
-          :matches="matches"
-          :seasons="seasons"
-          @select-match="selectMatch"
-          @add-match="showAddMatch = true"
-          @assign-season="onAssignSeason"
-        />
-        <div v-else class="live-match-view card-glass">
-          <div class="match-header-redesign">
-            <button @click="handleBackToMatches" class="back-button">
-              <i class="ph ph-arrow-left" style="font-size:20px" aria-hidden="true"></i>
-              <span>Back to Matches</span>
-            </button>
-            
-            <div class="match-card" :class="`match-card--${getMatchResult(activeMatch).toLowerCase()}`">
-              <div class="match-card-content">
-                <div class="match-info">
-                  <h3 class="opponent-name">vs {{ activeMatch.opponent }}</h3>
-                  <div class="match-date">{{ formatDate(activeMatch.match_date) }}</div>
-                </div>
-                <div class="score-display">
-                  <div class="score-container">
-                    <span class="score-number">{{ activeMatch.score_for }}</span>
-                    <span class="score-divider">–</span>
-                    <span class="score-number">{{ activeMatch.score_against }}</span>
-                  </div>
-                  <span class="result-badge" :class="getMatchResult(activeMatch).toLowerCase()">{{ getMatchResult(activeMatch) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          
-          
-          <div class="live-rating-bar" data-testid="live-rating-bar">
-            <span class="live-rating-bar__value" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ calculateMatchRating(activeMatch) }}</span>
-            <div class="live-rating-bar__meta">
-              <span class="live-rating-bar__label">Match Rating</span>
-              <span class="live-rating-bar__tier" :class="getStatColorClass('rating', calculateMatchRating(activeMatch))">{{ getRatingLabel(calculateMatchRating(activeMatch)) }}</span>
-            </div>
-            <div class="live-rating-bar__xg" title="Total expected goals from logged shots">
-              <span class="live-rating-bar__xg-value">{{ matchXg }}</span>
-              <span class="live-rating-bar__xg-label">xG</span>
-            </div>
-          </div>
-
-          <div class="match-view-controls">
-            <div class="position-controls">
-              <div class="position-display">
-                <label for="position-select" class="position-display__label">Position Played</label>
-                <div class="position-select-wrap">
-                  <select id="position-select" v-model="activeMatch.position_played" @change="updatePosition" class="position-select">
-                    <option v-for="position in positions" :key="position" :value="position">{{ position }}</option>
-                  </select>
-                </div>
-              </div>
-              <div class="goalkeeper-toggle">
-                <label for="gk-mode" class="goalkeeper-toggle__label">Goalkeeper Mode</label>
-                <label class="switch">
-                  <input type="checkbox" id="gk-mode" v-model="isGoalkeeperMode">
-                  <span class="slider round"></span>
-                </label>
-              </div>
-            </div>
-            <div class="logger-view-row">
-              <span class="logger-view-row__label">Logging view</span>
-              <div class="logger-view-toggle" data-testid="match-logger-toggle" role="tablist" aria-label="Logging mode">
-                <button
-                  type="button"
-                  class="logger-view-toggle__btn"
-                  :class="{ active: LoggerView === 'map' }"
-                  role="tab"
-                  :aria-selected="LoggerView === 'map'"
-                  data-testid="logger-view-map"
-                  @click="LoggerView = 'map'"
-                >Map</button>
-                <button
-                  type="button"
-                  class="logger-view-toggle__btn"
-                  :class="{ active: LoggerView === 'counters' }"
-                  role="tab"
-                  :aria-selected="LoggerView === 'counters'"
-                  data-testid="logger-view-counters"
-                  @click="LoggerView = 'counters'"
-                >Counters</button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="LoggerView === 'counters'" class="live-view-content single-column">
-            <!-- Combined Performance + Goals & Shots panel -->
-            <div class="live-stats-panel">
-              <div class="perf-and-events">
-                <!-- Event log sub-section (rating now lives in the shared header bar) -->
-                <div class="event-log-sub">
-                  <div class="event-log-title">Goals &amp; Shots</div>
-                  <div class="event-list">
-                    <div v-for="item in combinedEvents" :key="item.type + item.id" class="event-item" @click="selectEventForViz(item)">
-                      <div class="event-time-and-icon">
-                        <span class="event-icon">{{ item.type === 'Goal' ? '⚽' : '🎯' }}</span>
-                      </div>
-                      <div class="event-details">
-                        <span class="event-type">
-                          {{ item.details }}
-                          <span v-if="item.count > 1" class="event-count">({{ item.count }}x)</span>
-                        </span>
-                        <span v-if="item.type === 'Goal'" class="event-subtype">({{ item.goal_type }})</span>
-                      </div>
-                      <div v-if="item.quadrant" class="event-quadrant-indicator">🎯</div>
-                      <button @click.stop="removeEventGroup(item)" class="remove-event-btn">&times;</button>
-                    </div>
-                  </div>
-                  <div v-if="selectedEvent" class="shot-visualization">
-                    <div class="viz-header">
-                      <div class="view-toggles">
-                        <button
-                          @click="vizView = 'field'"
-                          class="viz-toggle-btn"
-                          :class="{ active: vizView === 'field' }"
-                        >
-                          Origin
-                        </button>
-                        <button
-                          @click="vizView = 'goal'"
-                          class="viz-toggle-btn"
-                          :class="{ active: vizView === 'goal' }"
-                        >
-                          Placement
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="viz-container">
-                      <div v-if="vizView === 'field'" class="viz-section">
-                        <div class="field-grid-container viz-field">
-                          <!-- SVG Field Markings (Dark Theme) -->
-                          <svg class="field-markings-svg" viewBox="0 0 68 52.5" preserveAspectRatio="none">
-                            <rect x="0" y="0" width="68" height="52.5" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="0.5" />
-                            <rect x="13.84" y="0" width="40.32" height="16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                            <rect x="24.84" y="0" width="18.32" height="5.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                            <circle cx="34" cy="11" r="0.4" fill="rgba(255,255,255,0.8)" />
-                            <path d="M 26.68 16.5 A 9.15 9.15 0 0 0 41.32 16.5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="0.5" />
-                            <path d="M 24.85 52.5 A 9.15 9.15 0 0 1 43.15 52.5" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                            <path d="M 0 2 A 2 2 0 0 0 2 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                            <path d="M 68 2 A 2 2 0 0 1 66 0" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.5" />
-                            <path d="M 30.34 0 L 30.34 -1.5 L 37.66 -1.5 L 37.66 0" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="0.8" />
-                          </svg>
-                          <svg class="field-markings-svg overlay" viewBox="0 0 68 52.5" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                            <line
-                              v-if="showTrajectory"
-                              :x1="shotTrajectory.x1"
-                              :y1="shotTrajectory.y1"
-                              :x2="shotTrajectory.x2"
-                              :y2="shotTrajectory.y2"
-                              stroke="rgba(255,255,255,0.4)"
-                              stroke-width="0.5"
-                              stroke-dasharray="2"
-                            />
-                          </svg>
-                          <div
-                            v-if="selectedEvent.field_position"
-                            class="shot-marker"
-                            :class="{
-                              'off-target': selectedEvent.type === 'Shot' && !selectedEvent.on_target,
-                              'goal': selectedEvent.type === 'Goal'
-                            }"
-                            :style="getShotMarkerStyle(selectedEvent)"
-                          ></div>
-                          <div v-else class="viz-placeholder">
-                            <span>No origin recorded</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="vizView === 'goal'" class="viz-section">
-                        <div class="goal-grid-container viz-grid">
-                          <ShotField
-                            mode="placement"
-                            :placement-marker="selectedEventPlacementMarker"
-                            :quadrant="selectedEvent.quadrant || 0"
-                            :show-placeholder="true"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="live-controls-panel">
-              <h4>Match Events</h4>
-              <div v-if="isGoalkeeperMode && goalkeeperStats" class="live-match-controls gk-controls">
-                <div class="stat-control-group">
-                  <span class="stat-label">Saves</span>
-                  <div class="button-group">
-                    <button @click="incrementGkStat('saves', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.saves || 0 }}</span>
-                    <button @click="incrementGkStat('saves', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Catches</span>
-                  <div class="button-group">
-                    <button @click="incrementGkStat('catches', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.catches || 0 }}</span>
-                    <button @click="incrementGkStat('catches', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Punches</span>
-                  <div class="button-group">
-                    <button @click="incrementGkStat('punches', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.punches || 0 }}</span>
-                    <button @click="incrementGkStat('punches', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Penalties Saved</span>
-                  <div class="button-group">
-                    <button @click="incrementGkStat('penalties_saved', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.penalties_saved || 0 }}</span>
-                    <button @click="incrementGkStat('penalties_saved', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group error-stat">
-                  <span class="stat-label">Error Led to Goal</span>
-                  <div class="button-group">
-                    <button @click="incrementGkStat('errors_led_to_goal', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ goalkeeperStats.errors_led_to_goal || 0 }}</span>
-                    <button @click="incrementGkStat('errors_led_to_goal', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Goal</span>
-                  <div class="button-group">
-                    <span class="stat-value-display">{{ myGoalsForMatch }}</span>
-                    <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Assist</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
-                    <button @click="LogEvent('assists', 'Assist')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Good Pass</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
-                    <button @click="LogEvent('successful_passes', 'Pass')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Bad Pass</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
-                    <button @click="LogEvent('unsuccessful_passes', 'Bad Pass')" class="btn">+</button>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="live-match-controls">
-                <div class="stat-control-group">
-                  <span class="stat-label">My Goal</span>
-                  <div class="button-group">
-                    <span class="stat-value-display">{{ myGoalsForMatch }}</span>
-                    <button @click="handleMyGoal(1)" class="btn btn-success">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">My Assist</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('assists', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.assists || 0 }}</span>
-                    <button @click="LogEvent('assists', 'Assist')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Shot</span>
-                  <div class="button-group">
-                    <span class="stat-value-display">{{ shotsOnTarget + shotsOffTarget }}</span>
-                    <button @click="handleShot()" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Tackle</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('tackles', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.tackles || 0 }}</span>
-                    <button @click="LogEvent('tackles', 'Tackle')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Interception</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('interceptions', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.interceptions || 0 }}</span>
-                    <button @click="LogEvent('interceptions', 'Interception')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Clearance</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('clearances', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.clearances || 0 }}</span>
-                    <button @click="LogEvent('clearances', 'Clearance')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Dribble</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('dribbles', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.dribbles || 0 }}</span>
-                    <button @click="LogEvent('dribbles', 'Dribble')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Chance Created</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('created_chances', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.created_chances || 0 }}</span>
-                    <button @click="LogEvent('created_chances', 'Chance')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Possession Lost</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('lost_possessions', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.lost_possessions || 0 }}</span>
-                    <button @click="incrementStat('lost_possessions', 1)" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Good Pass</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('successful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.successful_passes || 0 }}</span>
-                    <button @click="LogEvent('successful_passes', 'Pass')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Bad Pass</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('unsuccessful_passes', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.unsuccessful_passes || 0 }}</span>
-                    <button @click="LogEvent('unsuccessful_passes', 'Bad Pass')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Foul</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('fouls', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.fouls || 0 }}</span>
-                    <button @click="LogEvent('fouls', 'Foul')" class="btn">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group error-stat">
-                  <span class="stat-label">Error Led to Goal</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('errors_led_to_goal', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.errors_led_to_goal || 0 }}</span>
-                    <button @click="incrementStat('errors_led_to_goal', 1)" class="btn">+</button>
-                  </div>
-                </div>
-              </div>
-              <h4>Disciplinary</h4>
-              <div class="live-match-controls card-controls">
-                <div class="stat-control-group">
-                  <span class="stat-label">Yellow Card</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('yellow_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
-                    <span class="stat-value-display">{{ activeMatch.yellow_card || 0 }}</span>
-                    <button @click="incrementStat('yellow_card', 1)" class="btn btn-warning card-btn"></button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Red Card</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('red_card', -1)" class="btn btn-secondary card-btn-remove">-</button>
-                    <span class="stat-value-display">{{ activeMatch.red_card || 0 }}</span>
-                    <button @click="incrementStat('red_card', 1)" class="btn btn-danger card-btn"></button>
-                  </div>
-                </div>
-              </div>
-              <h4>Score Events</h4>
-              <div class="live-match-controls">
-                <div class="stat-control-group">
-                  <span class="stat-label">Our Goal</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('score_for', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.score_for || 0 }}</span>
-                    <button @click="incrementStat('score_for', 1)" class="btn btn-primary">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Their Goal</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('score_against', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.score_against || 0 }}</span>
-                    <button @click="incrementStat('score_against', 1)" class="btn btn-danger">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Own Goal</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('own_goals', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.own_goals || 0 }}</span>
-                    <button @click="incrementStat('own_goals', 1)" class="btn btn-danger">+</button>
-                  </div>
-                </div>
-                <div class="stat-control-group">
-                  <span class="stat-label">Penalty Conceded</span>
-                  <div class="button-group">
-                    <button @click="incrementStat('penalties_conceded', -1)" class="btn btn-danger">-</button>
-                    <span class="stat-value-display">{{ activeMatch.penalties_conceded || 0 }}</span>
-                    <button @click="incrementStat('penalties_conceded', 1)" class="btn btn-danger">+</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="LoggerView === 'map'" class="map-logger-view">
-            <MatchMapLogger
-              :Coordinates="LoggedEventCoordinates"
-              :HeatmapPoints="EditorHeatmapPoints"
-              :TimelineEvents="timelineEvents"
-              @LogEvent="OnMapLogEvent"
-              @DeletePin="DeleteLoggedEvent"
-              @delete-event="onTimelineDelete"
-            />
-            <EventSummaryPanel
-              :ActiveMatch="activeMatch"
-              :GoalCount="matchGoals.length"
-              :ShotCount="matchShots.length"
-              :IsGoalkeeperMode="isGoalkeeperMode"
-              :GoalkeeperStats="goalkeeperStats"
-            />
-            <QuickLogControls
-              :ActiveMatch="activeMatch"
-              :IsGoalkeeperMode="isGoalkeeperMode"
-              :GoalkeeperStats="goalkeeperStats"
-              @Increment="OnQuickIncrement"
-              @IncrementGk="OnQuickIncrementGk"
-            />
-          </div>
-
-          <div
-            v-if="LoggerView === 'counters' && activeMatch.track_heatmap_for_match && EnableHeatmapTracking && EditorHeatmapPoints.length"
-            class="heatmap-view"
-          >
-            <h4 class="heatmap-view__title">Match Heatmap</h4>
-            <HeatmapCanvas :points="EditorHeatmapPoints" />
-          </div>
-
-          <div v-if="LoggerView === 'counters'" class="timeline-wrap">
-            <MatchTimeline :Events="timelineEvents" @delete="onTimelineDelete" />
-          </div>
-
-          <div class="match-actions">
-            <button @click="openShareModal" class="action-btn share-btn">
-              <i class="ph ph-share-network" style="font-size:16px" aria-hidden="true"></i>
-              Share Match
-            </button>
-            <button @click="showEditMatch = true" class="action-btn edit-btn">
-              <i class="ph ph-pencil-simple" style="font-size:16px" aria-hidden="true"></i>
-              Edit Match
-            </button>
-            <button @click="confirmDeleteMatch" class="action-btn delete-btn">
-              <i class="ph ph-trash" style="font-size:16px" aria-hidden="true"></i>
-              Delete Match
-            </button>
-          </div>
-        </div>
-      </div>
-
-    <!-- Event Capture Flow (4-modal state machine) -->
-    <EventCaptureFlow
-      ref="eventCaptureFlow"
-      @shot-captured="onShotCaptured"
-      @goal-captured="onGoalCaptured"
-      @event-captured="onEventCaptured"
+    <MatchList
+      v-if="!activeMatch"
+      :matches="matches"
+      :seasons="seasons"
+      @select-match="selectMatch"
+      @add-match="showAddMatch = true"
+      @assign-season="onAssignSeason"
     />
+    <MatchDetail
+      v-else
+      :active-match="activeMatch"
+      :positions="positions"
+      :is-goalkeeper-mode="isGoalkeeperMode"
+      :goalkeeper-stats="goalkeeperStats"
+      :logger-view="LoggerView"
+      :viz-view="vizView"
+      :selected-event="selectedEvent"
+      :selected-event-placement-marker="selectedEventPlacementMarker"
+      :enable-heatmap-tracking="EnableHeatmapTracking"
+      :match-xg="matchXg"
+      :match-goals="matchGoals"
+      :match-shots="matchShots"
+      :combined-events="combinedEvents"
+      :timeline-events="timelineEvents"
+      :logged-event-coordinates="LoggedEventCoordinates"
+      :editor-heatmap-points="EditorHeatmapPoints"
+      :my-goals-for-match="myGoalsForMatch"
+      :shots-on-target="shotsOnTarget"
+      :shots-off-target="shotsOffTarget"
+      :show-trajectory="showTrajectory"
+      :shot-trajectory="shotTrajectory"
+      :get-match-result="getMatchResult"
+      :format-date="formatDate"
+      :get-stat-color-class="getStatColorClass"
+      :calculate-match-rating="calculateMatchRating"
+      :get-shot-marker-style="getShotMarkerStyle"
+      :select-event-for-viz="selectEventForViz"
+      :remove-event-group="removeEventGroup"
+      :increment-stat="incrementStat"
+      :increment-gk-stat="incrementGkStat"
+      :log-event="LogEvent"
+      :handle-my-goal="handleMyGoal"
+      :handle-shot="handleShot"
+      :on-map-log-event="OnMapLogEvent"
+      :delete-logged-event="DeleteLoggedEvent"
+      :on-timeline-delete="onTimelineDelete"
+      :on-quick-increment="OnQuickIncrement"
+      :on-quick-increment-gk="OnQuickIncrementGk"
+      @back="handleBackToMatches"
+      @update-position="updatePosition"
+      @update:is-goalkeeper-mode="isGoalkeeperMode = $event"
+      @update:logger-view="LoggerView = $event"
+      @update:viz-view="vizView = $event"
+      @open-share="openShareModal"
+      @edit-match="showEditMatch = true"
+      @delete-match="confirmDeleteMatch"
+    />
+  </div>
 
-    <Teleport to="body">
-      <transition name="msl-toast">
-        <div v-if="Toast" class="msl-toast" :class="`msl-toast--${Toast.Tone}`" data-testid="match-toast">{{ Toast.Message }}</div>
-      </transition>
-    </Teleport>
+  <!-- Event Capture Flow (4-modal state machine) -->
+  <EventCaptureFlow
+    ref="eventCaptureFlow"
+    @shot-captured="onShotCaptured"
+    @goal-captured="onGoalCaptured"
+    @event-captured="onEventCaptured"
+  />
 
-    <AddMatchModal v-model="showAddMatch" :EnableHeatmapTracking="EnableHeatmapTracking" @submit="addMatch" />
+  <Teleport to="body">
+    <transition name="msl-toast">
+      <div v-if="Toast" class="msl-toast" :class="`msl-toast--${Toast.Tone}`" data-testid="match-toast">{{ Toast.Message }}</div>
+    </transition>
+  </Teleport>
 
-    <!-- Edit Match Modal -->
-    <div v-if="showEditMatch" class="modal-overlay" @click.self="showEditMatch = false">
-      <div class="modal card-glass" @click.stop>
-        <div class="modal-header">
-          <h3>Edit Match</h3>
-          <button @click="showEditMatch = false" class="close-btn">&times;</button>
+  <AddMatchModal v-model="showAddMatch" :EnableHeatmapTracking="EnableHeatmapTracking" @submit="onAddMatch" />
+
+  <!-- Edit Match Modal -->
+  <div v-if="showEditMatch" class="modal-overlay" @click.self="showEditMatch = false">
+    <div class="modal card-glass" @click.stop>
+      <div class="modal-header">
+        <h3>Edit Match</h3>
+        <button @click="showEditMatch = false" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Opponent</label>
+          <input v-model="activeMatch.opponent" type="text" required />
         </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Opponent</label>
-            <input v-model="activeMatch.opponent" type="text" required />
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input v-model="activeMatch.match_date" type="date" required />
-          </div>
-          <div class="modal-buttons">
-            <button type="button" @click="showEditMatch = false" class="btn btn-secondary">Cancel</button>
-            <button type="button" @click="updateMatch" class="btn btn-primary">Save Changes</button>
-          </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input v-model="activeMatch.match_date" type="date" required />
+        </div>
+        <div class="modal-buttons">
+          <button type="button" @click="showEditMatch = false" class="btn btn-secondary">Cancel</button>
+          <button type="button" @click="onUpdateMatch" class="btn btn-primary">Save Changes</button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
-      <div class="modal card-glass" @click.stop>
-        <div class="modal-header">
-          <h3>Delete Match</h3>
-          <button @click="showDeleteConfirm = false" class="close-btn">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p>Are you sure you want to delete this match against <strong>{{ activeMatch.opponent }}</strong>?</p>
-          <p class="warning-text">This action cannot be undone and will delete all match data including goals, shots, and statistics.</p>
-          <div class="modal-buttons">
-            <button type="button" @click="showDeleteConfirm = false" class="btn btn-secondary">Cancel</button>
-            <button type="button" @click="deleteMatch" class="btn btn-danger">Delete Match</button>
-          </div>
+  <!-- Delete Confirmation Modal -->
+  <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
+    <div class="modal card-glass" @click.stop>
+      <div class="modal-header">
+        <h3>Delete Match</h3>
+        <button @click="showDeleteConfirm = false" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete this match against <strong>{{ activeMatch.opponent }}</strong>?</p>
+        <p class="warning-text">This action cannot be undone and will delete all match data including goals, shots, and statistics.</p>
+        <div class="modal-buttons">
+          <button type="button" @click="showDeleteConfirm = false" class="btn btn-secondary">Cancel</button>
+          <button type="button" @click="onDeleteMatch" class="btn btn-danger">Delete Match</button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Share Match Modal — delegated to the dedicated component
-         (caption editor, layout variants, copy-as-text live there) -->
-    <ShareMatchModal
-      v-model="showShareModal"
-      :match="activeMatch"
-      :my-team-label="myTeamLabel"
-      :my-goals="myGoalsForMatch"
-    />
+  <!-- Share Match Modal — delegated to the dedicated component
+       (caption editor, layout variants, copy-as-text live there) -->
+  <ShareMatchModal
+    v-model="showShareModal"
+    :match="activeMatch"
+    :my-team-label="myTeamLabel"
+    :my-goals="myGoalsForMatch"
+  />
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../lib/supabase'
-import { calculateMatchRating as calculateMatchRatingFn, getRatingColor, getRatingLabel } from '../lib/rating'
 import EventCaptureFlow from './dashboard/matches/EventCaptureFlow.vue'
 import MatchList from './dashboard/matches/MatchList.vue'
+import MatchDetail from './dashboard/matches/MatchDetail.vue'
 import AddMatchModal from './dashboard/matches/AddMatchModal.vue'
-import HeatmapCanvas from './ui/HeatmapCanvas.vue'
-import ShotField from './ui/ShotField.vue'
-import MatchTimeline from './dashboard/matches/MatchTimeline.vue'
-import MatchMapLogger from './dashboard/matches/MatchMapLogger.vue'
-import QuickLogControls from './dashboard/matches/QuickLogControls.vue'
-import EventSummaryPanel from './dashboard/overview/EventSummaryPanel.vue'
 import ShareMatchModal from './dashboard/matches/ShareMatchModal.vue'
-import { EventActions, BuildLoggedEventCoordinates, ParseFieldPosition, IsInOwnBox, LabelForEvent, CategoryForEvent } from '../lib/matchEvents'
-import { expectedGoal, sumExpectedGoals } from '../lib/xg'
+import { BuildLoggedEventCoordinates } from '../lib/matchEvents'
 import { toast } from '../lib/toast'
+import { useMatchData } from '../composables/useMatchData'
+import { useEventLogging } from '../composables/useEventLogging'
+import { useMatchStats } from '../composables/useMatchStats'
+import { useShotViz } from '../composables/useShotViz'
 
 const props = defineProps({
   matches: { type: Array, required: true },
@@ -577,6 +152,136 @@ const props = defineProps({
 
 const emit = defineEmits(['match-updated', 'match-opened'])
 
+// --- Shell-local UI state ---
+const showAddMatch = ref(false)
+const showEditMatch = ref(false)
+const showDeleteConfirm = ref(false)
+const showShareModal = ref(false)
+const eventCaptureFlow = ref(null)
+const myClubTeamName = ref('You')
+const myTeamLabel = computed(() => myClubTeamName.value || 'You')
+const positions = ref([
+  'Goalkeeper',
+  'Center-Back',
+  'Full-Back',
+  'Wing-Back',
+  'Defensive Midfielder',
+  'Central Midfielder',
+  'Attacking Midfielder',
+  'Winger',
+  'Striker'
+])
+const isGoalkeeperMode = ref(false)
+const EnableHeatmapTracking = ref(true)
+const LoggerView = ref('map')
+
+// Lightweight transient feedback (e.g. penalty conceded).
+const Toast = ref(null)
+let ToastTimer = null
+const flashToast = (Message, Tone = 'info') => {
+  Toast.value = { Message, Tone }
+  clearTimeout(ToastTimer)
+  ToastTimer = setTimeout(() => { Toast.value = null }, 2600)
+}
+
+// --- Composables ---
+const {
+  activeMatch,
+  matchGoals,
+  matchShots,
+  goalkeeperStats,
+  MatchHeatmapPoints,
+  selectMatch,
+  addMatch,
+  loadGoalkeeperStats,
+  updateMatch,
+  updatePosition,
+  deleteMatch,
+} = useMatchData({ isGoalkeeperMode, activeSeason: () => props.activeSeason, emit })
+
+const {
+  vizView,
+  selectedEvent,
+  selectedEventPlacementMarker,
+  EditorHeatmapPoints,
+  matchXg,
+  timelineEvents,
+  combinedEvents,
+  showTrajectory,
+  shotTrajectory,
+  selectEventForViz,
+  getShotMarkerStyle,
+} = useShotViz({ matchGoals, matchShots, MatchHeatmapPoints })
+
+const {
+  incrementStat,
+  incrementGkStat,
+  onShotCaptured,
+  onGoalCaptured,
+  removeEvent,
+  removeEventGroup,
+  handleMyGoal,
+  handleShot,
+  LogEvent,
+  onEventCaptured,
+  OnMapLogEvent,
+  DeleteLoggedEvent,
+  OnQuickIncrement,
+  OnQuickIncrementGk,
+} = useEventLogging({
+  activeMatch,
+  matchGoals,
+  matchShots,
+  goalkeeperStats,
+  MatchHeatmapPoints,
+  selectedEvent,
+  eventCaptureFlow,
+  EnableHeatmapTracking,
+  loadGoalkeeperStats,
+  flashToast,
+})
+
+const {
+  calculateMatchRating,
+  getStatColorClass,
+  getMatchResult,
+  formatDate,
+} = useMatchStats({
+  matches: () => props.matches,
+  activeMatch,
+  matchGoals,
+  matchShots,
+  goalkeeperStats,
+})
+
+// --- Shell-local derived state ---
+const LoggedEventCoordinates = computed(() =>
+  BuildLoggedEventCoordinates(matchGoals.value, matchShots.value, MatchHeatmapPoints.value)
+)
+
+const myGoalsForMatch = computed(() => {
+  if (!activeMatch.value) return 0
+  return matchGoals.value.length
+})
+
+const shotsOnTarget = computed(() => {
+  if (!activeMatch.value) return 0
+  return matchShots.value.filter(s => s.on_target).length
+})
+
+const shotsOffTarget = computed(() => {
+  if (!activeMatch.value) return 0
+  return matchShots.value.filter(s => !s.on_target).length
+})
+
+// Bridges timeline delete events to the right logging operation.
+const onTimelineDelete = (event) => {
+  if (event.kind === 'goal') return removeEvent({ type: 'Goal', id: event.id })
+  if (event.kind === 'shot') return removeEvent({ type: 'Shot', id: event.id })
+  return DeleteLoggedEvent({ Source: 'heatmap', Id: event.id, EventKey: event.eventType })
+}
+
+// --- Shell orchestration ---
 const onAssignSeason = async ({ match, seasonId }) => {
   try {
     const { error } = await supabase
@@ -590,1872 +295,88 @@ const onAssignSeason = async ({ match, seasonId }) => {
   }
 }
 
-const showAddMatch = ref(false)
-const activeMatch = ref(null)
-    const matchGoals = ref([])
-    const matchShots = ref([])
-    const eventCaptureFlow = ref(null)
-    const shotMapView = ref('goal') // 'goal' or 'field'
-    const vizView = ref('field') // 'field' or 'goal' for sidebar visualization
-    const selectedEvent = ref(null)
-
-    // Free goal placement marker for the Placement view (null → fall back to quadrant grid).
-    const selectedEventPlacementMarker = computed(() => {
-      const e = selectedEvent.value
-      if (!e || !e.placement) return null
-      const parts = String(e.placement).split(',').map(Number)
-      if (parts.length !== 2 || !parts.every(Number.isFinite)) return null
-      const type = e.type === 'Goal' ? 'goal' : (e.on_target ? 'on-target' : 'off-target')
-      return { xPct: parts[0], yPct: parts[1], type }
-    })
-    const showEditMatch = ref(false)
-    const showDeleteConfirm = ref(false)
-    const showShareModal = ref(false)
-    const myClubTeamName = ref('You')
-    const myTeamLabel = computed(() => myClubTeamName.value || 'You')
-    const positions = ref([
-      'Goalkeeper',
-      'Center-Back',
-      'Full-Back',
-      'Wing-Back',
-      'Defensive Midfielder',
-      'Central Midfielder',
-      'Attacking Midfielder',
-      'Winger',
-      'Striker'
-    ]);
-    const isGoalkeeperMode = ref(false);
-    const goalkeeperStats = ref(null);
-    const allShotsData = ref([]);
-    const allGoalsData = ref([]);
-    const EnableHeatmapTracking = ref(true);
-    const MatchHeatmapPoints = ref([]);
-    const LoggerView = ref('map');
-
-    // Lightweight transient feedback (e.g. penalty conceded).
-    const Toast = ref(null);
-    let ToastTimer = null;
-    const flashToast = (Message, Tone = 'info') => {
-      Toast.value = { Message, Tone };
-      clearTimeout(ToastTimer);
-      ToastTimer = setTimeout(() => { Toast.value = null }, 2600);
-    };
-
-    const LoggedEventCoordinates = computed(() =>
-      BuildLoggedEventCoordinates(matchGoals.value, matchShots.value, MatchHeatmapPoints.value)
-    );
-
-    // Every mapped action (tracked events + shot/goal origins) for the heatmap.
-    const EditorHeatmapPoints = computed(() => {
-      const Out = MatchHeatmapPoints.value
-        .map(p => ({ x_pct: Number(p.x_pct), y_pct: Number(p.y_pct) }))
-        .filter(p => Number.isFinite(p.x_pct) && Number.isFinite(p.y_pct))
-      for (const g of matchGoals.value) {
-        const Pos = ParseFieldPosition(g.field_position)
-        if (Pos) Out.push({ x_pct: Pos.XPct, y_pct: Pos.YPct })
-      }
-      for (const s of matchShots.value) {
-        const Pos = ParseFieldPosition(s.field_position)
-        if (Pos) Out.push({ x_pct: Pos.XPct, y_pct: Pos.YPct })
-      }
-      return Out
-    });
-
-    const ToggleLoggerView = () => {
-      LoggerView.value = LoggerView.value === 'map' ? 'counters' : 'map';
-    };
-
-    // Match xG total (goals + shots that recorded where they were taken).
-    const matchXg = computed(() =>
-      sumExpectedGoals([...matchGoals.value, ...matchShots.value])
-    );
-
-    // Unified, newest-first event log feeding the timeline + undo.
-    const timelineEvents = computed(() => {
-      const items = []
-      for (const g of matchGoals.value) {
-        items.push({ kind: 'goal', id: g.id, label: 'Goal', category: 'positive', xg: expectedGoal(g.field_position), at: g.created_at })
-      }
-      for (const s of matchShots.value) {
-        items.push({
-          kind: 'shot', id: s.id,
-          label: s.on_target ? 'Shot on target' : 'Shot off target',
-          category: s.on_target ? 'neutral' : 'negative',
-          xg: expectedGoal(s.field_position), at: s.created_at
-        })
-      }
-      for (const p of MatchHeatmapPoints.value) {
-        items.push({
-          kind: 'heatmap', id: p.id, eventType: p.event_type,
-          label: LabelForEvent(p.event_type),
-          category: CategoryForEvent(p.event_type),
-          xg: null, at: p.created_at
-        })
-      }
-      return items.sort((a, b) => new Date(b.at) - new Date(a.at))
-    });
-
-    const onTimelineDelete = (event) => {
-      if (event.kind === 'goal') return removeEvent({ type: 'Goal', id: event.id })
-      if (event.kind === 'shot') return removeEvent({ type: 'Shot', id: event.id })
-      return DeleteLoggedEvent({ Source: 'heatmap', Id: event.id, EventKey: event.eventType })
-    };
-
-    const goalSummary = computed(() => {
-      return matchGoals.value.reduce((acc, goal) => {
-        acc[goal.goal_type] = (acc[goal.goal_type] || 0) + 1
-        return acc
-      }, {})
-    })
-
-    const shotsOnTarget = computed(() => {
-      if (!activeMatch.value) return 0;
-      return matchShots.value.filter(s => s.on_target).length;
-    });
-    const shotsOffTarget = computed(() => {
-      if (!activeMatch.value) return 0;
-      return matchShots.value.filter(s => !s.on_target).length;
-    });
-
-    const combinedEvents = computed(() => {
-      const goals = matchGoals.value.map(g => ({ 
-        ...g, 
-        type: 'Goal', 
-        details: 'Goal Scored', 
-        event_time: g.created_at,
-        count: 1,
-        events: [{ ...g, type: 'Goal' }]
-      }));
-      
-      const shots = matchShots.value.map(s => ({ 
-        ...s, 
-        type: 'Shot', 
-        details: s.on_target ? 'On Target' : 'Off Target', 
-        event_time: s.created_at,
-        count: 1,
-        events: [{ ...s, type: 'Shot' }]
-      }));
-      
-      return [...goals, ...shots].sort((a, b) => new Date(b.event_time) - new Date(a.event_time));
-    });
-
-
-    const wins = computed(() => {
-      return props.matches.filter(match => match.score_for > match.score_against).length
-    })
-
-    const winRate = computed(() => {
-      if (props.matches.length === 0) return 0
-      return Math.round((wins.value / props.matches.length) * 100)
-    })
-
-    const averageRating = computed(() => {
-      if (props.matches.length === 0) return '0.0'
-      const totalRating = props.matches.reduce((sum, match) => sum + parseFloat(calculateMatchRating(match)), 0)
-      return (totalRating / props.matches.length).toFixed(2)
-    })
-
-    const highestRating = computed(() => {
-      if (props.matches.length === 0) return '0.0'
-      const ratings = props.matches.map(match => parseFloat(calculateMatchRating(match)))
-      return Math.max(...ratings).toFixed(2)
-    })
-
-    // Average rating for last 10 matches
-    const recentAverageRating = computed(() => {
-      if (recentMatches.value.length === 0) return '0.0'
-      const totalRating = recentMatches.value.reduce((sum, match) => sum + parseFloat(calculateMatchRating(match)), 0)
-      return (totalRating / recentMatches.value.length).toFixed(2)
-    })
-
-    // Highest rating in last 10 matches
-    const recentHighestRating = computed(() => {
-      if (recentMatches.value.length === 0) return '0.0'
-      const ratings = recentMatches.value.map(match => parseFloat(calculateMatchRating(match)))
-      return Math.max(...ratings).toFixed(2)
-    })
-
-    const loadGoalkeeperStats = async (matchId) => {
-      const { data, error } = await supabase
-        .from('goalkeeper_match_stats')
-        .select('*')
-        .eq('match_id', matchId)
-        .single();
-
-      if (data) {
-        goalkeeperStats.value = data;
-      } else {
-        goalkeeperStats.value = {
-          match_id: matchId,
-          user_id: activeMatch.value.user_id,
-          saves: 0,
-          catches: 0,
-          punches: 0,
-          goals_conceded: 0,
-          penalties_saved: 0,
-          errors_led_to_goal: 0,
-        };
-      }
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading goalkeeper stats:', error);
-      }
-    };
-
-    const incrementGkStat = async (stat, value) => {
-      if (!goalkeeperStats.value) return;
-      goalkeeperStats.value[stat] = Math.max(0, goalkeeperStats.value[stat] + value);
-      
-      // Only update the specific fields that exist in the goalkeeper_match_stats table
-      const updateData = {
-        match_id: goalkeeperStats.value.match_id,
-        user_id: goalkeeperStats.value.user_id,
-        saves: goalkeeperStats.value.saves || 0,
-        catches: goalkeeperStats.value.catches || 0,
-        punches: goalkeeperStats.value.punches || 0,
-        goals_conceded: goalkeeperStats.value.goals_conceded || 0,
-        penalties_saved: goalkeeperStats.value.penalties_saved || 0,
-        errors_led_to_goal: goalkeeperStats.value.errors_led_to_goal || 0,
-      };
-      
-      const { error } = await supabase
-        .from('goalkeeper_match_stats')
-        .upsert(updateData, { onConflict: 'match_id, user_id' });
-
-      if (error) {
-        console.error(`Error updating ${stat}:`, error);
-        // Revert on error
-        goalkeeperStats.value[stat] = Math.max(0, goalkeeperStats.value[stat] - value);
-      }
-    };
-
-    // Calculate my goals dynamically from goals table
-    const myGoalsForMatch = computed(() => {
-      if (!activeMatch.value) return 0;
-      return matchGoals.value.length;
-    });
-
-    const totalGoals = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.my_goals || 0), 0)
-    })
-
-    const totalAssists = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.assists || 0), 0)
-    })
-
-    const totalSuccessfulPasses = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.successful_passes || 0), 0)
-    })
-
-    const totalUnsuccessfulPasses = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.unsuccessful_passes || 0), 0)
-    })
-
-    const passAccuracy = computed(() => {
-      const total = totalSuccessfulPasses.value + totalUnsuccessfulPasses.value
-      if (total === 0) return 0
-      return Math.round((totalSuccessfulPasses.value / total) * 100)
-    })
-
-    const totalTackles = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.tackles || 0), 0)
-    })
-
-    const totalInterceptions = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.interceptions || 0), 0)
-    })
-
-    const totalClearances = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.clearances || 0), 0)
-    })
-
-    const totalFouls = computed(() => {
-      return props.matches.reduce((sum, match) => sum + (match.fouls || 0), 0)
-    })
-
-    const recentMatches = computed(() => {
-      return props.matches.slice(0, 10).reverse()
-    })
-
-    const averageGoalsPerMatch = computed(() => {
-      if (props.matches.length === 0) return '0.0'
-      return ((totalGoals.value + totalAssists.value) / props.matches.length).toFixed(1)
-    })
-
-    const maxGoalsInMatch = computed(() => {
-      if (props.matches.length === 0) return 1
-      return Math.max(...props.matches.map(match => (match.my_goals || 0) + (match.assists || 0)), 1)
-    })
-
-    // Shot Map Computed Properties
-    const totalShotsWithQuadrant = computed(() => {
-      // Include ALL shots (on target + off target) and goals
-      return allShotsData.value.length + allGoalsData.value.length
-    })
-
-    const totalShotsOnTarget = computed(() => {
-      // Shots on target + goals (goals are always on target)
-      return allShotsData.value.filter(shot => shot.on_target).length + allGoalsData.value.length
-    })
-
-    const totalShotsOffTarget = computed(() => {
-      // Only off-target shots
-      return allShotsData.value.filter(shot => !shot.on_target).length
-    })
-
-    const totalGoalsWithQuadrant = computed(() => {
-      return allGoalsData.value.filter(goal => goal.quadrant).length
-    })
-
-    const shotAccuracy = computed(() => {
-      // Total shots includes all shots + goals
-      const totalShots = allShotsData.value.length + allGoalsData.value.length
-      if (totalShots === 0) return 0
-      // Shots on target includes on-target shots + goals (since goals are always on target)
-      const shotsOnTarget = allShotsData.value.filter(shot => shot.on_target).length + allGoalsData.value.length
-      return Math.round((shotsOnTarget / totalShots) * 100)
-    })
-
-    const getQuadrantShots = (quadrant) => {
-      // Return all shots in this quadrant (both on and off target)
-      return allShotsData.value.filter(shot => shot.quadrant === quadrant).length
-    }
-
-    const getQuadrantGoals = (quadrant) => {
-      return allGoalsData.value.filter(goal => goal.quadrant === quadrant).length
-    }
-
-    const getHeatMapClass = (quadrant) => {
-      const shots = getQuadrantShots(quadrant)
-      const goals = getQuadrantGoals(quadrant)
-      const total = shots + goals
-      
-      if (total === 0) return 'heat-none'
-      if (total >= 5) return 'heat-high'
-      if (total >= 3) return 'heat-medium'
-      return 'heat-low'
-    }
-
-    const getHeatMapStyle = (quadrant) => {
-      const goals = getQuadrantGoals(quadrant)
-      const shots = getQuadrantShots(quadrant)
-      const maxCount = Math.max(
-        ...Array.from({length: 9}, (_, i) => getQuadrantShots(i + 1) + getQuadrantGoals(i + 1))
-      )
-      
-      if (maxCount === 0) return {}
-      
-      const total = goals + shots
-      const intensity = Math.min(1, total / Math.max(maxCount, 1))
-      
-      // Create a gradient from blue (shots) to green (goals)
-      if (goals > shots) {
-        const opacity = 0.3 + (intensity * 0.5)
-        return {
-          backgroundColor: `color-mix(in srgb, var(--color-accent) ${Math.round(opacity * 100)}%, transparent)`
-        }
-      } else if (shots > 0) {
-        const opacity = 0.2 + (intensity * 0.4)
-        return {
-          backgroundColor: `rgba(33, 150, 243, ${opacity})`
-        }
-      }
-      
-      return {}
-    }
-
-    // Field Zone Heat Map Functions
-    const allShotsWithPosition = computed(() => {
-      return allShotsData.value.filter(shot => shot.field_position && shot.field_position.includes(','))
-    })
-
-    const allGoalsWithPosition = computed(() => {
-      return allGoalsData.value.filter(goal => goal.field_position && goal.field_position.includes(','))
-    })
-
-    const showTrajectory = computed(() => {
-      if (!selectedEvent.value || !selectedEvent.value.field_position) return false
-      // Show for Goals and On-Target Shots only
-      return selectedEvent.value.type === 'Goal' || (selectedEvent.value.type === 'Shot' && selectedEvent.value.on_target)
-    })
-
-    const shotTrajectory = computed(() => {
-      if (!selectedEvent.value || !selectedEvent.value.field_position) return { x1: 0, y1: 0, x2: 0, y2: 0 }
-      
-      const [xPct, yPct] = selectedEvent.value.field_position.split(',').map(Number)
-      
-      // Convert percentage to SVG coordinates (68 width, 52.5 height)
-      const x1 = (xPct / 100) * 68
-      const y1 = (yPct / 100) * 52.5
-      
-      // Calculate destination point based on quadrant
-      // Goal width is approx 30.34 to 37.66. Center is 34. Width ~7.32
-      // Quadrants 1,4,7 (Left): Target left side of goal (~31.56)
-      // Quadrants 2,5,8 (Center): Target center of goal (34)
-      // Quadrants 3,6,9 (Right): Target right side of goal (~36.44)
-      
-      let x2 = 34 // Default center
-      const quadrant = selectedEvent.value.quadrant
-      
-      if ([1, 4, 7].includes(quadrant)) {
-        x2 = 31.56
-      } else if ([3, 6, 9].includes(quadrant)) {
-        x2 = 36.44
-      }
-      
-      const y2 = 0
-      
-      return { x1, y1, x2, y2 }
-    })
-
-    const selectEventForViz = (event) => {
-      // If the same event is already selected, close it (click-to-close functionality)
-      if (selectedEvent.value && selectedEvent.value.id === event.id && selectedEvent.value.type === event.type) {
-        selectedEvent.value = null;
-        return;
-      }
-      
-      // Allow selecting any event that has origin, placement, or quadrant data
-      if (event.field_position || event.placement || event.quadrant) {
-        selectedEvent.value = event;
-      } else {
-        // Fallback or ignore events without data
-        selectedEvent.value = null;
-      }
-    };
-
-    const getShotMarkerStyle = (item) => {
-      if (!item.field_position || !item.field_position.includes(',')) return {}
-      
-      const [x, y] = item.field_position.split(',').map(Number)
-      
-      return {
-        left: `${x}%`,
-        top: `${y}%`,
-        transform: 'translate(-50%, -50%)'
-      }
-    }
-
-    const getShotCoordinates = (item) => {
-      if (!item.field_position || !item.field_position.includes(',')) return { x: 50, y: 50 }
-      
-      const [x, y] = item.field_position.split(',').map(Number)
-      
-      return { x, y }
-    }
-
-    const getGoalTargetX = (item) => {
-      // If no quadrant, default to center
-      if (!item.quadrant) return 50
-      
-      // Quadrant layout (goal view):
-      // 1  2  3
-      // 4  5  6
-      // 7  8  9
-      
-      const quadrant = item.quadrant
-      const column = ((quadrant - 1) % 3) + 1 // 1, 2, or 3
-      
-      // Map columns to goal positions (goal is 40% wide, centered at 50%)
-      // Goal spans from 30% to 70%
-      if (column === 1) return 37  // Left post area
-      if (column === 2) return 50  // Center
-      if (column === 3) return 63  // Right post area
-      
-      return 50 // Default to center
-    }
-
-    const getFieldZoneCount = (zone) => {
-      const shotsInZone = allShotsData.value.filter(shot => shot.field_position === zone).length
-      const goalsInZone = allGoalsData.value.filter(goal => goal.field_position === zone).length
-      return shotsInZone + goalsInZone
-    }
-
-    const getFieldHeatStyle = (zone) => {
-      const count = getFieldZoneCount(zone)
-      const maxCount = Math.max(
-        ...Array.from({length: 9}, (_, i) => getFieldZoneCount(i + 1))
-      )
-      
-      if (maxCount === 0 || count === 0) return {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)'
-      }
-      
-      const intensity = count / maxCount
-      const opacity = 0.2 + (intensity * 0.6)
-      
-      return {
-        backgroundColor: `rgba(33, 150, 243, ${opacity})`,
-        borderColor: `rgba(33, 150, 243, ${Math.min(opacity + 0.2, 1)})`
-      }
-    }
-
-    // EA FC Style Stats
-    const overallRating = computed(() => {
-      if (props.matches.length === 0) return 65
-      const avgStats = (shootingStat.value + passingStat.value + defendingStat.value + dribblingStat.value + paceStat.value + physicalStat.value) / 6
-      return Math.min(99, Math.max(30, Math.round(avgStats)))
-    })
-
-    const shootingStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const avgGoals = totalGoals.value / props.matches.length
-      const avgShotsOnTarget = props.matches.reduce((sum, match) => {
-        // Calculate shots on target from match data if available
-        return sum + (match.shots_on_target || 0)
-      }, 0) / props.matches.length
-      
-      let rating = 50 + (avgGoals * 15) + (avgShotsOnTarget * 5)
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const passingStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const accuracy = passAccuracy.value
-      const avgPasses = (totalSuccessfulPasses.value + totalUnsuccessfulPasses.value) / props.matches.length
-      
-      let rating = 40 + (accuracy * 0.4) + (avgPasses * 0.5)
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const defendingStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const avgTackles = totalTackles.value / props.matches.length
-      const avgInterceptions = totalInterceptions.value / props.matches.length
-      const avgClearances = totalClearances.value / props.matches.length
-      
-      let rating = 45 + (avgTackles * 8) + (avgInterceptions * 6) + (avgClearances * 4)
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const dribblingStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const avgDribbles = props.matches.reduce((sum, match) => sum + (match.dribbles || 0), 0) / props.matches.length
-      const avgGoals = totalGoals.value / props.matches.length
-      
-      let rating = 50 + (avgDribbles * 6) + (avgGoals * 5)
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const paceStat = computed(() => {
-      if (props.matches.length === 0) return 70
-      // Base pace on overall performance and assists (indicating quick play)
-      const avgAssists = totalAssists.value / props.matches.length
-      const winRateBonus = winRate.value * 0.2
-      
-      let rating = 60 + (avgAssists * 8) + winRateBonus
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const physicalStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const avgFouls = totalFouls.value / props.matches.length
-      const avgTackles = totalTackles.value / props.matches.length
-      const matchesPlayed = props.matches.length
-      
-      // Higher fouls might indicate physicality, but too many is bad
-      let rating = 55 + (avgTackles * 6) + (avgFouls * 2) + (matchesPlayed * 0.5)
-      return Math.min(99, Math.max(30, Math.round(rating)))
-    })
-
-    const formStat = computed(() => {
-      if (props.matches.length === 0) return 65
-      const recent = recentMatches.value.slice(0, 10) // Last 10 matches
-      if (recent.length === 0) return 65
-      
-      const recentRatings = recent.map(match => parseFloat(calculateMatchRating(match)))
-      const avgRecentRating = recentRatings.reduce((sum, rating) => sum + rating, 0) / recentRatings.length
-      
-      // Convert match rating (0-10) to stat rating (30-99)
-      let formRating = 30 + (avgRecentRating * 6.9) // Scale 0-10 to 30-99
-      
-      // Bonus for recent wins
-      const recentWins = recent.filter(match => match.score_for > match.score_against).length
-      const winBonus = (recentWins / recent.length) * 10
-      
-      return Math.min(99, Math.max(30, Math.round(formRating + winBonus)))
-    })
-
-    const addMatch = async (formData) => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('User not authenticated')
-
-        const matchData = {
-          ...formData,
-          user_id: user.id,
-          season_id: props.activeSeason?.id || null,
-          score_for: 0,
-          score_against: 0,
-          assists: 0,
-          tackles: 0,
-          interceptions: 0,
-          clearances: 0,
-          dribbles: 0,
-          fouls: 0,
-          successful_passes: 0,
-          unsuccessful_passes: 0,
-          own_goals: 0,
-          created_chances: 0,
-          lost_possessions: 0,
-          yellow_card: 0,
-          red_card: 0,
-          // New matches log shot/goal origins over the full pitch (x,y). Old
-          // matches predate this (NULL) and are treated as half-field on read.
-          origins_full_field: true
-        }
-
-        const { error } = await supabase
-          .from('matches')
-          .insert([matchData])
-          .select()
-
-        if (error) throw error
-
-        showAddMatch.value = false
-        emit('match-updated')
-      } catch (error) {
-        console.error('Error adding match:', error)
-        toast.error('Error adding match. Make sure your Supabase tables are set up correctly.')
-      }
-    }
-
-    const selectMatch = async (match) => {
-      if (activeMatch.value) return; // Prevent re-triggering when a match is active
-      // Fetch the full, up-to-date match object to ensure all stats are loaded
-      const { data: fullMatch, error: matchError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('id', match.id)
-        .single();
-
-      if (matchError) {
-        console.error('Error fetching full match data:', matchError);
-        activeMatch.value = match; // Fallback to the list view's match object
-      } else {
-        activeMatch.value = fullMatch;
-      }
-
-      // Fetch related goals for the match
-      const { data: goals, error: goalsError } = await supabase.from('goals').select('*').eq('match_id', match.id);
-      if (goalsError) console.error('Error fetching goals:', goalsError); else matchGoals.value = goals;
-
-      // Fetch related shots for the match
-      const { data: shots, error: shotsError } = await supabase.from('shots').select('*').eq('match_id', match.id);
-      if (shotsError) console.error('Error fetching shots:', shotsError); else matchShots.value = shots;
-
-      MatchHeatmapPoints.value = []
-      if (activeMatch.value?.track_heatmap_for_match) {
-        const { data: heatmapPoints } = await supabase
-          .from('match_heatmap_points')
-          .select('*')
-          .eq('match_id', match.id)
-          .order('created_at', { ascending: true })
-        MatchHeatmapPoints.value = heatmapPoints || []
-      }
-
-      // Check if the player was a goalkeeper in this match
-      if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
-        isGoalkeeperMode.value = true;
-        await loadGoalkeeperStats(match.id);
-      } else {
-        isGoalkeeperMode.value = false;
-        goalkeeperStats.value = null;
-      }
-    };
-
-    const loadMatchDetails = async (matchId) => {
-      const { data: goals, error: goalsError } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('match_id', matchId)
-      if (goalsError) console.error('Error loading goals:', goalsError)
-      else matchGoals.value = goals
-
-      const { data: shots, error: shotsError } = await supabase
-        .from('shots')
-        .select('*')
-        .eq('match_id', matchId)
-      if (shotsError) console.error('Error loading shots:', shotsError)
-      else matchShots.value = shots
-    }
-
-
-    const handleMyGoal = () => {
-      if (!activeMatch.value) return
-      eventCaptureFlow.value?.triggerGoal()
-    }
-
-    const handleShot = () => {
-      if (!activeMatch.value) return
-      eventCaptureFlow.value?.triggerShot()
-    }
-
-    // Insert with the free-placement column, retrying without it if the DB is
-    // behind on migration 0014 (PGRST204 = unknown column), so logging never breaks.
-    const insertWithPlacementFallback = async (table, payload) => {
-      let result = await supabase.from(table).insert(payload).select()
-      if (result.error?.code === 'PGRST204' && 'placement' in payload) {
-        const { placement, ...rest } = payload
-        result = await supabase.from(table).insert(rest).select()
-      }
-      return result
-    }
-
-    const onShotCaptured = async ({ onTarget, quadrant, placement, fieldPosition }) => {
-      if (!activeMatch.value) return
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await insertWithPlacementFallback('shots', {
-        match_id: activeMatch.value.id,
-        user_id: user.id,
-        on_target: onTarget,
-        quadrant,
-        placement: placement ?? null,
-        field_position: fieldPosition,
-      })
-
-      if (error) {
-        console.error('Error saving shot:', error)
-        return
-      }
-      matchShots.value.push(data[0])
-    }
-
-    const onGoalCaptured = async ({ goalType, quadrant, placement, fieldPosition }) => {
-      if (!activeMatch.value) return
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      // Increment team score (single source of truth — fixes prior double-increment bug).
-      await incrementStat('score_for', 1)
-
-      const { data, error } = await insertWithPlacementFallback('goals', {
-        user_id: user.id,
-        match_id: activeMatch.value.id,
-        goal_type: goalType,
-        quadrant,
-        placement: placement ?? null,
-        field_position: fieldPosition,
-      })
-
-      if (error) {
-        console.error('Error adding goal:', error)
-        // Revert team score if goal insert fails
-        await incrementStat('score_for', -1)
-        return
-      }
-      matchGoals.value.push(data[0])
-    }
-
-    const removeEvent = async (event) => {
-      if (!activeMatch.value) return;
-
-      // If the event being removed is the one being visualized, close the viz
-      if (selectedEvent.value && selectedEvent.value.id === event.id && selectedEvent.value.type === event.type) {
-        selectedEvent.value = null;
-      }
-
-      if (event.type === 'Shot') {
-        const { error } = await supabase.from('shots').delete().eq('id', event.id);
-        if (error) {
-          console.error('Error removing shot:', error);
-        } else {
-          matchShots.value = matchShots.value.filter(s => s.id !== event.id);
-        }
-      } else if (event.type === 'Goal') {
-        const { error } = await supabase.from('goals').delete().eq('id', event.id);
-        if (error) {
-          console.error('Error removing goal:', error);
-        } else {
-          // Decrement team score
-          await incrementStat('score_for', -1);
-          matchGoals.value = matchGoals.value.filter(g => g.id !== event.id);
-        }
-      }
-    };
-
-    const removeEventGroup = async (eventGroup) => {
-      if (!activeMatch.value || !eventGroup.events || eventGroup.events.length === 0) return;
-
-      let eventToRemove;
-
-      if (eventGroup.count > 1) {
-        // For groups, find the most recent event to remove
-        eventToRemove = eventGroup.events.reduce((latest, current) => {
-          return new Date(current.created_at) > new Date(latest.created_at) ? current : latest;
-        });
-      } else {
-        // For single-item groups, remove the only event
-        eventToRemove = eventGroup.events[0];
-      }
-
-      // If the event being removed is the one being visualized, close the viz
-      if (selectedEvent.value && selectedEvent.value.id === eventToRemove.id && selectedEvent.value.type === eventToRemove.type) {
-        selectedEvent.value = null;
-      }
-
-      // Call the single event removal function
-      await removeEvent(eventToRemove);
-    };
-
-    // Remove the most recently logged heatmap pin of a given event type, keeping
-    // the counter and the map in sync when a stat is decremented in counters mode.
-    const removeLatestHeatmapPoint = async (eventType) => {
-      const matching = MatchHeatmapPoints.value.filter(p => p.event_type === eventType)
-      if (!matching.length) return
-      const latest = matching.reduce((a, b) =>
-        new Date(b.created_at) > new Date(a.created_at) ? b : a
-      )
-      const { error } = await supabase.from('match_heatmap_points').delete().eq('id', latest.id)
-      if (!error) {
-        MatchHeatmapPoints.value = MatchHeatmapPoints.value.filter(p => p.id !== latest.id)
-      }
-    }
-
-    const incrementStat = async (stat, value, { syncHeatmap = true } = {}) => {
-      if (!activeMatch.value) return;
-
-      const currentValue = activeMatch.value[stat] || 0;
-      if (currentValue + value < 0) return; // Prevent stats from going below zero
-
-      const updatedValue = currentValue + value;
-      activeMatch.value[stat] = updatedValue;
-
-      const { error } = await supabase
-        .from('matches')
-        .update({ [stat]: updatedValue })
-        .eq('id', activeMatch.value.id);
-
-      if (error) {
-        // A missing column (DB behind on a migration) shouldn't break logging —
-        // revert quietly and keep going.
-        if (error.code === 'PGRST204') {
-          console.warn(`[match] column "${stat}" not in schema yet — apply the latest migration to persist it.`)
-        } else {
-          console.error(`Error updating ${stat}:`, error);
-        }
-        activeMatch.value[stat] -= value;
-        return;
-      }
-
-      // Decrementing a tracked event removes its most recent map pin so the
-      // pitch never shows ghost actions the counter no longer reflects. (No-op
-      // for stats with no heatmap points, e.g. score_for / cards.)
-      if (value < 0 && syncHeatmap) {
-        await removeLatestHeatmapPoint(stat)
-      }
-
-      // If this is a goalkeeper match and we're changing score_against, also update goals_conceded
-      const isGoalkeeper = activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper');
-      if (isGoalkeeper && stat === 'score_against' && value !== 0 && goalkeeperStats.value) {
-        await incrementGkStat('goals_conceded', value);
-      }
-    };
-
-    const handleBackToMatches = () => {
-      activeMatch.value = null;
-      emit('match-updated');
-    };
-
-    // Wrap the shared function to inject live shot/goal data when in active match view
-    const calculateMatchRating = (match) => {
-      if (!match) return '0.00'
-      if (activeMatch.value && match.id === activeMatch.value.id) {
-        // Live view: inject reactive data as liveData override
-        const liveData = {
-          goals:   matchGoals.value.length,
-          shotsOn: matchShots.value.filter(s => s.on_target).length,
-          shotsOff:matchShots.value.filter(s => !s.on_target).length,
-          gkStats: goalkeeperStats.value || null,
-        }
-        return calculateMatchRatingFn(match, liveData)
-      }
-      return calculateMatchRatingFn(match)
-    }
-    const getStatColorClass = (statType, value) => {
-      const numValue = parseFloat(value) || 0;
-      if (statType === 'rating') {
-        // Delegate to shared rating utility
-        return getRatingColor(numValue)
-      }
-      // Keep original logic for other stat types
-      if (statType === 'goals') {
-        if (numValue >= 2) return 'stat-good';
-        if (numValue >= 1) return 'stat-mid';
-        return 'stat-bad';
-      }
-      if (statType === 'assists') {
-        if (numValue >= 2) return 'stat-good';
-        if (numValue >= 1) return 'stat-mid';
-        return 'stat-bad';
-      }
-      return '';
-    };
-
-    const confirmDeleteMatch = () => {
-      showDeleteConfirm.value = true
-    }
-
-    const deleteMatch = async () => {
-      if (!activeMatch.value) return
-      
-      const { error } = await supabase
-        .from('matches')
-        .delete()
-        .eq('id', activeMatch.value.id)
-      
-      if (error) {
-        console.error('Error deleting match:', error)
-      } else {
-        activeMatch.value = null
-        showDeleteConfirm.value = false
-        emit('match-updated')
-      }
-    }
-
-    const updatePosition = async () => {
-      if (!activeMatch.value) return
-      
-      const { error } = await supabase
-        .from('matches')
-        .update({
-          position_played: activeMatch.value.position_played
-        })
-        .eq('id', activeMatch.value.id)
-      
-      if (error) {
-        console.error('Error updating position:', error)
-      } else {
-        // Auto-toggle goalkeeper mode based on position
-        if (activeMatch.value.position_played && activeMatch.value.position_played.toLowerCase().includes('goalkeeper')) {
-          isGoalkeeperMode.value = true
-          await loadGoalkeeperStats(activeMatch.value.id)
-        } else {
-          isGoalkeeperMode.value = false
-          goalkeeperStats.value = null
-        }
-        emit('match-updated')
-      }
-    }
-
-    const updateMatch = async () => {
-      if (!activeMatch.value) return
-      
-      const { error } = await supabase
-        .from('matches')
-        .update({
-          opponent: activeMatch.value.opponent,
-          match_date: activeMatch.value.match_date
-        })
-        .eq('id', activeMatch.value.id)
-      
-      if (error) {
-        console.error('Error updating match:', error)
-      } else {
-        showEditMatch.value = false
-        emit('match-updated')
-      }
-    }
-
-    const loadMyClubTeamName = async () => {
-      try {
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData?.user
-        if (!user) return
-
-        const { data: profileData, error } = await supabase
-          .from('user_profiles')
-          .select('club_team')
-          .eq('user_id', user.id)
-          .single()
-
-        if (error) return
-        if (profileData?.club_team) myClubTeamName.value = profileData.club_team
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const openShareModal = async () => {
-      await loadMyClubTeamName()
-      showShareModal.value = true;
-    }
-
-    const LoadHeatmapPreference = async () => {
-      try {
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData?.user
-        if (!user) return
-        const { data: profileData, error } = await supabase
-          .from('user_profiles')
-          .select('enable_heatmap_tracking, default_match_logger_view')
-          .eq('user_id', user.id)
-          .single()
-        if (error) return
-        EnableHeatmapTracking.value = profileData?.enable_heatmap_tracking ?? true
-        LoggerView.value = profileData?.default_match_logger_view === 'counters' ? 'counters' : 'map'
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    const SaveHeatmapPoint = async ({ XPct, YPct, EventType, EndX = null, EndY = null }) => {
-      if (!activeMatch.value) return
-      try {
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData?.user
-        if (!user) return
-        const base = { match_id: activeMatch.value.id, user_id: user.id, x_pct: XPct, y_pct: YPct, event_type: EventType || null }
-        const payload = (EndX !== null && EndY !== null) ? { ...base, x2_pct: EndX, y2_pct: EndY } : base
-        let { data, error } = await supabase.from('match_heatmap_points').insert(payload).select().single()
-        // Retry without direction columns if the DB is behind on migration 0016.
-        if (error?.code === 'PGRST204' && payload !== base) {
-          ({ data, error } = await supabase.from('match_heatmap_points').insert(base).select().single())
-        }
-        if (error) throw error
-        MatchHeatmapPoints.value = [...MatchHeatmapPoints.value, data]
-      } catch (e) {
-        console.error('Error saving heatmap point:', e)
-      }
-    }
-
-    const LogEvent = (stat, label) => {
-      if (!activeMatch.value) return
-      if (EnableHeatmapTracking.value && activeMatch.value.track_heatmap_for_match && eventCaptureFlow.value) {
-        eventCaptureFlow.value.triggerEvent(stat, label)
-      } else {
-        incrementStat(stat, 1)
-      }
-    }
-
-    const onEventCaptured = async ({ eventType, fieldPosition, destination }) => {
-      if (!eventType) return
-      let type = eventType
-      let x = null, y = null
-      if (fieldPosition) {
-        const Parts = fieldPosition.split(',').map(Number)
-        if (Number.isFinite(Parts[0]) && Number.isFinite(Parts[1])) { x = Parts[0]; y = Parts[1] }
-      }
-      let endX = null, endY = null
-      if (destination) {
-        const Parts = destination.split(',').map(Number)
-        if (Number.isFinite(Parts[0]) && Number.isFinite(Parts[1])) { endX = Parts[0]; endY = Parts[1] }
-      }
-      // Smart reclassification: a foul committed in your own box is a penalty given away.
-      if (eventType === 'fouls' && x !== null && IsInOwnBox(x, y)) {
-        type = 'penalties_conceded'
-        flashToast('Penalty conceded — foul in your own box', 'danger')
-      }
-      await incrementStat(type, 1)
-      if (x !== null) {
-        await SaveHeatmapPoint({ XPct: x, YPct: y, EventType: type, EndX: endX, EndY: endY })
-      }
-    }
-
-    const OnMapLogEvent = ({ ActionKey, Coordinate }) => {
-      if (!activeMatch.value || !Coordinate) return
-      const Action = EventActions.find((Item) => Item.Key === ActionKey)
-      if (!Action) return
-      const FieldPosition = `${Math.round(Coordinate.XPct)},${Math.round(Coordinate.YPct)}`
-      if (Action.FollowUp) {
-        eventCaptureFlow.value?.triggerFromMap({ context: Action.FollowUp, fieldPosition: FieldPosition })
-        return
-      }
-      onEventCaptured({ eventType: Action.Key, fieldPosition: FieldPosition })
-    }
-
-    const DeleteLoggedEvent = async (Coordinate) => {
-      if (!activeMatch.value || !Coordinate) return
-      if (Coordinate.Source === 'goal') {
-        const { error } = await supabase.from('goals').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing goal:', error); flashToast('Couldn’t remove that event', 'danger'); return }
-        await incrementStat('score_for', -1)
-        matchGoals.value = matchGoals.value.filter((Goal) => Goal.id !== Coordinate.Id)
-      } else if (Coordinate.Source === 'shot') {
-        const { error } = await supabase.from('shots').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing shot:', error); flashToast('Couldn’t remove that event', 'danger'); return }
-        matchShots.value = matchShots.value.filter((Shot) => Shot.id !== Coordinate.Id)
-      } else if (Coordinate.Source === 'heatmap') {
-        const { error } = await supabase.from('match_heatmap_points').delete().eq('id', Coordinate.Id)
-        if (error) { console.error('Error removing heatmap point:', error); flashToast('Couldn’t remove that event', 'danger'); return }
-        MatchHeatmapPoints.value = MatchHeatmapPoints.value.filter((Point) => Point.id !== Coordinate.Id)
-        // This exact pin is already gone — decrement the counter only (syncHeatmap
-        // off so we don't also remove a second, unrelated pin of the same type).
-        if (Coordinate.EventKey) await incrementStat(Coordinate.EventKey, -1, { syncHeatmap: false })
-      }
-      if (selectedEvent.value && selectedEvent.value.id === Coordinate.Id) selectedEvent.value = null
-      flashToast(`${Coordinate.Label || 'Event'} removed`)
-    }
-
-    const OnQuickIncrement = ({ Stat, Delta }) => incrementStat(Stat, Delta)
-    const OnQuickIncrementGk = ({ Stat, Delta }) => incrementGkStat(Stat, Delta)
-
-    onMounted(() => {
-      loadMyClubTeamName()
-      LoadHeatmapPreference()
-      // Deep-open a match requested from elsewhere (e.g. the ratings chart).
-      if (props.openMatchId != null) {
-        const target = props.matches.find(m => m.id === props.openMatchId)
-        if (target) selectMatch(target)
-        emit('match-opened')
-      }
-    })
-
-    // Share helpers (preview, native share, copy summary, layout variants,
-    // caption, presets) all live in <ShareMatchModal> now.
-
-    const getMatchResult = (match) => {
-      if (match.score_for > match.score_against) return 'Win'
-      if (match.score_for < match.score_against) return 'Loss'
-      return 'Draw'
-    }
-
-    const formatDate = (dateString) => {
-      if (!dateString) return ''
-      // Add a day to the date to correct for timezone issues
-      const date = new Date(dateString)
-      date.setDate(date.getDate() + 1)
-      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    }
+const onAddMatch = async (formData) => {
+  const { error } = await addMatch(formData, { onSuccess: () => { showAddMatch.value = false } })
+  if (error) {
+    // toast handled here to keep the data layer UI-agnostic
+    toast.error('Error adding match. Make sure your Supabase tables are set up correctly.')
+  }
+}
+
+const onUpdateMatch = () => updateMatch({ onSuccess: () => { showEditMatch.value = false } })
+
+const handleBackToMatches = () => {
+  activeMatch.value = null
+  emit('match-updated')
+}
+
+const confirmDeleteMatch = () => {
+  showDeleteConfirm.value = true
+}
+
+const onDeleteMatch = () => deleteMatch({ onSuccess: () => { showDeleteConfirm.value = false } })
+
+const loadMyClubTeamName = async () => {
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    const user = authData?.user
+    if (!user) return
+
+    const { data: profileData, error } = await supabase
+      .from('user_profiles')
+      .select('club_team')
+      .eq('user_id', user.id)
+      .single()
+
+    if (error) return
+    if (profileData?.club_team) myClubTeamName.value = profileData.club_team
+  } catch (e) {
+    // ignore
+  }
+}
+
+const openShareModal = async () => {
+  await loadMyClubTeamName()
+  showShareModal.value = true
+}
+
+const LoadHeatmapPreference = async () => {
+  try {
+    const { data: authData } = await supabase.auth.getUser()
+    const user = authData?.user
+    if (!user) return
+    const { data: profileData, error } = await supabase
+      .from('user_profiles')
+      .select('enable_heatmap_tracking, default_match_logger_view')
+      .eq('user_id', user.id)
+      .single()
+    if (error) return
+    EnableHeatmapTracking.value = profileData?.enable_heatmap_tracking ?? true
+    LoggerView.value = profileData?.default_match_logger_view === 'counters' ? 'counters' : 'map'
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  loadMyClubTeamName()
+  LoadHeatmapPreference()
+  // Deep-open a match requested from elsewhere (e.g. the ratings chart).
+  if (props.openMatchId != null) {
+    const target = props.matches.find(m => m.id === props.openMatchId)
+    if (target) selectMatch(target)
+    emit('match-opened')
+  }
+})
 </script>
 
 <style scoped>
-/* --- Shared Design Tokens --- */
-:root {
-  --md-sys-color-primary: var(--color-accent);
-  --md-sys-color-on-primary: var(--color-on-accent);
-  --md-sys-color-primary-container: var(--color-brand);
-  --md-sys-color-on-primary-container: var(--color-brand-fg);
-  --md-sys-color-secondary: #b3ccbf;
-  --md-sys-color-surface: #101418;
-  --md-sys-color-surface-variant: #2d3135;
-  --md-sys-color-on-surface: #e1e2e6;
-  --md-sys-color-outline: #89938d;
-}
-
-/* --- Stat Color Classes (goals, assists) --- */
-.stat-excellent { color: var(--color-accent) !important; }
-.stat-good { color: #81c784 !important; }
-.stat-mid { color: #ffb74d !important; }
-.stat-bad { color: #e57373 !important; }
-.stat-horrible { color: #ef5350 !important; }
-
-/* --- Rating Color Classes (from rating.js getRatingColor) --- */
-.rating-elite     { color: #00e5a0 !important; }
-.rating-excellent { color: var(--color-accent) !important; }
-.rating-good      { color: #81c784 !important; }
-.rating-average   { color: #ffb74d !important; }
-.rating-poor      { color: #e57373 !important; }
-.rating-bad       { color: #ef5350 !important; }
-
-/* World Class — solid blue, no glow */
-.rating-world-class {
-  color: #4fc3f7 !important;
-}
-
-/* Season-best star badge */
-.rating-val-cell { position: relative; display: inline-flex; align-items: center; gap: 3px; }
-.star-badge {
-  font-size: 0.75em;
-  color: #ffd700;
-  text-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-/* Error Led to Goal row — same neutral row as other stats, just label tinted */
-.error-stat { }
-
-/* Logger view toggle (Counters / Map) */
-.logger-view-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-.logger-view-row__label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #89938d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-}
-.logger-view-toggle {
-  display: flex;
-  flex: 1;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.logger-view-toggle__btn {
-  flex: 1;
-  min-height: 40px;
-  padding: 8px 20px;
-  border: none;
-  border-radius: 9999px;
-  background: transparent;
-  color: #b3ccbf;
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease;
-}
-.logger-view-toggle__btn.active {
-  background: var(--color-brand);
-  color: var(--color-brand-fg);
-}
-@media (max-width: 480px) {
-  .logger-view-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .logger-view-row__label {
-    text-align: center;
-  }
-}
-
-/* Map-first logging layout */
-.map-logger-view {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-/* Combined Performance + Events panel layout */
-.perf-and-events {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.event-log-sub { flex: 1; }
-.event-log-title {
-  font-size: 0.72rem;
-  color: #89938d;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  padding-bottom: 6px;
-  margin-bottom: 8px;
-}
-
 .matches-section {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   color: #fff;
   padding-bottom: 40px;
-}
-
-/* --- Header --- */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  padding: 0 10px;
-}
-
-.card-header h2 {
-  font-size: 2rem; /* Increased from 1.8rem */
-  font-weight: 800;
-  margin: 0;
-  background: #fff;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.header-controls {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.sort-dropdown {
-  background: rgba(255, 255, 255, 0.05);
-  color: #ccc;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-/* --- Match List --- */
-.matches-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-
-.match-item {
-  background: rgba(15, 18, 20, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.match-item:hover {
-  transform: translateY(-4px);
-  background: rgba(25, 30, 35, 0.9);
-  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-}
-
-.match-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.match-opponent h4 {
-  margin: 0;
-  font-size: 1.25rem; /* Increased from 1.1rem */
-  color: #fff;
-  font-weight: 700;
-}
-
-.match-opponent p {
-  margin: 4px 0 0;
-  font-size: 0.9rem; /* Increased from 0.8rem */
-  color: #89938d;
-}
-
-.match-score-result {
-  text-align: right;
-}
-
-.score {
-  font-size: 1.4rem; /* Increased from 1.2rem */
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: 1px;
-}
-
-.match-result {
-  font-size: 0.75rem; /* Increased from 0.7rem */
-  font-weight: 800;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-top: 4px;
-  display: inline-block;
-}
-
-.win { color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
-.loss { color: #ef5350; background: rgba(239, 83, 80, 0.1); }
-.draw { color: #bdbdbd; background: rgba(189, 189, 189, 0.1); }
-
-.match-stats-summary {
-  display: flex;
-  justify-content: space-between;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  padding-top: 16px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-item span {
-  font-size: 1.25rem; /* Increased from 1.1rem */
-  font-weight: 700;
-  color: #fff;
-}
-
-.stat-item label {
-  font-size: 0.75rem; /* Increased from 0.65rem */
-  color: #89938d;
-  text-transform: uppercase;
-  margin-top: 2px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px;
-  color: #89938d;
-  font-style: italic;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 16px;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-.season-tag-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.season-tag {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: color-mix(in srgb, var(--color-accent) 7%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
-  border-radius: 12px;
-  padding: 4px 10px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--color-accent);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-}
-
-.season-tag:hover {
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.season-pick-dropdown {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  right: 0;
-  background: #141618;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  min-width: 160px;
-  padding: 6px;
-  z-index: 200;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.spd-option {
-  padding: 8px 10px;
-  border-radius: 7px;
-  font-size: 0.82rem;
-  color: #aaa;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.spd-option:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-}
-
-.spd-option.active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-}
-
-/* --- Live Match View --- */
-.live-match-view {
-  background: rgba(15, 18, 20, 0.9);
-  border-radius: 24px;
-  padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.match-header-redesign {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  border: none;
-  color: #89938d;
-  cursor: pointer;
-  font-size: 0.9rem;
-  width: fit-content;
-  transition: color 0.2s;
-}
-
-.back-button:hover {
-  color: #fff;
-}
-
-/* ── Compact match card header (~40% shorter than before) ──── */
-.match-card {
-  position: relative;
-  background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 14px 20px;
-  overflow: hidden;
-}
-
-/* Result-colored accent stripe (mirrors the list cards) */
-.match-card::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 3px;
-  background: var(--color-neutral);
-}
-.match-card--win::before  { background: var(--color-success); }
-.match-card--loss::before { background: var(--color-danger); }
-.match-card--draw::before { background: var(--color-neutral); }
-
-.match-card-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.match-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.opponent-name {
-  font-size: 1.15rem;
-  margin: 0;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.match-date {
-  color: #89938d;
-  font-size: 0.78rem;
-}
-
-.score-display {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.score-container {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 1.6rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.score-number { color: #fff; }
-
-.score-divider {
-  color: rgba(255, 255, 255, 0.25);
-  font-weight: 400;
-}
-
-.result-badge {
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-@media (max-width: 600px) {
-  .match-card { padding: 12px 16px; }
-  .match-card-content {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .score-display { align-self: stretch; justify-content: space-between; }
-  .opponent-name { font-size: 1.05rem; }
-  .score-container { font-size: 1.4rem; }
-}
-
-.match-view-controls {
-  margin-bottom: 24px;
-  background: rgba(0,0,0,0.2);
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.position-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.position-display {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1 1 200px;
-  min-width: 0;
-}
-
-.position-display__label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #89938d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.position-select-wrap {
-  position: relative;
-  width: 100%;
-}
-
-.position-select-wrap::after {
-  content: '';
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  transform: translateY(-60%) rotate(45deg);
-  border-right: 2px solid var(--color-brand-fg);
-  border-bottom: 2px solid var(--color-brand-fg);
-  pointer-events: none;
-}
-
-.position-select {
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 38px 10px 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease;
-}
-
-.position-select:hover {
-  border-color: color-mix(in srgb, var(--color-brand-fg) 40%, transparent);
-}
-
-.position-select:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.position-display__label,
-.goalkeeper-toggle__label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: #89938d;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.goalkeeper-toggle {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-@media (max-width: 480px) {
-  .position-controls {
-    align-items: stretch;
-  }
-  .goalkeeper-toggle {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-/* Toggle Switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 48px;
-  height: 24px;
-}
-
-.switch input { opacity: 0; width: 0; height: 0; }
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(255,255,255,0.1);
-  transition: .4s;
-  border-radius: 24px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: .4s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background-color: var(--color-accent);
-}
-
-input:checked + .slider:before {
-  transform: translateX(24px);
-}
-
-/* Live Stats Grid */
-.live-view-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.live-stats-panel, .shot-log-panel, .live-controls-panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 16px;
-  min-height: unset;
-}
-
-.live-view-content.single-column {
-  grid-template-columns: 1fr;
-}
-
-@media (min-width: 1024px) {
-  .live-view-content.single-column {
-    grid-template-columns: 280px 1fr;
-  }
-}
-
-h4 {
-  margin: 0 0 12px 0;
-  font-size: 0.78rem;
-  color: #89938d;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 8px;
-}
-
-.rating-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 0 4px;
-  gap: 2px;
-}
-
-.rating-display span {
-  font-size: 3rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.rating-display label {
-  font-size: 0.72rem;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-top: 4px;
-}
-
-.rating-tier-label {
-  font-size: 0.82rem;
-  font-weight: 700;
-  margin-top: 6px;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.05);
-}
-
-/* Always-visible match rating bar — shows in both Map and Counters logging modes. */
-.live-rating-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-bottom: 12px;
-  padding: 12px 18px;
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-}
-
-.live-rating-bar__value {
-  font-size: 2.4rem;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.live-rating-bar__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.live-rating-bar__label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--color-text-muted);
-}
-
-.live-rating-bar__tier {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.live-rating-bar__xg {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  margin-left: 6px;
-  padding-left: 14px;
-  border-left: 1px solid var(--color-border-subtle);
-}
-
-.live-rating-bar__xg-value {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--color-accent);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.live-rating-bar__xg-label {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--color-text-muted);
-}
-
-.timeline-wrap {
-  margin-top: 24px;
 }
 
 /* Transient feedback toast (teleported to body) */
@@ -2500,323 +421,6 @@ h4 {
   transform: translateX(-50%) translateY(10px);
 }
 
-/* Controls — responsive auto-fill grid on desktop, single column on mobile */
-.live-match-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.stat-control-group {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.04);
-  border-radius: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.stat-control-group:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  background: rgba(255,255,255,0.04);
-}
-
-.button-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  padding: 12px 24px; /* Increased padding for bigger buttons */
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 1.2rem; /* Increased font size */
-  transition: all 0.2s;
-  min-width: 48px; /* Ensure minimum width */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.btn-primary { background: var(--color-accent); color: var(--color-on-accent); }
-.btn-primary:hover { background: var(--color-accent-strong); }
-
-.btn-danger { background: rgba(239, 83, 80, 0.2); color: #ef5350; }
-.btn-danger:hover { background: rgba(239, 83, 80, 0.4); }
-
-.btn-success { background: color-mix(in srgb, var(--color-accent) 20%, transparent); color: var(--color-accent); }
-.btn-success:hover { background: color-mix(in srgb, var(--color-accent) 40%, transparent); }
-
-.stat-value-display {
-  font-weight: 700;
-  width: 24px;
-  text-align: center;
-}
-
-/* Event Log */
-.event-list {
-  max-height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.event-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: rgba(255,255,255,0.05);
-  padding: 8px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.event-item:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-.event-icon {
-  font-size: 1.2rem;
-}
-
-.event-details {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.event-type {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.event-subtype {
-  font-size: 0.75rem;
-  color: #89938d;
-}
-
-.event-count {
-  font-size: 0.8rem;
-  color: var(--color-accent);
-  margin-left: 4px;
-}
-
-.remove-event-btn {
-  background: transparent;
-  border: none;
-  color: #666;
-  font-size: 1.2rem;
-  cursor: pointer;
-}
-
-.remove-event-btn:hover { color: #ef5350; }
-
-/* Viz Grid */
-.shot-visualization {
-  margin-top: 20px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding-top: 16px;
-}
-
-.viz-header {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-.view-toggles {
-  display: flex;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px;
-  border-radius: 8px;
-  gap: 4px;
-}
-
-.viz-toggle-btn {
-  background: transparent;
-  border: none;
-  color: #89938d;
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.viz-toggle-btn.active {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.viz-toggle-btn:hover:not(.active) {
-  color: #ccc;
-}
-
-.viz-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.viz-placeholder {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.4);
-  color: #89938d;
-  font-size: 0.9rem;
-}
-
-.viz-placeholder-text {
-  text-align: center;
-  margin-top: 8px;
-  color: #89938d;
-  font-size: 0.85rem;
-}
-
-.viz-grid .goal-grid {
-  width: 100%;
-  height: 180px; /* Bigger visualization height */
-  border-width: 2px;
-}
-
-.viz-grid .goal-quadrant {
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-.viz-field {
-  width: 100%;
-  aspect-ratio: 4/3;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  background: #1a1d21;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.shot-marker {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  background: #3b82f6; /* Blue for on-target/goal */
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 5px rgba(59, 130, 246, 0.5);
-  transform: translate(-50%, -50%);
-}
-
-.shot-marker.off-target {
-  background: #ef5350; /* Red for off-target */
-  box-shadow: 0 0 5px rgba(239, 83, 80, 0.5);
-}
-
-.shot-marker.goal {
-  background: var(--color-accent); /* Green for goals */
-  box-shadow: 0 0 5px color-mix(in srgb, var(--color-accent) 50%, transparent);
-}
-
-.goal-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  background: rgba(255,255,255,0.1);
-  border: 4px solid #fff;
-  width: 120px;
-  height: 80px;
-  margin: 0 auto;
-}
-
-/* Larger goal grid for modals */
-.modal .goal-grid {
-  width: 100%;
-  height: 220px;
-  max-width: 330px;
-}
-
-.modal .goal-quadrant {
-  font-size: 1.5rem;
-  font-weight: 800;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-.goal-quadrant {
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.goal-quadrant:hover { background: rgba(255,255,255,0.1); }
-.goal-quadrant.highlight { background: color-mix(in srgb, var(--color-accent) 50%, transparent); }
-
-/* Actions */
-.heatmap-view {
-  margin-top: 32px;
-  padding-top: 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.heatmap-view__title {
-  margin: 0 0 16px;
-  text-align: center;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.match-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-}
-
-.action-btn {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #ccc;
-  padding: 8px 16px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  background: rgba(255,255,255,0.05);
-  color: #fff;
-}
-
-.delete-btn:hover {
-  border-color: #ef5350;
-  color: #ef5350;
-}
-
 /* Modals */
 .modal-overlay {
   position: fixed;
@@ -2855,30 +459,6 @@ h4 {
   cursor: pointer;
 }
 
-.modal-options-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.modal-option-btn {
-  padding: 16px;
-  border-radius: 12px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.modal-option-btn:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  border-color: var(--color-accent);
-}
-
 .form-group {
   margin-bottom: 16px;
 }
@@ -2906,55 +486,29 @@ h4 {
   margin-top: 24px;
 }
 
-/* Field Modal */
-.field-modal { max-width: 500px; }
-.field-grid-container {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4/3;
-  background: #1a1d21; /* Dark gray background */
-  border: 2px solid rgba(255, 255, 255, 0.1);
+.btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  padding: 12px 24px; /* Increased padding for bigger buttons */
   border-radius: 8px;
-  overflow: hidden;
-  box-shadow: inset 0 0 60px rgba(0,0,0,0.4);
-  cursor: crosshair;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.2rem; /* Increased font size */
+  transition: all 0.2s;
+  min-width: 48px; /* Ensure minimum width */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.field-markings-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.5;
+.btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .match-card-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 20px;
-  }
-  
-  .score-display { align-items: center; }
-  
-  .live-view-content.single-column {
-    grid-template-columns: 1fr;
-  }
-  
-  .matches-list {
-    grid-template-columns: 1fr;
-  }
-}
+.btn-primary { background: var(--color-accent); color: var(--color-on-accent); }
+.btn-primary:hover { background: var(--color-accent-strong); }
 
-/* Share trigger button (live-view header). All other share styles live
-   inside the dedicated <ShareMatchModal> component. */
-.share-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
+.btn-danger { background: rgba(239, 83, 80, 0.2); color: #ef5350; }
+.btn-danger:hover { background: rgba(239, 83, 80, 0.4); }
 </style>

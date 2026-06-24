@@ -57,6 +57,9 @@ test.describe('authenticated', () => {
   test('result filter pills narrow the list', async ({ page }) => {
     await page.goto('/dashboard')
     await page.getByRole('button', { name: 'Matches' }).click()
+    // Wait for the list to render before counting (the tab-swap transition mounts
+    // the content a beat later — counting immediately would race it).
+    await page.locator('.match-card--row').first().waitFor()
     const initialCount = await page.locator('.match-card--row').count()
     await page.locator('.filter-pill[data-filter="W"]').click()
     const winCount = await page.locator('.match-card--row').count()

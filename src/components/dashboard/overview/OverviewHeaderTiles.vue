@@ -44,8 +44,24 @@
     <StatTile label="Avg Rating" :value="averageRating" :accent="ratingAccent">
       <template #icon>⭐</template>
       <template #footer>
-        <svg v-if="ratingSpark" class="hs-spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
-          <polyline class="hs-spark__line" :points="ratingSpark" />
+        <svg v-if="ratingSparkData" class="hs-spark" viewBox="0 0 96 34" aria-hidden="true">
+          <defs>
+            <linearGradient id="hs-spark-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="currentColor" stop-opacity="0.30" />
+              <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+            </linearGradient>
+          </defs>
+          <path class="hs-spark__area" :d="ratingSparkData.area" fill="url(#hs-spark-grad)" />
+          <polyline class="hs-spark__line" :points="ratingSparkData.line" />
+          <circle
+            v-for="(pt, i) in ratingSparkData.points"
+            :key="i"
+            class="hs-spark__dot"
+            :cx="pt.x"
+            :cy="pt.y"
+            r="1.7"
+          />
+          <circle class="hs-spark__dot hs-spark__dot--last" :cx="ratingSparkData.last.x" :cy="ratingSparkData.last.y" r="3" />
         </svg>
       </template>
     </StatTile>
@@ -124,25 +140,36 @@ const recentForm = computed(() =>
     .reverse()
 )
 
-// Mini sparkline of the last (up to) 8 match ratings, normalised to a 0–100 ×
-// 0–26 viewBox. Needs ≥2 points to draw a line.
-const ratingSpark = computed(() => {
+// Mini area-chart of the last (up to) 8 match ratings: area fill + line + a
+// marker on each point (latest emphasised). Mapped to a 96×34 viewBox (1:1 with
+// its rendered size so the dots stay round). Needs ≥2 points to draw.
+const ratingSparkData = computed(() => {
   const ratings = props.matches
     .slice(0, 8)
     .map((m) => parseFloat(calculateMatchRating(m)))
     .reverse()
-  if (ratings.length < 2) return ''
+  if (ratings.length < 2) return null
+
+  const W = 96
+  const H = 34
+  const padY = 4
   const min = Math.min(...ratings)
   const max = Math.max(...ratings)
   const span = max - min || 1
-  const stepX = 100 / (ratings.length - 1)
-  return ratings
-    .map((r, i) => {
-      const x = i * stepX
-      const y = 24 - ((r - min) / span) * 22 - 1
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
+  const stepX = W / (ratings.length - 1)
+
+  const points = ratings.map((r, i) => ({
+    x: +(i * stepX).toFixed(1),
+    y: +(H - padY - ((r - min) / span) * (H - 2 * padY)).toFixed(1)
+  }))
+
+  const line = points.map((p) => `${p.x},${p.y}`).join(' ')
+  const area =
+    `M ${points[0].x},${H} ` +
+    points.map((p) => `L ${p.x},${p.y}`).join(' ') +
+    ` L ${points[points.length - 1].x},${H} Z`
+
+  return { line, area, points, last: points[points.length - 1] }
 })
 
 const lastMatch = computed(() => props.matches[0] || null)
@@ -332,18 +359,34 @@ const lastMatchResult = computed(() => {
 .hs-form__dot--l { background: var(--color-danger); }
 
 .hs-spark {
-  width: 72px;
-  height: 22px;
+  width: 96px;
+  height: 34px;
   margin-top: 8px;
+  /* Drives currentColor for the line, gradient fill and markers. */
+  color: var(--color-accent);
   overflow: visible;
+}
+
+.hs-spark__area {
+  stroke: none;
 }
 
 .hs-spark__line {
   fill: none;
-  stroke: var(--color-accent);
-  stroke-width: 2;
+  stroke: currentColor;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
+}
+
+/* Data-point markers — hollow on the trend, solid on the latest match. */
+.hs-spark__dot {
+  fill: var(--color-bg-surface);
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+
+.hs-spark__dot--last {
+  fill: currentColor;
 }
 </style>

@@ -18,10 +18,10 @@
 
     <div class="dashboard-container">
       <div class="dashboard-container-inner">
-        <!-- Unified control bar. Flat flex children reordered per breakpoint:
-             desktop is one row (mode · tabs … season  Simple/Advanced); mobile
-             stacks to row 1 = mode, row 2 = tabs + Simple/Advanced, row 3 =
-             season. -->
+        <!-- Control bar: mode (Matches/Training) + sub-tabs on the left, and a
+             single settings (gear) dropdown on the right that holds the
+             Simple/Advanced detail toggle + the season switch — so the bar isn't
+             crowded with three separate controls. -->
         <div class="control-bar" data-reveal="rv-rise" style="--rv-i: 2">
           <ModeSwitcher class="cb-mode" :modelValue="dashboardMode" @update:modelValue="setMode" />
           <span class="control-bar__divider" aria-hidden="true"></span>
@@ -31,18 +31,11 @@
             :ActiveKey="activeTab"
             @select="activeTab = $event"
           />
-          <div
-            v-if="dashboardMode === 'matches' && activeTab === 'overview'"
-            class="overview-mode cb-view"
-            role="tablist"
-            aria-label="Dashboard detail level"
-          >
-            <button type="button" class="overview-mode__btn" :class="{ 'is-active': !advanced }" :aria-selected="!advanced" @click="advanced = false">Simple</button>
-            <button type="button" class="overview-mode__btn" :class="{ 'is-active': advanced }" :aria-selected="advanced" @click="advanced = true">Advanced</button>
-          </div>
-          <SeasonSelector
+          <ControlSettings
             v-if="dashboardMode === 'matches'"
-            class="cb-season"
+            class="cb-settings"
+            v-model:advanced="advanced"
+            :showViewToggle="activeTab === 'overview'"
             :seasons="seasons"
             :activeSeason="activeSeason"
             @update:activeSeason="setActiveSeason"
@@ -52,54 +45,61 @@
           />
         </div>
 
-        <!-- Matches mode -->
-        <template v-if="dashboardMode === 'matches'">
-          <DashboardOverview
-            v-if="activeTab === 'overview'"
-            v-model:advanced="advanced"
-            :matches="filteredMatches"
-            :userName="userName"
-            :allShotsData="filteredShotsData"
-            :allGoalsData="filteredGoalsData"
-            :allHeatmapData="filteredHeatmapData"
-            :season="activeSeason"
-            :totalMatches="matches.length"
-            :loading="dataLoading"
-            @go-to-matches="activeTab = 'matches'"
-            @clear-season="activeSeason = null"
-            @go-to-drills="goToDrills"
-            @open-match="openMatch"
-          />
+        <!-- Content swap: crossfade + slight directional slide between modes and
+             sub-tabs (lighter than the route splash). Keyed by mode:tab so the
+             transition fires; the control bar above stays put. -->
+        <Transition :name="dashTransition" mode="out-in">
+          <div class="dash-view" :key="dashboardMode + ':' + activeTab">
+            <!-- Matches mode -->
+            <template v-if="dashboardMode === 'matches'">
+              <DashboardOverview
+                v-if="activeTab === 'overview'"
+                v-model:advanced="advanced"
+                :matches="filteredMatches"
+                :userName="userName"
+                :allShotsData="filteredShotsData"
+                :allGoalsData="filteredGoalsData"
+                :allHeatmapData="filteredHeatmapData"
+                :season="activeSeason"
+                :totalMatches="matches.length"
+                :loading="dataLoading"
+                @go-to-matches="activeTab = 'matches'"
+                @clear-season="activeSeason = null"
+                @go-to-drills="goToDrills"
+                @open-match="openMatch"
+              />
 
-          <MatchManager
-            v-if="activeTab === 'matches'"
-            :matches="filteredMatches"
-            :activeSeason="activeSeason"
-            :seasons="seasons"
-            :openMatchId="pendingMatchId"
-            @match-updated="loadData"
-            @match-opened="pendingMatchId = null"
-          />
-        </template>
+              <MatchManager
+                v-if="activeTab === 'matches'"
+                :matches="filteredMatches"
+                :activeSeason="activeSeason"
+                :seasons="seasons"
+                :openMatchId="pendingMatchId"
+                @match-updated="loadData"
+                @match-opened="pendingMatchId = null"
+              />
+            </template>
 
-        <!-- Training mode -->
-        <template v-else>
-          <TrainingOverview
-            v-if="activeTab === 'overview'"
-            :userName="userName"
-            @go-to-drills="activeTab = 'drills'"
-          />
+            <!-- Training mode -->
+            <template v-else>
+              <TrainingOverview
+                v-if="activeTab === 'overview'"
+                :userName="userName"
+                @go-to-drills="activeTab = 'drills'"
+              />
 
-          <PracticeTracker
-            v-if="activeTab === 'drills'"
-            :userName="userName"
-          />
+              <PracticeTracker
+                v-if="activeTab === 'drills'"
+                :userName="userName"
+              />
 
-          <WeeklyTrainingPlan
-            v-if="activeTab === 'weekly'"
-            :userName="userName"
-          />
-        </template>
+              <WeeklyTrainingPlan
+                v-if="activeTab === 'weekly'"
+                :userName="userName"
+              />
+            </template>
+          </div>
+        </Transition>
 
       </div>
     </div>
@@ -121,7 +121,7 @@ import { selectByIds } from '../lib/queryBatch'
 import WelcomeIntro from './onboarding/WelcomeIntro.vue'
 import DashboardOverview from './DashboardOverview.vue'
 import MatchManager from './MatchManager.vue'
-import SeasonSelector from './SeasonSelector.vue'
+import ControlSettings from './dashboard/ControlSettings.vue'
 import PracticeTracker from './dashboard/practice/PracticeTracker.vue'
 import TrainingOverview from './dashboard/practice/TrainingOverview.vue'
 import WeeklyTrainingPlan from './dashboard/practice/WeeklyTrainingPlan.vue'
@@ -172,6 +172,20 @@ let modeSource = 'none'
 let savedModeRestored = false
 
 const dashboardTabItems = computed(() => TABS_BY_MODE[dashboardMode.value])
+
+// Directional content transition: combine mode (0/1) + tab index into a scalar
+// so moving "forward" (Matches→Training, or a later tab) slides one way and
+// "back" the other. Updated before the keyed view re-renders.
+const dashTransition = ref('dash-fwd')
+const navIndex = computed(() => {
+  const modeIdx = dashboardMode.value === 'training' ? 1 : 0
+  const tabs = TABS_BY_MODE[dashboardMode.value] || []
+  const tabIdx = Math.max(0, tabs.findIndex((t) => t.Key === activeTab.value))
+  return modeIdx * 10 + tabIdx
+})
+watch(navIndex, (now, prev) => {
+  dashTransition.value = now >= prev ? 'dash-fwd' : 'dash-back'
+})
 
 // Reveal the hero + control chrome on mount (the overview tiles decorate
 // themselves inside DashboardOverview).
@@ -550,6 +564,19 @@ const loadData = async (passedUser) => {
   margin: 0 auto 28px;
 }
 
+/* ── Content swap transition ───────────────────────────────────────────
+   Crossfade + slight directional slide between modes/sub-tabs (no splash).
+   out-in: outgoing leaves quickly, incoming eases in from the travel side. */
+.dash-view { width: 100%; }
+.dash-fwd-leave-active,
+.dash-back-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
+.dash-fwd-enter-active,
+.dash-back-enter-active { transition: opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1), transform 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
+.dash-fwd-enter-from { opacity: 0; transform: translateX(14px); }
+.dash-fwd-leave-to  { opacity: 0; transform: translateX(-14px); }
+.dash-back-enter-from { opacity: 0; transform: translateX(-14px); }
+.dash-back-leave-to   { opacity: 0; transform: translateX(14px); }
+
 /* ── Editorial hero (home-page language) ──────────────────────────── */
 .dash-hero {
   display: flex;
@@ -580,9 +607,9 @@ const loadData = async (passedUser) => {
   text-stroke: 1.6px var(--color-accent);
 }
 
-/* ── Unified control bar ──────────────────────────────────────────
-   Flat flex row; children are reordered per breakpoint via `order`.
-   Desktop (one row): mode · | · tabs ……… season  Simple/Advanced. */
+/* ── Control bar ───────────────────────────────────────────────────
+   Desktop (one row): mode · | · tabs ……… ⚙ settings. The Simple/Advanced
+   toggle + season switch now live inside the settings gear dropdown. */
 .control-bar {
   display: flex;
   align-items: center;
@@ -600,95 +627,24 @@ const loadData = async (passedUser) => {
   flex: 0 0 auto;
 }
 .cb-tabs   { order: 3; min-width: 0; }
-/* margin-left:auto pushes the view controls (season + toggle) to the right. */
-.cb-season { order: 4; margin-left: auto; }
-.cb-view   { order: 5; }
-
-/* Simple ⇄ Advanced segmented toggle (moved here from the overview).
-   Two equal halves with a sliding pill: gap MUST be 0 so the 50%-wide pill lines
-   up under each button and the centred label sits on top of it. */
-.overview-mode {
-  position: relative;
-  display: inline-flex;
-  gap: 0;
-  padding: 4px;
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  flex: 0 0 auto;
-}
-
-/* Sliding accent pill that travels between Simple and Advanced. */
-.overview-mode::before {
-  content: '';
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 4px;
-  width: calc(50% - 4px);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-soft);
-  box-shadow: inset 0 0 0 1px var(--color-accent-border);
-  transition: transform 0.42s cubic-bezier(0.5, 1.5, 0.4, 1);
-  z-index: 0;
-}
-.overview-mode:has(.overview-mode__btn:last-of-type.is-active)::before {
-  transform: translateX(100%);
-}
-
-.overview-mode__btn {
-  position: relative;
-  z-index: 1;
-  /* Equal halves with centred labels (each button owns exactly 50%). */
-  flex: 1 1 0;
-  min-width: 92px;
-  text-align: center;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  padding: 15px 36px;
+/* Overview/Matches sub-tabs: wider than the shared default (dashboard only —
+   Feed keeps the default size), height kept at 62px to match the mode switcher
+   and the settings gear. Overridden for mobile below. */
+.cb-tabs :deep(.scrollable-tabs__pill) {
+  padding: 13px 44px;
   min-height: 54px;
-  border-radius: var(--radius-pill);
-  font-size: 1.0625rem;
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  line-height: 1.4;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.25s ease, transform 0.14s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 1.15rem;
 }
+/* The settings gear sits flush at the right edge. */
+.cb-settings { order: 4; margin-left: auto; }
 
-.overview-mode__btn:active { transform: scale(0.93); }
-
-.overview-mode__btn.is-active {
-  color: var(--color-accent);
-}
-
-@media (hover: hover) {
-  .overview-mode__btn:not(.is-active):hover {
-    color: var(--color-text-secondary);
-  }
-}
-
-/* Tablet + phone: the one-row bar can't fit mode · tabs · season · toggle below
-   ~1024px, so stack it — row 1 = mode (full), row 2 = tabs + Simple/Advanced,
-   row 3 = season. Covers everything from large tablets down to small phones. */
+/* Tablet + phone: stack — row 1 = mode (full width), row 2 = tabs + gear. */
 @media (max-width: 1023px) {
-  .control-bar {
-    gap: 12px 8px;
-  }
-
+  .control-bar { gap: 12px 8px; }
   .control-bar__divider { display: none; }
-
-  .cb-mode   { order: 1; flex: 1 0 100%; }
-  /* Content-sized + stable: the switchers DON'T grow to fill, so switching tabs
-     (which hides the Simple/Advanced toggle) never makes the tabs balloon. */
-  .cb-tabs   { order: 2; flex: 0 1 auto; }
-  .cb-view   { order: 3; flex: 0 1 auto; }
-  /* Season sits at the right edge — when it wraps to its own row on small phones
-     it stays flush right, so its right-anchored dropdown can't run off-screen. */
-  .cb-season { order: 4; flex: 0 0 auto; margin-left: auto; }
+  .cb-mode     { order: 1; flex: 1 0 100%; }
+  .cb-tabs     { order: 2; flex: 0 1 auto; }
+  .cb-settings { order: 3; flex: 0 0 auto; margin-left: auto; }
 }
 
 @media (max-width: 768px) {
@@ -698,36 +654,27 @@ const loadData = async (passedUser) => {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
-  .dash-hero {
-    align-items: flex-start;
-  }
+  .dash-hero { align-items: flex-start; }
 
-  /* Tighter horizontal gap so tabs + toggle + season icon share row 2. */
-  .control-bar { gap: 12px 6px; }
-
-  /* Compact the tabs + toggle (tight horizontal footprint + smaller label so
-     Overview/Matches, Simple/Advanced AND the season icon share row 2 down to
-     ~390px phones). Both MUST use the same min-height/padding/font so the two
-     switchers are identical in size. */
-  .cb-tabs :deep(.scrollable-tabs__pill),
-  .overview-mode__btn {
-    padding: 15px 8px;
+  /* On phones the sub-tabs GROW to fill the row (up to the settings gear), so
+     Overview/Matches read large width-wise instead of two small pills. Safe
+     from the old resize-jump because nothing appears/disappears on a tab switch
+     within a mode (the toggle now lives in the gear). */
+  .cb-tabs { flex: 1 1 auto; }
+  .cb-tabs :deep(.scrollable-tabs__pill) {
+    padding: 15px 10px;
     min-height: 54px;
-    /* Equal fixed min-width per pill: keeps both halves the same size (so the
-       sliding indicator stays aligned) AND wide enough that the longest label
-       ("Advanced") never clips. */
-    min-width: 76px;
+    min-width: 72px;
     font-size: var(--font-size-sm);
   }
 }
 
-/* Very narrow phones (≤374, e.g. small Androids): smaller label + min-width so
-   the two switchers still fit one row without clipping. */
+/* Very narrow phones (≤374): shrink the tab labels so 3 training tabs + the
+   gear still fit one row. */
 @media (max-width: 374px) {
-  .cb-tabs :deep(.scrollable-tabs__pill),
-  .overview-mode__btn {
-    padding: 14px 6px;
-    min-width: 60px;
+  .cb-tabs :deep(.scrollable-tabs__pill) {
+    padding: 14px 7px;
+    min-width: 58px;
     font-size: 0.8125rem;
   }
 }
