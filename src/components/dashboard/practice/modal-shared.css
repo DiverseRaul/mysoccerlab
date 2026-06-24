@@ -7,7 +7,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  /* Above the mobile bottom-nav pill (z-index 2100 in App.vue) and route
+     splash (2000); otherwise the fixed bottom-nav floats over the modal on
+     mobile and intercepts clicks on the bottom action buttons. */
+  z-index: 2200;
   padding: var(--space-4);
 }
 

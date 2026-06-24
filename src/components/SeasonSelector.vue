@@ -1,13 +1,13 @@
 <template>
-  <div class="season-selector">
-    <div class="season-pill" @click="toggleOpen" :class="{ open: isOpen }">
+  <div class="season-selector" :class="{ 'season-selector--inline': inline }">
+    <div v-if="!inline" class="season-pill" @click="toggleOpen" :class="{ open: isOpen }">
       <i class="ph ph-calendar" style="font-size:13px" aria-hidden="true"></i>
       <span>{{ activeSeason ? activeSeason.name : 'All Time' }}</span>
       <i class="chevron ph ph-caret-down" style="font-size:12px" aria-hidden="true"></i>
     </div>
 
     <Transition name="season-dd">
-    <div v-if="isOpen" class="season-dropdown">
+    <div v-if="inline || isOpen" class="season-dropdown" :class="{ 'season-dropdown--inline': inline }">
       <div
         class="season-option"
         :class="{ active: !activeSeason }"
@@ -81,6 +81,9 @@ import CreateSeasonModal from './CreateSeasonModal.vue'
 const props = defineProps({
   seasons: { type: Array, default: () => [] },
   activeSeason: { type: Object, default: null },
+  // Inline mode: render the options list directly (no pill trigger, no absolute
+  // popover) so it can sit inside the dashboard settings dropdown.
+  inline: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['update:activeSeason', 'season-created', 'season-deleted', 'season-updated'])
@@ -197,6 +200,18 @@ const formatDate = (dateStr) => {
   z-index: 100;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   transform-origin: top left;
+}
+
+/* Inline mode: the options list renders directly inside the dashboard settings
+   dropdown — drop the popover chrome and absolute positioning. */
+.season-dropdown--inline {
+  position: static;
+  inset: auto;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 /* Dropdown springs out of the pill, and its rows stagger in. */

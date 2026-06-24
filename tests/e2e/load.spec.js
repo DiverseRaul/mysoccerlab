@@ -13,8 +13,10 @@ async function gotoDashboard(page) {
   if (page.url().includes('/login')) return false
   // Dismiss the welcome intro if it's showing (it intercepts clicks).
   await page.getByTestId('intro-skip').click({ timeout: 1500 }).catch(() => {})
-  // The Load Management widget is an advanced-mode tile on the overview, so
-  // switch to Advanced to reveal it.
+  // The Load Management widget is an advanced-mode tile on the overview. The
+  // Simple/Advanced toggle now lives in the settings (gear) dropdown — open it,
+  // then switch to Advanced.
+  await page.locator('.settings-trigger').click({ timeout: 3000 }).catch(() => {})
   await page.getByRole('button', { name: 'Advanced', exact: true }).click({ timeout: 3000 }).catch(() => {})
   return true
 }

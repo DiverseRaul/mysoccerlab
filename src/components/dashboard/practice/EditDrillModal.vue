@@ -1,4 +1,5 @@
 <template>
+  <Teleport to="body">
   <div v-if="modelValue && drill" class="modal-overlay" @click.self="close">
     <div class="modal" @click.stop data-testid="practice-edit-drill-modal">
       <div class="modal-header">
@@ -49,6 +50,7 @@
       </form>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>

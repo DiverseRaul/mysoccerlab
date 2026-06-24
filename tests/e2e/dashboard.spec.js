@@ -39,6 +39,24 @@ test('dashboard tabs switch the active view', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Matches' })).toHaveClass(/is-active/)
 })
 
+test('sub-tab indicator tracks the active tab', async ({ page }) => {
+  const authed = await gotoDashboard(page)
+  test.skip(!authed, 'requires authenticated test user')
+  // Switch to Training mode (3 tabs, no MatchManager) and check the sliding
+  // pill indicator lands centred on the active tab after switching tabs.
+  await page.getByTestId('mode-training').click()
+  await page.getByRole('button', { name: 'Drills' }).click()
+  await expect(page.getByRole('button', { name: 'Drills' })).toHaveClass(/is-active/)
+  await page.waitForTimeout(500) // let the indicator finish sliding
+  const aligned = await page.evaluate(() => {
+    const ind = document.querySelector('.cb-tabs .scrollable-tabs__indicator')?.getBoundingClientRect()
+    const act = document.querySelector('.cb-tabs .scrollable-tabs__pill.is-active')?.getBoundingClientRect()
+    if (!ind || !act) return false
+    return Math.abs((ind.left + ind.width / 2) - (act.left + act.width / 2)) <= 6
+  })
+  expect(aligned).toBe(true)
+})
+
 test('AI Coach nav link opens the AI Coach screen', async ({ page, isMobile }) => {
   const authed = await gotoDashboard(page)
   test.skip(!authed, 'requires authenticated test user')
@@ -62,16 +80,19 @@ test('dashboard shows the page hero and pitch insights tile', async ({ page }) =
   await expect(page.getByTestId('pitch-insights-heatmap-view')).toBeVisible()
 })
 
-test('control bar: Simple/Advanced toggle drives Advanced mode', async ({ page }) => {
+test('settings menu: Simple/Advanced toggle drives Advanced mode', async ({ page }) => {
   const authed = await gotoDashboard(page)
   test.skip(!authed, 'requires authenticated test user')
-  // The Simple/Advanced toggle now lives in the unified control bar (lifted out
-  // of the overview). Switching to Advanced must reveal the advanced sections +
-  // the floating "Advanced mode" FAB; switching back hides them.
+  // The Simple/Advanced toggle now lives inside the settings (gear) dropdown.
+  // Opening it and switching to Advanced reveals the advanced sections + the
+  // floating "Advanced mode" FAB; switching back hides them.
   await expect(page.getByTestId('page-hero')).toBeVisible({ timeout: 15000 })
   const fab = page.locator('.advanced-fab')
   await expect(fab).toHaveCount(0)
 
+  // Open the gear; the toggle lives inside and the popover stays open while you
+  // click within it.
+  await page.locator('.settings-trigger').click()
   await page.getByRole('button', { name: 'Advanced', exact: true }).click()
   await expect(fab).toBeVisible()
   await expect(page.locator('.overview-group').first()).toBeVisible()

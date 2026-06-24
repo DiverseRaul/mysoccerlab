@@ -1,4 +1,5 @@
 <template>
+  <Teleport to="body">
   <div v-if="modelValue && drill" class="modal-overlay" @click.self="close">
     <div
       class="modal modal--popup"
@@ -43,6 +44,11 @@
             <div class="ls-stat"><span class="ls-stat__val">{{ counts.miss }}</span><span class="ls-stat__lbl">Misses</span></div>
             <div class="ls-stat"><span class="ls-stat__val">{{ counts.save }}</span><span class="ls-stat__lbl">Saves</span></div>
           </div>
+
+          <!-- Live derived summary: goals from total shots (with accuracy). -->
+          <p v-if="placements.length" class="derived-hint">
+            {{ derivedGoals }} goal{{ derivedGoals === 1 ? '' : 's' }} from {{ placements.length }} shot{{ placements.length === 1 ? '' : 's' }} · {{ derivedAccuracy }}%
+          </p>
 
           <!-- Timeline of placed shots — delete any individual one -->
           <ul v-if="placements.length" class="shot-list" data-testid="shot-timeline">
@@ -148,6 +154,7 @@
       </form>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -416,6 +423,14 @@ const submit = () => {
 }
 .ls-stat__val { font-size: var(--font-size-md); font-weight: var(--font-weight-heavy); color: var(--color-text-primary); line-height: 1; font-variant-numeric: tabular-nums; }
 .ls-stat__lbl { font-size: 0.62rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+
+.derived-hint {
+  margin: 0 0 var(--space-3);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
 
 .shot-list {
   list-style: none;

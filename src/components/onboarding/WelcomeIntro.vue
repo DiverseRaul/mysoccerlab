@@ -179,7 +179,10 @@ const Skip = () => Emit('Done', null)
 .intro-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  /* Above the floating nav (2100) and route splash (2000) — the onboarding
+     modal must cover the whole app, or the fixed bottom nav intercepts taps on
+     the intro's buttons (its z-index was 1000, below the nav). */
+  z-index: 2600;
   display: flex;
   align-items: center;
   justify-content: center;
