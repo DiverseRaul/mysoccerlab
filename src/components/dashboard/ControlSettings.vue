@@ -76,9 +76,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Same height as the mode + tab switchers (62px) so the bar is even. */
-  width: 62px;
-  height: 62px;
+  /* Same outer height as the mode + tab switchers so the bar is even. */
+  width: 64px;
+  height: 64px;
   border-radius: var(--radius-pill);
   background: var(--color-bg-surface-2);
   border: 1px solid var(--color-border-subtle);
