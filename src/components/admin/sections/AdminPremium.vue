@@ -28,15 +28,19 @@
     <div class="acard">
       <h3 class="acard__title">Pricing</h3>
       <AdminField label="Currency symbol" v-model="draft.pricing.currency" />
-      <AdminField label="Base $/month (1 month)" type="number" v-model="draft.pricing.base" />
-      <AdminField label="Year total (12 months)" type="number" v-model="draft.pricing.year" />
-      <AdminField label="Floor $/month (24 months)" type="number" v-model="draft.pricing.floor" />
+      <div v-for="p in draft.pricing.plans" :key="p.id" class="aitem">
+        <span class="aitem__tag">{{ p.id }}</span>
+        <AdminField label="Label" v-model="p.label" />
+        <AdminField label="Billed period (months)" type="number" v-model="p.months" />
+        <AdminField label="Total charge" type="number" v-model="p.total" />
+      </div>
       <AdminField label="Note" v-model="draft.pricing.note" />
       <div class="apreview">
         <span class="apreview__title">Per-month preview</span>
-        <div class="apreview__row"><span>1 month</span><strong>{{ draft.pricing.currency }}{{ num(draft.pricing.base) }}/mo</strong></div>
-        <div class="apreview__row"><span>12 months</span><strong>{{ draft.pricing.currency }}{{ num(draft.pricing.year / 12) }}/mo · {{ draft.pricing.currency }}{{ num(draft.pricing.year) }}</strong></div>
-        <div class="apreview__row"><span>24 months</span><strong>{{ draft.pricing.currency }}{{ num(draft.pricing.floor) }}/mo</strong></div>
+        <div v-for="p in draft.pricing.plans" :key="p.id" class="apreview__row">
+          <span>{{ p.label }}</span>
+          <strong>{{ draft.pricing.currency }}{{ num(p.total / (p.months || 1)) }}/mo · {{ draft.pricing.currency }}{{ num(p.total) }}</strong>
+        </div>
       </div>
     </div>
 

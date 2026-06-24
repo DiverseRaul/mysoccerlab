@@ -35,8 +35,4 @@ const style = computed(() => ({ width: props.width, height: props.height, border
 }
 @keyframes skeleton-shimmer {
   100% { transform: translateX(100%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .skeleton::after { animation: none; }
-}
-</style>
+}</style>

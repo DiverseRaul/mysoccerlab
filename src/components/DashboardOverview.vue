@@ -1,5 +1,7 @@
 <template>
-  <div class="dashboard-overview">
+  <div class="dashboard-overview" ref="overviewEl">
+    <!-- One-shot accent light sweep when switching into Advanced mode. -->
+    <div v-if="advancedPulse" class="advanced-sweep" aria-hidden="true"></div>
     <!-- Loading skeleton — shown until the first matches query resolves, so the
          empty state never flashes while data is still on its way. -->
     <div v-if="loading" class="bento-grid" aria-hidden="true">
@@ -38,13 +40,6 @@
     </EmptyState>
 
     <template v-else>
-    <div class="overview-toolbar">
-      <div class="overview-mode" role="tablist" aria-label="Dashboard detail level">
-        <button type="button" class="overview-mode__btn" :class="{ 'is-active': !Advanced }" :aria-selected="!Advanced" @click="Advanced = false">Simple</button>
-        <button type="button" class="overview-mode__btn" :class="{ 'is-active': Advanced }" :aria-selected="Advanced" @click="Advanced = true">Advanced</button>
-      </div>
-    </div>
-
     <!-- Each group is its own grid so sections never bleed or gap into each
          other; the un-named first group (simple tiles) has no header. -->
     <section v-for="section in sections" :key="section.group || 'main'" class="overview-section">
@@ -91,7 +86,7 @@
     <Teleport to="body">
       <Transition name="fab-anim">
         <button v-if="Advanced" class="advanced-fab" type="button" @click="BackToSimple">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          <i class="ph ph-info" style="font-size:16px" aria-hidden="true"></i>
           <span class="advanced-fab__label">Advanced mode</span>
           <span class="advanced-fab__action">Back to Simple</span>
         </button>
@@ -119,10 +114,11 @@ import SeasonGoalsTile from './dashboard/overview/SeasonGoalsTile.vue'
 import TrendAlertsTile from './dashboard/overview/TrendAlertsTile.vue'
 import EmptyState from './ui/EmptyState.vue'
 import Skeleton from './ui/Skeleton.vue'
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch, nextTick } from 'vue'
 import { sumExpectedGoals } from '../lib/xg'
 import { buildSeasonHeatmapPoints, buildPassArrows } from '../lib/playerSummary'
 import { content, DEFAULTS, loadKey } from '../lib/siteContent'
+import { decorateBento } from '../lib/scrollReveal'
 
 const Props = defineProps({
   matches:       { type: Array, required: true },
@@ -135,17 +131,25 @@ const Props = defineProps({
   // apart from "none in the selected season".
   totalMatches: { type: Number, default: 0 },
   // True until the dashboard's first data load resolves (drives the skeleton).
-  loading: { type: Boolean, default: false }
+  loading: { type: Boolean, default: false },
+  // Simple ⇄ Advanced is owned by the parent now (it lives in the unified
+  // control bar), passed in and mirrored back via update:advanced.
+  advanced: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['go-to-matches', 'clear-season', 'go-to-drills', 'open-match'])
+const emit = defineEmits(['go-to-matches', 'clear-season', 'go-to-drills', 'open-match', 'update:advanced'])
 
 const SeasonXg = computed(() => sumExpectedGoals([...Props.allGoalsData, ...Props.allShotsData]))
 const SeasonHeatmapPoints = computed(() => buildSeasonHeatmapPoints(Props.allGoalsData, Props.allShotsData, Props.allHeatmapData))
 const PassArrows = computed(() => buildPassArrows(Props.allHeatmapData))
 const ProgressivePasses = computed(() => PassArrows.value.filter((P) => P.progressive).length)
 
-const Advanced = ref(false)
+// Proxy the parent's v-model so all the existing Advanced.value reads/writes
+// (tile filtering, the reanimate watcher, the FAB's Back-to-Simple) keep working.
+const Advanced = computed({
+  get: () => Props.advanced,
+  set: (v) => emit('update:advanced', v)
+})
 
 const DEFAULT_TILE_BY_ID = Object.fromEntries(DEFAULTS.dashboard.tiles.map(t => [t.id, t]))
 // Canonical section order for the grouped advanced view.
@@ -193,25 +197,127 @@ const BackToSimple = () => {
   if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// Scroll-reveal: tag the freshly-rendered tiles with varied entrance types and
+// start observing them. Re-run whenever the tile set changes (data finished
+// loading, Simple ⇄ Advanced) — decorateBento is idempotent so it only touches
+// new tiles.
+const overviewEl = ref(null)
+const runReveal = () => nextTick(() => decorateBento(overviewEl.value))
+
+// Toggling Simple ⇄ Advanced re-arms every tile and cascades them all back in
+// (not just the newly-added ones) — a satisfying full-grid refresh. Below-fold
+// tiles stay armed and reveal on scroll as usual.
+const reanimate = () => {
+  const root = overviewEl.value
+  if (!root) return
+  const els = Array.from(root.querySelectorAll('[data-reveal]'))
+  els.forEach((el) => el.classList.remove('is-revealed'))
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    for (const el of els) {
+      const r = el.getBoundingClientRect()
+      if (r.top < window.innerHeight && r.bottom > 0) el.classList.add('is-revealed')
+    }
+  }))
+}
+
+watch(() => [Props.loading, sections.value.length], runReveal)
+
+// Entering Advanced: cascade all tiles back in AND fire a one-shot accent light
+// sweep across the overview, so the switch clearly does "something cool".
+const advancedPulse = ref(false)
+watch(Advanced, (val) => {
+  nextTick(() => { decorateBento(overviewEl.value); reanimate() })
+  if (val) {
+    advancedPulse.value = false
+    nextTick(() => {
+      advancedPulse.value = true
+      setTimeout(() => { advancedPulse.value = false }, 900)
+    })
+  }
+})
+
 onMounted(async () => {
+  runReveal()
   await loadKey('dashboard')
+  runReveal()
 })
 
 </script>
 
 <style scoped>
 .dashboard-overview {
+  position: relative;
   color: var(--color-text-primary);
   width: 100%;
   padding-bottom: 40px;
 }
 
+/* Accent light sweep on entering Advanced mode (one-shot, decorative). */
+.advanced-sweep {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  overflow: hidden;
+}
+.advanced-sweep::before {
+  content: '';
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  left: -70%;
+  width: 55%;
+  background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--color-warning) 50%, transparent), transparent);
+  filter: blur(26px);
+  transform: skewX(-12deg);
+  animation: adv-sweep 0.9s cubic-bezier(0.5, 0, 0.3, 1) forwards;
+}
+/* A second, thinner beam follows from the left a beat later, for a layered
+   double-sweep of the warning colour. */
+.advanced-sweep::after {
+  content: '';
+  position: absolute;
+  top: -8%;
+  bottom: -8%;
+  left: -70%;
+  width: 34%;
+  background: linear-gradient(105deg, transparent, color-mix(in srgb, var(--color-warning) 40%, transparent), transparent);
+  filter: blur(20px);
+  transform: skewX(-12deg);
+  animation: adv-sweep 0.95s cubic-bezier(0.5, 0, 0.3, 1) 0.18s forwards;
+}
+@keyframes adv-sweep {
+  from { left: -70%; }
+  to { left: 135%; }
+}
+
 .bento-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* minmax(0, 1fr) so a tile whose content has a large intrinsic width (e.g. the
+     shot-map goal frame) can't blow the column out past the viewport. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   width: 100%;
   grid-auto-rows: minmax(120px, auto);
+  /* Backfill holes left by wide tiles so the grid packs tight instead of leaving
+     big empty gaps, and let each tile take its natural height (start) rather than
+     stretching to match a tall neighbour — that stretching was making the small
+     stat cards balloon to ~270px on desktop. */
+  grid-auto-flow: row dense;
+  /* Tiles in the same row stretch to a common height so rows read as clean,
+     even bands (a short Player Card next to a tall Shot Map now match instead of
+     leaving a ragged hole). Content inside each tile stays top-aligned via the
+     tile's own flex column, so stretching just fills the bottom gap. */
+  align-items: stretch;
+}
+
+/* Header stat cards: compact, uniform height. They share their own top row, so
+   stretch (the grid default) makes all four match the tallest — and the reduced
+   padding keeps that height tight instead of the old ~260px tower. */
+.bento-grid > :deep(.header-stat-tile) {
+  padding: 16px;
+  min-height: 116px;
+  justify-content: center;
 }
 
 /* Section block + header (advanced view). Each section is its own grid, so
@@ -269,50 +375,16 @@ onMounted(async () => {
   grid-column: span 1;
 }
 
-.overview-toolbar {
-  display: flex;
-  justify-content: right;
-  margin-bottom: 24px;
-}
-
-.overview-mode {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--color-bg-surface-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 20px;
-}
-
-.overview-mode__btn {
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  padding: 8px 32px;
-  border-radius: 20px;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  font-family: inherit;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.overview-mode__btn.is-active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-.overview-mode__btn:not(.is-active):hover {
-  color: var(--color-text-secondary);
-}
-
 .advanced-fab {
   position: fixed;
   left: 50%;
-  bottom: 20px;
+  /* Sit ABOVE the floating bottom nav (which clears ~84px), not on top of it. */
+  bottom: calc(102px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  z-index: 300;
+  /* Above the nav bar (z 2100) so the warning is never hidden behind it. */
+  z-index: 2200;
+  /* The bubble bursts upward out of the nav. */
+  transform-origin: bottom center;
   display: inline-flex;
   align-items: center;
   gap: 12px;
@@ -329,12 +401,34 @@ onMounted(async () => {
   -webkit-backdrop-filter: blur(12px);
   box-shadow: var(--shadow-lg), 0 0 12px rgba(255, 183, 77, 0.25);
   transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+  /* Idle: a warm warning glow breathes in/out (overridden by the burst on enter). */
+  animation: fab-glow 2.2s ease-in-out infinite;
+}
+
+/* The warning icon pulses + ticks for a lively, attention-drawing cue. */
+.advanced-fab > i {
+  animation: fab-ico 1.7s ease-in-out infinite;
+}
+
+@keyframes fab-glow {
+  0%, 100% { box-shadow: var(--shadow-lg), 0 0 8px rgba(255, 183, 77, 0.18); border-color: rgba(255, 183, 77, 0.4); }
+  50%      { box-shadow: var(--shadow-lg), 0 0 26px rgba(255, 183, 77, 0.6); border-color: rgba(255, 183, 77, 0.85); }
+}
+
+@keyframes fab-ico {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50%      { transform: scale(1.25) rotate(-12deg); }
 }
 
 .advanced-fab:hover {
   transform: translateX(-50%) translateY(-3px);
   border-color: var(--color-warning);
   box-shadow: var(--shadow-lg), 0 0 20px rgba(255, 183, 77, 0.5);
+}
+
+/* No bottom nav on desktop, so the warning can sit lower. */
+@media (min-width: 1025px) {
+  .advanced-fab { bottom: 28px; }
 }
 
 .advanced-fab svg { flex: 0 0 auto; }
@@ -347,15 +441,27 @@ onMounted(async () => {
   font-weight: var(--font-weight-bold);
 }
 
-.fab-anim-enter-active,
-.fab-anim-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+/* Bubble burst: the warning pops up out of the nav bar with a squash-and-stretch
+   wobble, like a bubble bursting free, then settles. */
+.fab-anim-enter-active {
+  animation: fab-burst 0.62s cubic-bezier(0.34, 1.56, 0.5, 1);
 }
 
-.fab-anim-enter-from,
+@keyframes fab-burst {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(46px) scale(0.2); }
+  45%  { opacity: 1; transform: translateX(-50%) translateY(-10px) scale(1.16, 0.84); }
+  68%  { transform: translateX(-50%) translateY(3px) scale(0.95, 1.06); }
+  84%  { transform: translateX(-50%) translateY(-1px) scale(1.02, 0.98); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+.fab-anim-leave-active {
+  transition: opacity 0.28s ease, transform 0.34s cubic-bezier(0.5, 0, 0.75, 0);
+}
+
 .fab-anim-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(20px) scale(0.9);
+  transform: translateX(-50%) translateY(34px) scale(0.4);
 }
 
 @media (max-width: 479px) {
@@ -375,7 +481,13 @@ onMounted(async () => {
 
 @media (min-width: 768px) {
   .bento-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* A group section that holds a single tile shouldn't leave half the row empty
+     — let it span the full width. */
+  .bento-grid:has(> :only-child) > :only-child {
+    grid-column: 1 / -1;
   }
 
   .bento-grid > :deep(.bento-item--wide) {
@@ -384,25 +496,52 @@ onMounted(async () => {
 }
 
 @media (min-width: 1200px) {
+  /* Per-section spans are tuned so every section fills all 4 columns with no
+     ragged end-gaps, and tall/short tiles are paired sensibly. */
   .bento-grid > :deep(.bento-item--wide) {
     grid-column: span 2;
   }
 
+  /* Simple: row = Player Card (1) + Shot Map (3); row = Pitch Insights (2) +
+     Match Ratings (2); Season Goals as a full-width banner below (it's short,
+     so it would balloon if trapped in the tall Player Card row). */
   .bento-grid > :deep(.shot-map-tile) {
-    grid-column: span 2;
-    grid-row: span 2;
+    grid-column: span 3;
   }
 
   .bento-grid > :deep(.player-card-tile) {
     grid-column: span 1;
   }
 
+  .bento-grid > :deep(.season-goals-tile) {
+    grid-column: 1 / -1;
+  }
+
+  /* Attack: Playmaking (2) + Goals & Assists (2); the Last-10 chart full width. */
   .bento-grid > :deep(.playmaking-tile) {
     grid-column: span 2;
   }
 
+  .bento-grid > :deep(.goals-assists-tile) {
+    grid-column: span 2;
+  }
+
+  .bento-grid > :deep(.goals-assists-chart-tile) {
+    grid-column: 1 / -1;
+  }
+
+  /* Season: Season Totals (2) + Season Insights (2). */
+  .bento-grid > :deep(.season-totals-tile) {
+    grid-column: span 2;
+  }
+
   .bento-grid > :deep(.insights-tile) {
-    grid-column: span 3;
+    grid-column: span 2;
+  }
+
+  /* Training & load: Recent Practice (2) + Load Management (2). */
+  .bento-grid > :deep(.practice-recent-tile) {
+    grid-column: span 2;
   }
 
   .bento-grid > :deep(.load-management-tile) {

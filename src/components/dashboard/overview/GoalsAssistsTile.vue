@@ -1,5 +1,5 @@
 <template>
-  <BentoItem :delay="500" extra-class="performance-tile">
+  <BentoItem :delay="500" extra-class="performance-tile goals-assists-tile">
     <div class="tile-header">
       <h4>Goals & Assists</h4>
     </div>

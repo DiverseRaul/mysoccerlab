@@ -4,8 +4,9 @@
       <router-link to="/faq" class="app-footer__link">FAQ</router-link>
       <router-link to="/privacy" class="app-footer__link">Privacy</router-link>
       <router-link to="/terms" class="app-footer__link">Terms</router-link>
+      <router-link to="/" class="app-footer__link">Home</router-link>
     </nav>
-    <p class="app-footer__copy">&copy; 2026 my soccer lab</p>
+    <p class="app-footer__copy">&copy; 2026 </p>
     <p class="version">Version 0.9.0</p>
   </footer>
 </template>
@@ -54,9 +55,25 @@ export default {
   font-size: 0.85rem;
 }
 
+.app-footer__brand {
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+  transition: color 0.2s ease;
+}
+.app-footer__brand:hover { color: var(--color-accent); }
+
 .version {
   margin: 0;
   color: var(--color-text-faint);
   font-size: 0.85rem;
 }
+
+@media (max-width: 1024px) {
+  .app-footer {
+    padding-top: 4rem;
+    padding-bottom: 8rem;
+  }
+}
+
 </style>

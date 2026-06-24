@@ -30,7 +30,7 @@
       data-testid="feed-shotmap-toggle"
       @click="ToggleMap"
     >
-      <svg class="pitch-card__toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+      <i class="pitch-card__toggle-icon ph ph-caret-down" aria-hidden="true"></i>
       {{ Expanded ? 'Hide Heatmap & Shots' : 'View Heatmap & Shots' }}
     </button>
 
@@ -171,13 +171,6 @@ const RelativeDate = computed(() => {
 @keyframes pitch-card-in {
   from { opacity: 0; translate: 0 14px; }
   to { opacity: 1; translate: 0 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pitch-card {
-    opacity: 1;
-    animation: none;
-  }
 }
 
 /* ── Layer 1: result accent (thin top strip) ───────────────────────────── */
@@ -335,8 +328,8 @@ const RelativeDate = computed(() => {
 }
 
 .pitch-card__toggle-icon {
-  width: 16px;
-  height: 16px;
+  font-size: 16px;
+  line-height: 1;
   transition: transform 0.3s ease;
 }
 
@@ -385,12 +378,6 @@ const RelativeDate = computed(() => {
 
 @keyframes pitch-card-spin {
   to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pitch-card__accordion { transition: none; }
-  .pitch-card__toggle-icon { transition: none; }
-  .pitch-card__map-spinner { animation: none; }
 }
 
 @media (min-width: 768px) {

@@ -4,22 +4,24 @@
 
     <div class="acard">
       <h3 class="acard__title">Hero</h3>
-      <AdminField label="Eyebrow" v-model="draft.hero.eyebrow" />
-      <AdminField label="Title" v-model="draft.hero.title" />
-      <AdminField label="Title accent (coloured part)" v-model="draft.hero.titleAccent" />
+      <AdminField label="Headline — line 1" v-model="draft.hero.title" />
+      <AdminField label="Headline — line 2 (green outline)" v-model="draft.hero.titleAccent" />
       <AdminField label="Subtitle" v-model="draft.hero.sub" multiline :rows="3" />
       <AdminField label="Primary CTA label" v-model="draft.hero.ctaPrimary" />
-      <AdminField label="Scroll hint" v-model="draft.hero.scrollHint" />
     </div>
 
     <div class="acard">
-      <h3 class="acard__title">Showcase heading</h3>
-      <AdminField label="Eyebrow" v-model="draft.showcase.eyebrow" />
-      <AdminField label="Title" v-model="draft.showcase.title" />
+      <h3 class="acard__title">How it works (3 steps)</h3>
+      <div v-for="(s, i) in draft.steps" :key="i" class="aitem">
+        <span class="aitem__tag">{{ s.n }}</span>
+        <AdminField label="Number" v-model="s.n" />
+        <AdminField label="Title" v-model="s.title" />
+        <AdminField label="Text" v-model="s.text" multiline :rows="2" />
+      </div>
     </div>
 
     <div class="acard">
-      <h3 class="acard__title">Feature slides</h3>
+      <h3 class="acard__title">Feature carousel</h3>
       <div v-for="(f, i) in draft.features" :key="f.key" class="aitem">
         <span class="aitem__tag">{{ f.key }}</span>
         <AdminField label="Tag" v-model="f.tag" />
@@ -29,9 +31,19 @@
     </div>
 
     <div class="acard">
+      <h3 class="acard__title">Bento tiles (“what you get”)</h3>
+      <div v-for="(b, i) in draft.bento" :key="i" class="aitem">
+        <span class="aitem__tag">{{ b.key }}</span>
+        <AdminField label="Title" v-model="b.title" />
+        <AdminField label="Text" v-model="b.text" multiline :rows="2" />
+      </div>
+    </div>
+
+    <div class="acard">
       <h3 class="acard__title">Closing banner</h3>
-      <AdminField label="Title" v-model="draft.ctaBand.title" />
-      <AdminField label="Subtitle" v-model="draft.ctaBand.sub" multiline :rows="2" />
+      <AdminField label="Title" v-model="draft.closing.title" />
+      <AdminField label="Subtitle" v-model="draft.closing.sub" multiline :rows="2" />
+      <AdminField label="Body" v-model="draft.closing.body" multiline :rows="3" />
     </div>
 
     <div class="asave">

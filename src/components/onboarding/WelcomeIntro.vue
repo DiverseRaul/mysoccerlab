@@ -73,13 +73,13 @@ import { content } from '../../lib/siteContent'
 const Emit = defineEmits(['Done'])
 
 // ── Icons ───────────────────────────────────────────────────────────────────
-const ICON_BALL    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7l4.5 3.3-1.7 5.4h-5.6L7.5 10.3z"/></svg>'
-const ICON_LOG     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><path d="M9 14.5l2 2 4-4"/></svg>'
-const ICON_SHOT    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="1.5"/><line x1="5" y1="12" x2="19" y2="12"/><circle cx="12" cy="12" r="2.4"/><circle cx="14.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>'
-const ICON_TREND   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg>'
-const ICON_TARGET  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>'
-const ICON_REPEAT  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>'
-const ICON_SPARKLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M18.5 13.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z"/></svg>'
+const ICON_BALL    = '<i class="ph ph-soccer-ball"></i>'
+const ICON_LOG     = '<i class="ph ph-calendar-check"></i>'
+const ICON_SHOT    = '<i class="ph ph-crosshair"></i>'
+const ICON_TREND   = '<i class="ph ph-trend-up"></i>'
+const ICON_TARGET  = '<i class="ph ph-target"></i>'
+const ICON_REPEAT  = '<i class="ph ph-repeat"></i>'
+const ICON_SPARKLE = '<i class="ph ph-sparkle"></i>'
 
 const COACH_STEP = {
   Title: 'AI Coach & The Pitch',
@@ -237,9 +237,9 @@ const Skip = () => Emit('Done', null)
   animation: intro-pop 0.35s ease-out;
 }
 
-.intro-art :deep(svg) {
-  width: 42px;
-  height: 42px;
+.intro-art :deep(i) {
+  font-size: 42px;
+  line-height: 1;
 }
 
 .intro-count {
@@ -382,14 +382,6 @@ const Skip = () => Emit('Done', null)
 @keyframes intro-pop {
   from { opacity: 0; transform: translateY(10px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .intro-overlay,
-  .intro-card,
-  .intro-art {
-    animation: none;
-  }
 }
 
 @media (max-width: 480px) {

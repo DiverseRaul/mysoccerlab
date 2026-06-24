@@ -21,12 +21,19 @@ defineProps({
   padding: 20px;
   display: flex;
   flex-direction: column;
-  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  /* Entrance (opacity/transform/filter) is driven by the scroll-reveal engine
+     via [data-reveal] in reveal.css; these props cover both that reveal and the
+     hover lift, so the tile fades/slides in on scroll and lifts on hover. */
+  transition:
+    transform 0.66s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.66s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.6s ease,
+    box-shadow 0.4s ease,
+    background 0.4s ease,
+    border-color 0.4s ease;
   position: relative;
   overflow: hidden;
   box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4);
-  animation: bento-slide-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  animation-delay: var(--delay, 0ms);
 }
 
 .bento-item:hover {
@@ -48,10 +55,5 @@ defineProps({
 
 .bento-item:hover::after {
   opacity: 1;
-}
-
-@keyframes bento-slide-in {
-  from { opacity: 0; transform: translateY(40px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 </style>

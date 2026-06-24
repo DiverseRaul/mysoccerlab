@@ -42,8 +42,8 @@ test('dashboard tabs switch the active view', async ({ page }) => {
 test('AI Coach nav link opens the AI Coach screen', async ({ page, isMobile }) => {
   const authed = await gotoDashboard(page)
   test.skip(!authed, 'requires authenticated test user')
-  // On mobile the nav links live behind the hamburger menu.
-  if (isMobile) await page.getByRole('button', { name: /toggle menu/i }).click()
+  // AI Coach is a top-nav link on desktop and a bottom-nav tab on mobile —
+  // either way it's a directly visible link, no menu to open first.
   const link = page.getByRole('link', { name: /AI Coach/i }).first()
   await expect(link).toBeVisible()
   await link.click()
@@ -60,6 +60,39 @@ test('dashboard shows the page hero and pitch insights tile', async ({ page }) =
   await expect(page.getByTestId('pitch-insights-passes-view')).toBeVisible()
   await page.getByTestId('pitch-insights-heatmap').click()
   await expect(page.getByTestId('pitch-insights-heatmap-view')).toBeVisible()
+})
+
+test('control bar: Simple/Advanced toggle drives Advanced mode', async ({ page }) => {
+  const authed = await gotoDashboard(page)
+  test.skip(!authed, 'requires authenticated test user')
+  // The Simple/Advanced toggle now lives in the unified control bar (lifted out
+  // of the overview). Switching to Advanced must reveal the advanced sections +
+  // the floating "Advanced mode" FAB; switching back hides them.
+  await expect(page.getByTestId('page-hero')).toBeVisible({ timeout: 15000 })
+  const fab = page.locator('.advanced-fab')
+  await expect(fab).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Advanced', exact: true }).click()
+  await expect(fab).toBeVisible()
+  await expect(page.locator('.overview-group').first()).toBeVisible()
+
+  await page.getByRole('button', { name: 'Simple', exact: true }).click()
+  await expect(fab).toHaveCount(0)
+})
+
+test('header stat cards share a uniform height', async ({ page, isMobile }) => {
+  const authed = await gotoDashboard(page)
+  test.skip(!authed, 'requires authenticated test user')
+  // On desktop the four cards sit in one row and must match height; on mobile
+  // they wrap to two rows of two, so cross-row equality doesn't apply.
+  test.skip(isMobile, 'single-row check is desktop-only')
+  await expect(page.getByTestId('page-hero')).toBeVisible({ timeout: 15000 })
+  const tiles = page.locator('.header-stat-tile')
+  await expect(tiles.first()).toBeVisible()
+  const heights = await tiles.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().height)))
+  expect(heights.length).toBeGreaterThanOrEqual(4)
+  // All four cards on the top row must be the same height (no ragged row).
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(2)
 })
 
 test('dashboard loads data and is not stuck in the empty/loading state', async ({ page }) => {

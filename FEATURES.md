@@ -15,9 +15,11 @@ This document explains every feature in the app, how it works, and where to find
 | Sign Up | `/signup` | Signed-out | Account creation (email or Google) |
 | Dashboard | `/dashboard` | Signed-in | The main workspace: Overview, Matches, Practice tabs + AI Coach |
 | The Pitch | `/feed` | Signed-in | Social feed — follow players, browse public matches |
+| AI Coach | `/coach` | Signed-in | Full-screen chat coaching that reads your real stats (also reachable from the Dashboard) |
+| Lab Pro | `/premium` | Signed-in | Premium upgrade — unlock Pro features |
 | Profile | `/profile` | Signed-in | Player identity, position, privacy and app preferences |
 
-**Navigation:** a floating pill navbar sits at the top of every page. Signed out it shows Home / Login / Sign Up; signed in it shows Home / Dashboard / The Pitch / Profile / Logout. On phones it collapses into a hamburger menu. Visiting a protected page while signed out redirects to Login.
+**Navigation:** on desktop, a floating pill navbar sits at the top. Signed out it shows Home / Login / Sign Up; signed in it shows Home / Dashboard / The Pitch / AI Coach / Lab Pro, plus a profile menu (My Profile / Logout). On phones and tablets the nav becomes a floating, frosted-glass bar pinned to the bottom of the screen: signed in it has Dashboard / The Pitch / AI Coach tabs alongside a separate account bubble (My Profile / Lab Pro / Logout); signed out it's Home / Login / Sign Up. The current tab is easy to spot — its icon fills in solid and turns green inside a soft highlight box, while the other tabs stay as thin outline icons. Visiting a protected page while signed out redirects to Login.
 
 **A typical journey:** a visitor plays with the home-page demo → signs up (30 seconds, or one tap with Google) → the new-player intro walks them through the app → they set their position in Profile → log their first match in Dashboard → Matches → map their shots on the pitch → get a rating → ask the AI Coach what to improve → make their profile public and follow friends on The Pitch.
 
@@ -183,7 +185,7 @@ Every match gets a **1.0–10.0 rating** computed from your logged stats. It is 
 
 ## Under the Hood (quick technical summary)
 
-- **Frontend:** Vue 3 + Vite single-page app. Routes: `/` (home), `/login`, `/signup`, `/dashboard`, `/profile`, `/feed`.
+- **Frontend:** Vue 3 + Vite single-page app. Routes: `/` (home), `/login`, `/signup`, `/dashboard`, `/profile`, `/feed`, `/coach`, `/premium`.
 - **Backend:** Supabase — Postgres (with row-level security on every user-owned table), Auth (email/password + Google OAuth), and an Edge Function for the AI coach (Gemini key stays server-side).
 - **Data model:** `matches` (one row per match with aggregate counters), `goals` and `shots` (one row per event, each carrying field position and goal quadrant), `goalkeeper_match_stats`, `user_profiles`, `seasons`, `user_relationships` (the follow graph), plus practice and load-tracking tables. Schemas live in `database/` with incremental migrations in `database/migrations/` (applied manually in the Supabase SQL editor).
 - **Deployment:** GitHub Pages via GitHub Actions on push to `main`, with an SPA redirect trick (`404.html`) so deep links work.

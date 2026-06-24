@@ -23,7 +23,7 @@ import 'dotenv/config'
 // Specs that require an authenticated session. Everything else (smoke, home,
 // share, auth, admin) is public and must run signed-out — admin.spec.js only
 // asserts logged-out redirects, so it stays in the public projects.
-const AUTH_SPECS = /(dashboard|feed|match-map-logger|onboarding|practice|matches|load|weekly-training|admin-intro)\.spec\.js$/
+const AUTH_SPECS = /(dashboard|feed|match-map-logger|onboarding|practice|matches|load|weekly-training|admin-intro|premium)\.spec\.js$/
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -35,7 +35,7 @@ export default defineConfig({
   globalSetup: './tests/global-setup.js',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -69,7 +69,7 @@ export default defineConfig({
 
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:5174',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000
   }

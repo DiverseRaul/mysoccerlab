@@ -11,6 +11,7 @@
       <span v-if="trend" class="stat-tile__trend" :class="trendDirection">
         {{ trend }}
       </span>
+      <slot name="footer" />
     </div>
   </div>
 </template>

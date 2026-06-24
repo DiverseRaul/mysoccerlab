@@ -36,6 +36,18 @@ test('admin panel redirects to /login when unauthenticated', async ({ page }) =>
   expect(page.url()).toMatch(/\/login/)
 })
 
+test('an unknown URL shows the friendly 404 with a way back, not a blank screen', async ({ page }) => {
+  await page.goto('/this-route-does-not-exist-xyz')
+  await page.waitForLoadState('networkidle')
+  // The catch-all NotFound page renders (never a blank screen).
+  await expect(page.getByText('404')).toBeVisible()
+  // And it offers a route back into the app.
+  const home = page.getByRole('link', { name: /back to home/i })
+  await expect(home).toBeVisible()
+  await home.click()
+  await expect(page).toHaveURL(/\/$/)
+})
+
 test('home page loads without runtime errors', async ({ page }) => {
   const errors = []
   page.on('pageerror', (err) => errors.push(err.message))

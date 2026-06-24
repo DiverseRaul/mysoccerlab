@@ -1,5 +1,5 @@
 <template>
-  <BentoItem :delay="1000" extra-class="bento-item--wide trends-tile">
+  <BentoItem :delay="1000" extra-class="bento-item--wide trends-tile goals-assists-chart-tile">
     <div class="tile-header">
       <h4>Goals & Assists (Last 10 Matches)</h4>
       <div class="rating-badges">

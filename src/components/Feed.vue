@@ -5,7 +5,7 @@
         <PageHero title="The Pitch" subtitle="Live from players around you">
           <template #action>
             <button class="btn-icon" @click="showFindPlayers = true" title="Search Players" aria-label="Find players">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <i class="ph ph-magnifying-glass" style="font-size:22px" aria-hidden="true"></i>
             </button>
           </template>
         </PageHero>
@@ -129,6 +129,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { supabase } from '../lib/supabase'
+import { selectByIds } from '../lib/queryBatch'
 import { logProfileView, logCardExpand } from '../lib/profileEvents'
 import { ResolveSession } from '../lib/authSession'
 import { useRouter } from 'vue-router'
@@ -386,9 +387,9 @@ const loadAllShotData = async (matchIds) => {
   if (!matchIds || matchIds.length === 0) return
   try {
     const [goalsRes, shotsRes, heatmapRes] = await Promise.all([
-      supabase.from('goals').select('match_id, quadrant, placement, field_position').in('match_id', matchIds),
-      supabase.from('shots').select('match_id, on_target, quadrant, placement, field_position').in('match_id', matchIds),
-      supabase.from('match_heatmap_points').select('match_id, x_pct, y_pct, event_type').in('match_id', matchIds)
+      selectByIds('goals', 'match_id, quadrant, placement, field_position', matchIds),
+      selectByIds('shots', 'match_id, on_target, quadrant, placement, field_position', matchIds),
+      selectByIds('match_heatmap_points', 'match_id, x_pct, y_pct, event_type', matchIds)
     ])
     const groupByMatch = (rows) => {
       const map = {}
@@ -844,7 +845,7 @@ const formatEmail = (email) => {
 
 @media (max-width: 480px) {
   .feed-page {
-    padding: 108px 16px 40px;
+    padding: 16px 16px 40px;
   }
 }
 </style>

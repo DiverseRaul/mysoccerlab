@@ -1,13 +1,14 @@
 <template>
-  <BentoItem :delay="700" extra-class="performance-tile">
+  <BentoItem :delay="700" extra-class="performance-tile defensive-actions-tile">
     <div class="tile-header header-spaced">
       <h4>Defensive Actions</h4>
     </div>
-    <div class="chart-content">
-      <div v-if="totalDefensiveActions === 0" class="empty-state">
-        No defensive actions logged
-      </div>
-      <div v-else class="donut-chart-container">
+    <div v-if="totalDefensiveActions === 0" class="empty-state">
+      No defensive actions logged
+    </div>
+    <!-- Spread across the full-width band: donut · breakdown · discipline. -->
+    <div v-else class="chart-content">
+      <div class="donut-chart-container">
         <svg viewBox="0 0 200 200" class="donut-svg">
           <path
             v-for="(slice, i) in donutPaths"
@@ -19,15 +20,16 @@
           <text x="100" y="115" text-anchor="middle" class="donut-total-value">{{ totalDefensiveActions }}</text>
         </svg>
         <p class="donut-per">{{ perMatch(totalDefensiveActions) }} actions / match</p>
-        <div class="donut-legend">
-          <div v-for="(slice, i) in donutPaths" :key="i" class="legend-item">
-            <div class="dot" :class="slice.colorClass"></div>
-            <span>{{ slice.label }} ({{ slice.value }} · {{ perMatch(slice.value) }}/match)</span>
-          </div>
+      </div>
+
+      <div class="donut-legend">
+        <div v-for="(slice, i) in donutPaths" :key="i" class="legend-item">
+          <div class="dot" :class="slice.colorClass"></div>
+          <span>{{ slice.label }} ({{ slice.value }} · {{ perMatch(slice.value) }}/match)</span>
         </div>
       </div>
 
-      <!-- Discipline rows: stacked vertically so they fit any tile width -->
+      <!-- Discipline rows -->
       <div class="cards-stack">
         <div class="card-item">
           <span class="card-icon">🟨</span>
@@ -163,7 +165,30 @@ const donutPaths = computed(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 20px;
   justify-content: center;
+}
+
+/* On a wide (full-width) tile, lay the three blocks side by side so the band
+   fills its width instead of stranding everything on the left. */
+@media (min-width: 768px) {
+  .chart-content {
+    flex-direction: row;
+    align-items: center;
+    gap: 36px;
+  }
+  .donut-chart-container { flex: 0 0 auto; }
+  .donut-legend { flex: 1 1 0; }
+  .cards-stack {
+    flex: 1 1 0;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    padding-left: 36px;
+    border-left: 1px solid var(--color-border-subtle);
+    align-self: stretch;
+    justify-content: center;
+  }
 }
 
 .donut-chart-container {
